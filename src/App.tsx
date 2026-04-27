@@ -9,6 +9,9 @@ import AppLayout from "./components/layout/AppLayout";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
+import LeadActivities from "./pages/crm/Activities";
+import LeadsList from "./pages/crm/LeadsList";
+import LeadPipeline from "./pages/crm/Pipeline";
 import CompleteProfile from "./pages/CompleteProfile";
 import WaitingApproval from "./pages/WaitingApproval";
 import Approvals from "./pages/Approvals";
@@ -21,10 +24,11 @@ import ShipmentAnalytics from "./pages/dashboards/ShipmentAnalytics";
 import FinancialOverview from "./pages/dashboards/FinancialOverview";
 import EmployeeProductivity from "./pages/dashboards/EmployeeProductivity";
 
-// Farmers (live)
+// Farmers
 import FarmersList from "./pages/farmers/FarmersList";
 import CreateFarmer from "./pages/farmers/CreateFarmer";
 import FarmerDetail from "./pages/farmers/FarmerDetail";
+import ConvertToCustomer from "./pages/farmers/ConvertToCustomer";
 
 // Procurement (live)
 import PurchaseOrdersListLive from "./pages/procurement/PurchaseOrdersListLive";
@@ -121,11 +125,10 @@ const App = () => (
               <Route path="/dashboards/financial" element={<FinancialOverview />} />
               <Route path="/dashboards/employees" element={<EmployeeProductivity />} />
 
-              {/* Farmers (live) */}
+              {/* Farmers */}
               <Route path="/farmers" element={<FarmersList />} />
               <Route path="/farmers/create" element={<CreateFarmer />} />
-              <Route path="/farmers/farms" element={<FarmersList />} />
-              <Route path="/farmers/convert" element={<FarmersList />} />
+              <Route path="/farmers/convert" element={<ConvertToCustomer />} />
               <Route path="/farmers/:id" element={<FarmerDetail />} />
 
               {/* Procurement (live) */}
@@ -161,6 +164,10 @@ const App = () => (
               <Route path="/quotations/convert" element={<ConvertQuotation />} />
               <Route path="/quotations/:id" element={<QuotationPreview />} />
 
+                {/* CRM */}
+                <Route path="/crm/activities" element={<LeadActivities />} />
+                <Route path="/crm/leads" element={<LeadsList />} />
+                <Route path="/crm/pipeline" element={<LeadPipeline />} />
               {/* Orders */}
               <Route path="/orders" element={<OrdersList />} />
               <Route path="/orders/create" element={<CreateOrder />} />

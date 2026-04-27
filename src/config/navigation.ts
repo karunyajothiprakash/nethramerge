@@ -1,6 +1,6 @@
 // Centralized navigation config for the AgriExportOS sidebar
 import {
-  LayoutDashboard, TrendingUp, Truck, DollarSign, Users,
+  LayoutDashboard, TrendingUp, Truck, DollarSign, Users, UserPlus,
   Sprout, MapPin, GitBranch, UserCheck,
   FileText, FilePlus, FileCheck, ArrowRightLeft,
   ShoppingCart, ClipboardList, PackageCheck, Package2, Boxes,
@@ -12,9 +12,9 @@ import {
   FileSpreadsheet, FileBox, Award, BookOpen, Eye,
   Wallet, Receipt, AlertCircle, BarChart3, Coins,
   UsersRound, CalendarCheck, ShieldCheck,
-  Bell, ScrollText, CreditCard, Settings,
-  type LucideIcon,
+  Bell, ScrollText, CreditCard, Settings
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 export type NavItem = {
   title: string;
@@ -43,14 +43,35 @@ export const navGroups: NavGroup[] = [
   },
   {
     title: "Farmers",
-    icon: Sprout,
+    icon: Users,
     items: [
-      { title: "Farmers", url: "/farmers", icon: Sprout, permission: "farmers.view" },
-      { title: "Add Farmer", url: "/farmers/create", icon: FilePlus, permission: "farmers.create" },
-      { title: "Farms & Locations", url: "/farmers/farms", icon: MapPin, permission: "farmers.view" },
-      { title: "Convert to Customer", url: "/farmers/convert", icon: UserCheck },
+      {
+        title: "Farmers List",
+        url: "/farmers",
+        icon: Users
+      },
+      {
+        title: "Create Farmer",
+        url: "/farmers/create",
+        icon: UserPlus
+        },
+        {
+          title: "Convert to Customer",
+          url: "/farmers/convert",
+          icon: UserCheck
+      }
+    ]
+  },
+  {
+    title: "CRM",
+    icon: Users,
+    items: [
+      { title: "Activities", url: "/crm/activities", icon: CalendarCheck },
+      { title: "Leads", url: "/crm/leads", icon: UserCheck },
+      { title: "Pipeline", url: "/crm/pipeline", icon: GitBranch },
     ],
   },
+
   {
     title: "Procurement",
     icon: ShoppingBag,

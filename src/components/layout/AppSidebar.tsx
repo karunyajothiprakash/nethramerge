@@ -55,14 +55,17 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
                     hasActive ? "text-white" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-white"
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  {Icon ? <Icon className="h-4 w-4" /> : null}
                   <span className="flex-1 text-left uppercase tracking-wide text-[11px]">{group.title}</span>
                   <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isOpen && "rotate-180")} />
                 </button>
                 {isOpen && (
                   <div className="mt-0.5 ml-3 pl-3 border-l border-sidebar-border space-y-0.5">
                     {group.items.map((item) => {
-                      const ItemIcon = item.icon;
+                      let ItemIcon = item.icon;
+                      if (typeof ItemIcon === "string" && iconMap[ItemIcon]) {
+                        ItemIcon = iconMap[ItemIcon];
+                      }
                       return (
                         <NavLink
                           key={item.url}
