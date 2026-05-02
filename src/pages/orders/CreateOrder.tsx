@@ -1,39 +1,209 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Save } from "lucide-react";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Section, FormGrid, FormRow } from "@/components/shared/FormShell";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 
+const PRODUCTS = [
+  "Nendran Banana",
+  "Yellow Cucumber",
+  "White Pumpkin",
+  "Watermelon",
+  "Black Diamond Watermelon",
+  "Tomato",
+  "Semi-Husked Coconut"
+];
+
 export default function CreateOrder() {
-  const nav = useNavigate();
+  const navigate = useNavigate();
+  const [saving, setSaving] = useState(false);
+
+  // Form State
+  const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerCountry, setCustomerCountry] = useState("");
+  const [product, setProduct] = useState("");
+  const [quantity, setQuantity] = useState<number | "">("");
+  const [unit, setUnit] = useState("kg");
+  const [unitPrice, setUnitPrice] = useState<number | "">("");
+  const [currency, setCurrency] = useState("USD");
+  const [expectedDelivery, setExpectedDelivery] = useState("");
+  const [shippingAddress, setShippingAddress] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const totalAmount = (Number(quantity) || 0) * (Number(unitPrice) || 0);
+
+  const handleSave = async () => {
+    if (!customerName || !product || !quantity || !unitPrice) {
+      return toast.error("Please fill all required fields (Customer, Product, Quantity, Price)");
+    }
+
+    setSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) throw new Error("Authentication required to create orders");
+
+      // Generate order number EXP-2026-XXX
+      const year = new Date().getFullYear();
+      const rand = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const orderNumber = `EXP-${year}-${rand}`;
+
+      const { error } = await supabase.from("export_orders").insert({
+        order_number: orderNumber,
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_country: customerCountry,
+        product,
+        quantity: Number(quantity),
+        unit,
+        unit_price: Number(unitPrice),
+        total_amount: totalAmount,
+        currency,
+        expected_delivery: expectedDelivery ? new Date(expectedDelivery).toISOString() : null,
+        shipping_address: shippingAddress,
+        notes,
+        created_by: userId,
+        status: 'pending',
+        payment_status: 'unpaid'
+      });
+
+      if (error) throw error;
+
+      toast.success("Order created successfully!");
+      navigate("/orders");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create order");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div>
-      <PageHeader title="Create Sales Order" breadcrumbs={[{ label: "Sales Orders", to: "/orders" }, { label: "New" }]}
-        actions={<>
-          <Button variant="outline" size="sm" onClick={() => nav(-1)}><ArrowLeft className="h-4 w-4 mr-1.5" />Cancel</Button>
-          <Button size="sm" onClick={() => { toast.success("Order created"); nav("/orders"); }}><Save className="h-4 w-4 mr-1.5" />Save Order</Button>
-        </>}
-      />
-      <div className="space-y-4 max-w-4xl">
-        <Section title="Customer & Shipping">
-          <FormGrid>
-            <FormRow label="Customer" required><Select><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent><SelectItem value="m">Mumbai Textiles Ltd</SelectItem></SelectContent></Select></FormRow>
-            <FormRow label="Customer PO #"><Input placeholder="PO-12345" /></FormRow>
-            <FormRow label="Incoterm" required><Select><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent><SelectItem value="fob">FOB</SelectItem><SelectItem value="cif">CIF</SelectItem><SelectItem value="exw">EXW</SelectItem></SelectContent></Select></FormRow>
-            <FormRow label="Port of loading"><Input placeholder="Mumbai (INMUN)" /></FormRow>
-            <FormRow label="Port of discharge"><Input placeholder="Hamburg (DEHAM)" /></FormRow>
-            <FormRow label="Delivery date"><Input type="date" /></FormRow>
-          </FormGrid>
-        </Section>
-        <Section title="Payment">
-          <FormGrid>
-            <FormRow label="Currency" required><Select defaultValue="usd"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="usd">USD</SelectItem><SelectItem value="eur">EUR</SelectItem></SelectContent></Select></FormRow>
-            <FormRow label="Payment terms"><Select><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent><SelectItem value="net30">Net 30</SelectItem><SelectItem value="lc">LC at sight</SelectItem></SelectContent></Select></FormRow>
-          </FormGrid>
-        </Section>
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="outline" size="icon" onClick={() => navigate("/orders")}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Create Export Order</h1>
+          <p className="text-sm text-muted-foreground">Log a new customer request</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Customer Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Customer Name *</Label>
+              <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Company or Individual Name" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input type="email" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Country</Label>
+                <Input value={customerCountry} onChange={e => setCustomerCountry(e.target.value)} placeholder="e.g. UAE, UK" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Shipping Address</Label>
+              <Textarea value={shippingAddress} onChange={e => setShippingAddress(e.target.value)} className="h-24" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Product Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Product *</Label>
+              <Select value={product} onValueChange={setProduct}>
+                <SelectTrigger><SelectValue placeholder="Select Product" /></SelectTrigger>
+                <SelectContent>
+                  {PRODUCTS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Quantity *</Label>
+                <Input type="number" min="0" value={quantity} onChange={e => setQuantity(Number(e.target.value) || "")} />
+              </div>
+              <div className="space-y-2">
+                <Label>Unit</Label>
+                <Select value={unit} onValueChange={setUnit}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="kg">kg</SelectItem>
+                    <SelectItem value="ton">ton</SelectItem>
+                    <SelectItem value="piece">piece</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Unit Price *</Label>
+                <Input type="number" min="0" step="0.01" value={unitPrice} onChange={e => setUnitPrice(Number(e.target.value) || "")} />
+              </div>
+              <div className="space-y-2">
+                <Label>Currency</Label>
+                <Select value={currency} onValueChange={setCurrency}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD ($)</SelectItem>
+                    <SelectItem value="EUR">EUR (€)</SelectItem>
+                    <SelectItem value="AED">AED (د.إ)</SelectItem>
+                    <SelectItem value="INR">INR (₹)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="p-4 bg-muted/30 rounded-lg border mt-2 flex justify-between items-center">
+              <span className="font-medium text-muted-foreground">Total Amount</span>
+              <span className="text-xl font-bold">{currency} {totalAmount.toLocaleString()}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg">Additional Information</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label>Expected Delivery Date</Label>
+              <Input type="date" value={expectedDelivery} onChange={e => setExpectedDelivery(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Terms, logistics details..." />
+            </div>
+          </CardContent>
+          <CardFooter className="justify-end border-t p-4 mt-2">
+            <Button onClick={handleSave} disabled={saving} className="w-full md:w-auto min-w-[150px]">
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save Order
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   );

@@ -1,100 +1,118 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Loader2, ShoppingBag, AlertCircle } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { PageHeader } from "@/components/shared/PageHeader";
-import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/shared/DataTable";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { EmptyState } from "@/components/shared/EmptyState";
 import { supabase } from "@/integrations/supabase/client";
-import { useCan } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Loader2, Plus, Receipt } from "lucide-react";
+import { toast } from "sonner";
+import { format } from "date-fns";
 
-type PO = {
+type PurchaseOrder = {
   id: string;
   po_number: string;
-  order_date: string;
-  expected_delivery: string | null;
+  supplier_id: string;
   status: string;
-  total: number;
+  order_date: string;
+  total_amount: number;
   currency: string;
-  farmer: { full_name: string } | null;
+  suppliers?: { name: string };
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  draft: "bg-gray-500 hover:bg-gray-600 text-white",
+  sent: "bg-blue-500 hover:bg-blue-600 text-white",
+  confirmed: "bg-green-500 hover:bg-green-600 text-white",
+  received: "bg-purple-500 hover:bg-purple-600 text-white",
+  cancelled: "bg-red-500 hover:bg-red-600 text-white",
 };
 
 export default function PurchaseOrdersListLive() {
-  const nav = useNavigate();
-  const can = useCan();
+  const navigate = useNavigate();
+  const [orders, setOrders] = useState<PurchaseOrder[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["purchase_orders"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("purchase_orders")
-        .select("id, po_number, order_date, expected_delivery, status, total, currency, farmer:farmers!purchase_orders_farmer_id_fkey(full_name)")
-        .order("order_date", { ascending: false });
-      if (error) throw error;
-      return data as unknown as PO[];
-    },
-  });
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("purchase_orders")
+          .select("id, po_number, supplier_id, status, order_date, total_amount, currency, suppliers(name)")
+          .order("order_date", { ascending: false });
+
+        if (error) throw error;
+        setOrders(data as unknown as PurchaseOrder[]);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to fetch purchase orders");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, []);
 
   return (
-    <div className="space-y-4 animate-in fade-in zoom-in duration-300">
-      <PageHeader
-        title="Purchase Orders"
-        description="Procurement from farmers"
-        breadcrumbs={[{ label: "Procurement" }, { label: "Purchase Orders" }]}
-        actions={
-          can("procurement.create") && (
-            <Button size="sm" onClick={() => nav("/procurement/orders/create")} className="shadow-sm">
-              <Plus className="h-4 w-4 mr-1.5" /> New PO
-            </Button>
-          )
-        }
-      />
-      {isLoading ? (
-        <div className="erp-card flex flex-col items-center justify-center py-20 space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading purchase orders...</p>
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Purchase Orders</h1>
+          <p className="text-sm text-muted-foreground">Manage your procurement orders from suppliers</p>
         </div>
-      ) : isError ? (
-        <div className="erp-card flex flex-col items-center justify-center py-16 text-center space-y-3 bg-destructive/5 border-destructive/20">
-          <AlertCircle className="h-10 w-10 text-destructive" />
-          <h3 className="text-lg font-semibold text-destructive">Failed to load orders</h3>
-          <p className="text-sm text-muted-foreground max-w-sm">
-            {(error as any)?.message || "An unexpected error occurred while fetching your purchase orders."}
-          </p>
-          <Button variant="outline" className="mt-2" onClick={() => window.location.reload()}>
-            Retry
-          </Button>
-        </div>
-      ) : !data || data.length === 0 ? (
-        <EmptyState
-          icon={<ShoppingBag className="h-5 w-5" />}
-          title="No purchase orders yet"
-          description="Create your first PO to procure produce from a farmer."
-          action={
-            can("procurement.create") && (
-              <Button size="sm" onClick={() => nav("/procurement/orders/create")}>
-                <Plus className="h-4 w-4 mr-1.5" /> New PO
-              </Button>
-            )
-          }
-        />
-      ) : (
-        <div className="erp-card">
-          <DataTable
-            data={data}
-            searchKeys={["po_number", "farmer.full_name"]}
-            columns={[
-              { key: "po", header: "PO #", render: (r) => <span className="font-mono text-xs bg-muted px-2 py-1 rounded">{r.po_number}</span> },
-              { key: "farmer", header: "Farmer", render: (r) => <span className="font-medium">{r.farmer?.full_name || "—"}</span> },
-              { key: "date", header: "Order date", render: (r) => <span className="text-sm">{r.order_date}</span> },
-              { key: "exp", header: "Expected", render: (r) => <span className="text-sm text-muted-foreground">{r.expected_delivery || "—"}</span> },
-              { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
-              { key: "total", header: "Total", render: (r) => <span className="tabular-nums font-semibold">{r.currency} {Number(r.total).toLocaleString()}</span> },
-            ]}
-          />
-        </div>
-      )}
+        <Button onClick={() => navigate("/procurement/orders/create")}>
+          <Plus className="mr-2 h-4 w-4" /> Create PO
+        </Button>
+      </div>
+
+      <div className="border rounded-md bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>PO Number</TableHead>
+              <TableHead>Supplier</TableHead>
+              <TableHead>Order Date</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Total Amount</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+                  <p className="mt-2 text-sm text-muted-foreground">Loading orders...</p>
+                </TableCell>
+              </TableRow>
+            ) : orders.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-12">
+                  <Receipt className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
+                  <p className="text-muted-foreground">No purchase orders found.</p>
+                  <Button variant="link" onClick={() => navigate("/procurement/orders/create")}>
+                    Create your first PO
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ) : (
+              orders.map((po) => (
+                <TableRow key={po.id}>
+                  <TableCell className="font-medium text-primary">{po.po_number}</TableCell>
+                  <TableCell>{po.suppliers?.name || "Unknown Supplier"}</TableCell>
+                  <TableCell>{format(new Date(po.order_date), "MMM d, yyyy")}</TableCell>
+                  <TableCell>
+                    <Badge className={`capitalize ${STATUS_COLORS[po.status] || "bg-gray-500"}`}>
+                      {po.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {po.currency} {Number(po.total_amount)?.toLocaleString()}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

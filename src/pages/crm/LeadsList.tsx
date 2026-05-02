@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,6 +44,10 @@ export default function LeadsList() {
   const [country, setCountry] = useState("");
   const [product, setProduct] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Delete Confirm state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const fetchLeads = async () => {
     try {
@@ -109,15 +114,23 @@ export default function LeadsList() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this lead?")) return;
+  const confirmDelete = (id: string) => {
+    setDeleteId(id);
+    setConfirmOpen(true);
+  };
+
+  const executeDelete = async () => {
+    if (!deleteId) return;
     try {
-      const { error } = await supabase.from("leads").delete().eq("id", id);
+      const { error } = await supabase.from("leads").delete().eq("id", deleteId);
       if (error) throw error;
       toast.success("Lead deleted");
       fetchLeads();
     } catch (error: any) {
       toast.error(error.message || "Failed to delete lead");
+    } finally {
+      setConfirmOpen(false);
+      setDeleteId(null);
     }
   };
 
@@ -159,7 +172,7 @@ export default function LeadsList() {
         </Dialog>
       </div>
 
-      <div className="border rounded-md">
+      <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -193,13 +206,13 @@ export default function LeadsList() {
                   <TableCell>{lead.country || "-"}</TableCell>
                   <TableCell>{lead.interested_product || "-"}</TableCell>
                   <TableCell>
-                    <Badge className={`${STAGE_COLORS[lead.stage]} hover:${STAGE_COLORS[lead.stage]} capitalize`}>
+                    <Badge className={`${STAGE_COLORS[lead.stage]} hover:${STAGE_COLORS[lead.stage]} capitalize text-white`}>
                       {lead.stage}
                     </Badge>
                   </TableCell>
                   <TableCell>{lead.profiles?.full_name || "Unassigned"}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(lead.id)}>
+                    <Button variant="ghost" size="icon" onClick={() => confirmDelete(lead.id)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </TableCell>
@@ -209,6 +222,17 @@ export default function LeadsList() {
           </TableBody>
         </Table>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete Lead"
+        description="Are you sure you want to delete this lead? This action cannot be undone."
+        onConfirm={executeDelete}
+        onCancel={() => {
+          setConfirmOpen(false);
+          setDeleteId(null);
+        }}
+      />
     </div>
   );
 }

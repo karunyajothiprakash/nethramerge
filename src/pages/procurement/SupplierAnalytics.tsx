@@ -1,111 +1,166 @@
-import { Star, Loader2, AlertCircle } from "lucide-react";
-import { PageHeader } from "@/components/shared/PageHeader";
-import { Section } from "@/components/shared/FormShell";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, TrendingUp, Users } from "lucide-react";
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend
+} from 'recharts';
+import { toast } from "sonner";
+import { startOfMonth } from "date-fns";
 
 export default function SupplierAnalytics() {
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["supplier_analytics"],
-    queryFn: async () => {
-      // Fetch farmers and their ratings
-      const { data: farmers, error: fErr } = await supabase
-        .from("farmers")
-        .select("id, full_name, rating");
-      if (fErr) throw fErr;
-
-      // Fetch all completed purchase orders for total spend
-      const { data: pos, error: pErr } = await supabase
-        .from("purchase_orders")
-        .select("farmer_id, total")
-        .eq("status", "received");
-      if (pErr) throw pErr;
-
-      // Aggregate spend by farmer
-      const spendMap: Record<string, number> = {};
-      pos?.forEach(po => {
-        spendMap[po.farmer_id] = (spendMap[po.farmer_id] || 0) + Number(po.total);
-      });
-
-      // Format data for chart and ratings list
-      const aggregatedData = (farmers || []).map(f => {
-        const totalSpend = spendMap[f.id] || 0;
-        return {
-          id: f.id,
-          name: f.full_name,
-          shortName: f.full_name.split(" ")[0], // First word for chart XAxis
-          rating: (f as any).rating || 0.0,
-          spend: totalSpend / 1000, // Spend in USD '000
-          rawSpend: totalSpend
-        };
-      });
-
-      // Filter out farmers with 0 spend and 0 rating if we want, but let's sort them
-      aggregatedData.sort((a, b) => b.rawSpend - a.rawSpend);
-      
-      return aggregatedData;
-    }
+  const [stats, setStats] = useState({
+    totalSuppliers: 0,
+    totalPOValueMonth: 0,
   });
+  const [topSuppliers, setTopSuppliers] = useState<any[]>([]);
+  const [statusData, setStatusData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <PageHeader title="Supplier Analytics" description="Vendor performance and spend insights" breadcrumbs={[{ label: "Procurement" }, { label: "Analytics" }]} />
-        <div className="erp-card flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const { count: supCount, error: supErr } = await supabase
+          .from("suppliers")
+          .select("*", { count: "exact", head: true });
+        
+        if (supErr) throw supErr;
 
-  if (isError || !data) {
-    return (
-      <div className="space-y-4">
-        <PageHeader title="Supplier Analytics" description="Vendor performance and spend insights" breadcrumbs={[{ label: "Procurement" }, { label: "Analytics" }]} />
-        <div className="erp-card flex flex-col items-center justify-center py-20 text-destructive bg-destructive/5 border-destructive/20">
-          <AlertCircle className="h-8 w-8 mb-2" />
-          <p>Failed to load analytics data.</p>
-        </div>
-      </div>
-    );
+        const { data: pos, error: poErr } = await supabase
+          .from("purchase_orders")
+          .select("id, status, total_amount, order_date, suppliers(name)");
+
+        if (poErr) throw poErr;
+
+        // Calculate PO value this month
+        const thisMonthStart = startOfMonth(new Date());
+        const monthValue = pos
+          ?.filter(po => new Date(po.order_date) >= thisMonthStart)
+          .reduce((sum, po) => sum + (Number(po.total_amount) || 0), 0) || 0;
+
+        setStats({
+          totalSuppliers: supCount || 0,
+          totalPOValueMonth: monthValue,
+        });
+
+        // Calculate top 5 suppliers
+        const supplierTotals: Record<string, {name: string, value: number}> = {};
+        pos?.forEach(po => {
+          const supName = po.suppliers?.name || "Unknown";
+          if (!supplierTotals[supName]) supplierTotals[supName] = { name: supName, value: 0 };
+          supplierTotals[supName].value += Number(po.total_amount) || 0;
+        });
+
+        const sortedSuppliers = Object.values(supplierTotals)
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 5);
+        setTopSuppliers(sortedSuppliers);
+
+        // Status breakdown
+        const statusCounts: Record<string, number> = {};
+        pos?.forEach(po => {
+          statusCounts[po.status] = (statusCounts[po.status] || 0) + 1;
+        });
+
+        const statusChartData = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
+        setStatusData(statusChartData);
+
+      } catch (err: any) {
+        toast.error("Failed to load analytics");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const COLORS = ['#3b82f6', '#22c55e', '#a855f7', '#64748b', '#ef4444'];
+
+  if (loading) {
+    return <div className="flex h-[50vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (
-    <div className="animate-in fade-in zoom-in duration-300">
-      <PageHeader title="Supplier Analytics" description="Vendor performance and spend insights" breadcrumbs={[{ label: "Procurement" }, { label: "Analytics" }]} />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Section title="Spend by Supplier (USD '000)">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.filter(d => d.spend > 0).slice(0, 7)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="shortName" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <Tooltip cursor={{fill: 'hsl(var(--muted)/0.5)'}} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
-                <Bar dataKey="spend" fill="hsl(var(--chart-1))" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Section>
-        <Section title="Ratings">
-          <div className="space-y-2">
-            {data.slice(0, 10).map((s) => (
-              <div key={s.id} className="flex items-center justify-between p-3 border border-border rounded-md hover:bg-muted/50 transition-colors">
-                <div className="text-sm font-medium">{s.name}</div>
-                <div className="flex items-center gap-1 text-sm font-semibold">
-                  <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-                  {Number(s.rating).toFixed(1)}
-                </div>
-              </div>
-            ))}
-            {data.length === 0 && (
-              <div className="text-center py-6 text-sm text-muted-foreground">
-                No supplier data available.
-              </div>
+    <div className="p-6 space-y-6">
+      <h1 className="text-2xl font-bold tracking-tight">Procurement Analytics</h1>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Total Suppliers</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalSuppliers}</div>
+            <p className="text-xs text-muted-foreground mt-1">Total registered suppliers</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Total PO Value (This Month)</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₹ {stats.totalPOValueMonth.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">Value of orders placed since start of month</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle>Top 5 Suppliers by Value</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            {topSuppliers.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground">No data available</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topSuppliers} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" />
+                  <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 12}} />
+                  <RechartsTooltip formatter={(value) => `₹ ${value.toLocaleString()}`} />
+                  <Bar dataKey="value" fill="#22c55e" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             )}
-          </div>
-        </Section>
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle>PO Status Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            {statusData.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground">No data available</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={statusData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {statusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip />
+                  <Legend className="capitalize" formatter={(value) => value} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

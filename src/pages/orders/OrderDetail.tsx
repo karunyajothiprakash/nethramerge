@@ -1,70 +1,202 @@
-import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, FileText, Truck } from "lucide-react";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Section } from "@/components/shared/FormShell";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { orders } from "@/data/mock";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, ArrowLeft, Building2, MapPin, Package, Mail, Calendar, DollarSign, Edit3 } from "lucide-react";
+import { toast } from "sonner";
+import { format } from "date-fns";
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: "bg-yellow-500",
+  confirmed: "bg-blue-500",
+  processing: "bg-orange-500",
+  shipped: "bg-purple-500",
+  delivered: "bg-green-500",
+  cancelled: "bg-red-500",
+};
+
+const PAYMENT_COLORS: Record<string, string> = {
+  unpaid: "bg-red-500",
+  partial: "bg-yellow-500",
+  paid: "bg-green-500",
+};
 
 export default function OrderDetail() {
   const { id } = useParams();
-  const nav = useNavigate();
-  const o = orders.find((x) => x.id === id) ?? orders[0];
+  const navigate = useNavigate();
+  const [order, setOrder] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [savingStatus, setSavingStatus] = useState(false);
+
+  useEffect(() => {
+    const fetchOrder = async () => {
+      try {
+        const { data, error } = await supabase.from("export_orders").select("*").eq("id", id).single();
+        if (error) throw error;
+        setOrder(data);
+      } catch (err: any) {
+        toast.error("Failed to load order");
+        navigate("/orders");
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (id) fetchOrder();
+  }, [id, navigate]);
+
+  const updateStatus = async (field: 'status' | 'payment_status', value: string) => {
+    setSavingStatus(true);
+    try {
+      const { error } = await supabase.from("export_orders").update({ [field]: value }).eq("id", id);
+      if (error) throw error;
+      setOrder({ ...order, [field]: value });
+      toast.success("Order updated");
+    } catch (err: any) {
+      toast.error("Update failed");
+    } finally {
+      setSavingStatus(false);
+    }
+  };
+
+  if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (!order) return null;
 
   return (
-    <div>
-      <PageHeader title={o.id} description={o.customer} breadcrumbs={[{ label: "Sales Orders", to: "/orders" }, { label: o.id }]}
-        actions={<>
-          <Button variant="outline" size="sm" onClick={() => nav(-1)}><ArrowLeft className="h-4 w-4 mr-1.5" />Back</Button>
-          <Button variant="outline" size="sm"><FileText className="h-4 w-4 mr-1.5" />Invoice</Button>
-          <Button size="sm" onClick={() => nav("/shipments/create")}><Truck className="h-4 w-4 mr-1.5" />Create Shipment</Button>
-        </>}
-      />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4">
-          <Section title="Order Details">
-            <dl className="grid grid-cols-2 gap-4 text-sm">
-              <div><dt className="text-xs text-muted-foreground mb-1">Status</dt><dd><StatusBadge status={o.status} /></dd></div>
-              <div><dt className="text-xs text-muted-foreground mb-1">Incoterm</dt><dd>{o.incoterm}</dd></div>
-              <div><dt className="text-xs text-muted-foreground mb-1">Created</dt><dd>{o.createdAt}</dd></div>
-              <div><dt className="text-xs text-muted-foreground mb-1">Delivery</dt><dd>{o.deliveryDate}</dd></div>
-              <div><dt className="text-xs text-muted-foreground mb-1">Items</dt><dd>{o.items}</dd></div>
-              <div><dt className="text-xs text-muted-foreground mb-1">Amount</dt><dd className="font-semibold">{o.currency} {o.amount.toLocaleString()}</dd></div>
-            </dl>
-          </Section>
-          <Section title="Line Items">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b border-border text-xs text-muted-foreground uppercase">
-                <th className="text-left py-2">Product</th><th className="text-right py-2">Qty</th><th className="text-right py-2">Price</th><th className="text-right py-2">Total</th>
-              </tr></thead>
-              <tbody>
-                {Array.from({ length: Math.min(o.items, 6) }).map((_, i) => (
-                  <tr key={i} className="border-b last:border-0 border-border">
-                    <td className="py-3">Item line {i + 1}</td>
-                    <td className="text-right py-3 tabular-nums">{100 + i * 20}</td>
-                    <td className="text-right py-3 tabular-nums">$4.50</td>
-                    <td className="text-right py-3 tabular-nums">${((100 + i * 20) * 4.5).toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Section>
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="outline" size="icon" onClick={() => navigate("/orders")}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Order {order.order_number}</h1>
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            Placed on {format(new Date(order.order_date), "PPP")}
+          </p>
         </div>
-        <div className="space-y-4">
-          <Section title="Customer">
-            <div className="text-sm font-medium">{o.customer}</div>
-            <div className="text-xs text-muted-foreground mt-1">View customer profile →</div>
-          </Section>
-          <Section title="Status Timeline">
-            <ol className="space-y-3">
-              {["Order placed", "Approved", "Processing", "Shipped", "Delivered"].map((s, i) => (
-                <li key={s} className="flex items-center gap-2 text-sm">
-                  <span className={`h-2 w-2 rounded-full ${i <= 2 ? "bg-success" : "bg-muted-foreground"}`} />
-                  <span className={i <= 2 ? "" : "text-muted-foreground"}>{s}</span>
-                </li>
-              ))}
-            </ol>
-          </Section>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Order Summary</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg bg-muted/10">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1 flex items-center gap-2"><Package className="h-4 w-4" /> Product</p>
+                <p className="font-semibold text-lg">{order.product}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Quantity</p>
+                <p className="font-semibold text-lg">{order.quantity} {order.unit}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Unit Price</p>
+                <p className="font-medium">{order.currency} {Number(order.unit_price).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Total Amount</p>
+                <p className="font-bold text-xl text-primary">{order.currency} {Number(order.total_amount).toLocaleString()}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="font-medium text-lg border-b pb-2">Customer Details</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex gap-3 items-start">
+                  <Building2 className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Customer</p>
+                    <p className="text-sm text-muted-foreground">{order.customer_name}</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Email</p>
+                    <p className="text-sm text-muted-foreground">{order.customer_email || "N/A"}</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Location</p>
+                    <p className="text-sm text-muted-foreground">{order.customer_country}</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 items-start col-span-2">
+                  <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Shipping Address</p>
+                    <p className="text-sm text-muted-foreground">{order.shipping_address || "Not provided"}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {order.notes && (
+              <div className="pt-4 border-t">
+                <h3 className="font-medium mb-2">Notes</h3>
+                <p className="text-sm bg-muted p-3 rounded-md">{order.notes}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Status Management</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Order Status</Label>
+                  <Badge className={`capitalize text-white ${STATUS_COLORS[order.status]}`}>{order.status}</Badge>
+                </div>
+                <Select value={order.status} onValueChange={(v) => updateStatus('status', v)} disabled={savingStatus}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(STATUS_COLORS).map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <Label>Payment Status</Label>
+                  <Badge className={`capitalize text-white ${PAYMENT_COLORS[order.payment_status]}`}>{order.payment_status}</Badge>
+                </div>
+                <Select value={order.payment_status} onValueChange={(v) => updateStatus('payment_status', v)} disabled={savingStatus}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(PAYMENT_COLORS).map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Logistics Info</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-3 items-center">
+                <Calendar className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Expected Delivery</p>
+                  <p className="text-sm text-muted-foreground">
+                    {order.expected_delivery ? format(new Date(order.expected_delivery), "PPP") : "Not scheduled"}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

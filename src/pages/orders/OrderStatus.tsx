@@ -1,38 +1,104 @@
-import { PageHeader } from "@/components/shared/PageHeader";
-import { Section } from "@/components/shared/FormShell";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { orders } from "@/data/mock";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Package, Clock, Truck, CheckCircle } from "lucide-react";
+import { toast } from "sonner";
 
-const stages = ["Pending", "Processing", "Shipped", "Delivered"];
+const STATUS_COLORS: Record<string, string> = {
+  pending: "bg-yellow-500",
+  confirmed: "bg-blue-500",
+  processing: "bg-orange-500",
+  shipped: "bg-purple-500",
+  delivered: "bg-green-500",
+  cancelled: "bg-red-500",
+};
 
 export default function OrderStatus() {
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const { data, error } = await supabase.from("export_orders").select("*").order("order_date", { ascending: false });
+        if (error) throw error;
+        setOrders(data || []);
+      } catch (err: any) {
+        toast.error("Failed to load order statuses");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOrders();
+  }, []);
+
+  if (loading) return <div className="flex h-[50vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+
+  const getCount = (statusArr: string[]) => orders.filter(o => statusArr.includes(o.status)).length;
+
   return (
-    <div>
-      <PageHeader title="Order Status Tracking" description="Monitor every order through the fulfillment lifecycle" breadcrumbs={[{ label: "Sales Orders" }, { label: "Status" }]} />
-      <div className="space-y-3">
-        {orders.map((o) => {
-          const idx = stages.indexOf(o.status);
+    <div className="p-6 space-y-6">
+      <h1 className="text-2xl font-bold tracking-tight">Order Status Overview</h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{orders.length}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Pending / Action Req.</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-500" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{getCount(['pending', 'processing'])}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Shipped</CardTitle>
+            <Truck className="h-4 w-4 text-purple-500" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{getCount(['shipped'])}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Delivered</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{getCount(['delivered'])}</div></CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t">
+        {['pending', 'processing', 'shipped'].map(status => {
+          const groupOrders = orders.filter(o => o.status === status);
           return (
-            <Section key={o.id}>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <div className="font-semibold text-sm">{o.id} — {o.customer}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">Delivery {o.deliveryDate} · {o.currency} {o.amount.toLocaleString()}</div>
-                </div>
-                <StatusBadge status={o.status} />
-              </div>
-              <div className="relative flex items-center justify-between">
-                {stages.map((s, i) => (
-                  <div key={s} className="flex flex-col items-center flex-1">
-                    <div className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold z-10 ${i <= idx ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{i + 1}</div>
-                    <div className={`text-xs mt-1.5 ${i <= idx ? "font-medium" : "text-muted-foreground"}`}>{s}</div>
-                  </div>
-                ))}
-                <div className="absolute top-3.5 left-0 right-0 h-0.5 bg-muted -z-0">
-                  <div className="h-full bg-primary transition-all" style={{ width: `${(idx / (stages.length - 1)) * 100}%` }} />
-                </div>
-              </div>
-            </Section>
+            <div key={status} className="space-y-4">
+              <h2 className="font-semibold text-lg capitalize flex items-center gap-2">
+                {status} <Badge variant="secondary">{groupOrders.length}</Badge>
+              </h2>
+              {groupOrders.length === 0 ? (
+                <div className="text-sm text-muted-foreground p-4 border border-dashed rounded-lg text-center">No orders {status}</div>
+              ) : (
+                groupOrders.map(order => (
+                  <Card key={order.id} className="shadow-sm border-l-4" style={{borderLeftColor: `var(--${STATUS_COLORS[status].split('-')[1]}-500)`}}>
+                    <CardHeader className="p-4 pb-2">
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-sm font-bold">{order.order_number}</CardTitle>
+                        <Badge className={`text-[10px] text-white ${STATUS_COLORS[order.status]}`}>{order.status}</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0 text-sm space-y-1">
+                      <p className="font-medium">{order.customer_name}</p>
+                      <p className="text-muted-foreground">{order.product} ({order.quantity} {order.unit})</p>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
           );
         })}
       </div>

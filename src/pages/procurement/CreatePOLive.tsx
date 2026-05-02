@@ -1,212 +1,271 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Plus, Trash2 } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { PageHeader } from "@/components/shared/PageHeader";
-import { Section, FormGrid, FormRow } from "@/components/shared/FormShell";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ArrowLeft, Loader2, Plus, Trash2, Save, Send } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 
-type LineItem = { product_id: string; quantity: string; unit_price: string; expected_grade: string };
+type POItem = {
+  id: string;
+  product: string;
+  quantity: number;
+  unit: string;
+  unit_price: number;
+};
 
 export default function CreatePOLive() {
-  const nav = useNavigate();
-  const qc = useQueryClient();
-  const { profile } = useAuth();
-  const [busy, setBusy] = useState(false);
-  const [poNumber, setPoNumber] = useState(`PO-${Date.now().toString().slice(-6)}`);
-  const [farmerId, setFarmerId] = useState("");
-  const [warehouseId, setWarehouseId] = useState("");
-  const [orderDate, setOrderDate] = useState(new Date().toISOString().slice(0, 10));
-  const [expectedDelivery, setExpectedDelivery] = useState("");
-  const [currency, setCurrency] = useState("USD");
+  const navigate = useNavigate();
+  const [suppliers, setSuppliers] = useState<{id: string, name: string}[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Form
+  const [supplierId, setSupplierId] = useState("");
+  const [expectedDate, setExpectedDate] = useState("");
   const [notes, setNotes] = useState("");
-  const [items, setItems] = useState<LineItem[]>([{ product_id: "", quantity: "", unit_price: "", expected_grade: "A" }]);
+  const [currency, setCurrency] = useState("INR");
+  const [items, setItems] = useState<POItem[]>([
+    { id: "1", product: "", quantity: 1, unit: "kg", unit_price: 0 }
+  ]);
 
-  const { data: farmers } = useQuery({
-    queryKey: ["farmers-min"],
-    queryFn: async () => (await supabase.from("farmers").select("id, full_name").order("full_name")).data || [],
-  });
-  const { data: products } = useQuery({
-    queryKey: ["products-min"],
-    queryFn: async () => (await supabase.from("products").select("id, name, sku, unit").order("name")).data || [],
-  });
-  const { data: warehouses } = useQuery({
-    queryKey: ["warehouses-min"],
-    queryFn: async () => (await supabase.from("warehouses").select("id, name").order("name")).data || [],
-  });
+  useEffect(() => {
+    const fetchSuppliers = async () => {
+      try {
+        const { data, error } = await supabase.from("suppliers").select("id, name").eq("status", "active");
+        if (error) throw error;
+        setSuppliers(data || []);
+      } catch (err: any) {
+        toast.error("Failed to load suppliers");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSuppliers();
+  }, []);
 
-  const subtotal = useMemo(
-    () => items.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0), 0),
-    [items]
-  );
+  const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
 
-  const updateItem = (idx: number, k: keyof LineItem, v: string) => {
-    setItems((arr) => arr.map((it, i) => (i === idx ? { ...it, [k]: v } : it)));
+  const addItem = () => {
+    setItems([...items, { id: Math.random().toString(), product: "", quantity: 1, unit: "kg", unit_price: 0 }]);
   };
-  const addRow = () => setItems((a) => [...a, { product_id: "", quantity: "", unit_price: "", expected_grade: "A" }]);
-  const removeRow = (idx: number) => setItems((a) => a.filter((_, i) => i !== idx));
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profile?.company_id) return toast.error("Missing company context");
-    if (!farmerId) return toast.error("Select a farmer");
-    if (items.length === 0 || items.some((i) => !i.product_id || !i.quantity || !i.unit_price)) {
-      return toast.error("Complete all line items");
-    }
+  const removeItem = (id: string) => {
+    if (items.length === 1) return;
+    setItems(items.filter(item => item.id !== id));
+  };
 
-    setBusy(true);
-    const { data: po, error: poErr } = await supabase
-      .from("purchase_orders")
-      .insert({
-        company_id: profile.company_id,
+  const updateItem = (id: string, field: keyof POItem, value: any) => {
+    setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
+  };
+
+  const handleSave = async (status: 'draft' | 'sent') => {
+    if (!supplierId) return toast.error("Please select a supplier");
+    if (items.some(i => !i.product)) return toast.error("Please fill all product names");
+
+    setSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
+      if (!userId) throw new Error("Authentication required");
+
+      const cleanItems = items.map(({ id, ...rest }) => rest);
+      
+      // Auto generate PO Number like PO-2026-001
+      const year = new Date().getFullYear();
+      const rand = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const poNumber = `PO-${year}-${rand}`;
+
+      const { error } = await supabase.from("purchase_orders").insert({
         po_number: poNumber,
-        farmer_id: farmerId,
-        warehouse_id: warehouseId || null,
-        order_date: orderDate,
-        expected_delivery: expectedDelivery || null,
+        supplier_id: supplierId,
+        status,
+        expected_delivery: expectedDate ? new Date(expectedDate).toISOString() : null,
+        total_amount: totalAmount,
         currency,
-        subtotal,
-        total: subtotal,
-        notes: notes || null,
-        status: "draft",
-      })
-      .select("id")
-      .single();
+        items: cleanItems,
+        notes,
+        created_by: userId
+      });
 
-    if (poErr || !po) {
-      setBusy(false);
-      return toast.error(poErr?.message || "Failed to create PO");
+      if (error) throw error;
+
+      toast.success(`Purchase order ${status === 'draft' ? 'saved as draft' : 'sent'} successfully`);
+      navigate("/procurement/orders");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create purchase order");
+    } finally {
+      setSaving(false);
     }
-
-    const { error: itemsErr } = await supabase.from("purchase_order_items").insert(
-      items.map((i) => ({
-        po_id: po.id,
-        product_id: i.product_id,
-        quantity: Number(i.quantity),
-        unit_price: Number(i.unit_price),
-        expected_grade: i.expected_grade || null,
-      }))
-    );
-    setBusy(false);
-    if (itemsErr) return toast.error(itemsErr.message);
-    toast.success("Purchase order created");
-    qc.invalidateQueries({ queryKey: ["purchase_orders"] });
-    nav("/procurement/orders");
   };
 
-  const noFarmers = farmers && farmers.length === 0;
-  const noProducts = products && products.length === 0;
+  if (loading) {
+    return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
 
   return (
-    <div>
-      <PageHeader
-        title="Create Purchase Order"
-        description="Procure produce from a farmer"
-        breadcrumbs={[{ label: "Procurement", to: "/procurement/orders" }, { label: "New PO" }]}
-      />
-
-      {(noFarmers || noProducts) && (
-        <div className="erp-card p-4 mb-4 border-l-4 border-l-warning">
-          <p className="text-sm">
-            You need at least one {noFarmers && <a href="/farmers/create" className="text-primary underline">farmer</a>}
-            {noFarmers && noProducts && " and one "}
-            {noProducts && <a href="/inventory/products/create" className="text-primary underline">product</a>} before creating a PO.
-          </p>
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="outline" size="icon" onClick={() => navigate("/procurement/orders")}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Create Purchase Order</h1>
+          <p className="text-sm text-muted-foreground">Draft a new order to a supplier</p>
         </div>
-      )}
+      </div>
 
-      <form onSubmit={submit} className="space-y-4">
-        <Section title="Order details">
-          <FormGrid cols={2}>
-            <FormRow label="PO number" required><Input required value={poNumber} onChange={(e) => setPoNumber(e.target.value)} /></FormRow>
-            <FormRow label="Farmer" required>
-              <Select value={farmerId} onValueChange={setFarmerId}>
-                <SelectTrigger><SelectValue placeholder="Select farmer" /></SelectTrigger>
-                <SelectContent>{farmers?.map((f: any) => <SelectItem key={f.id} value={f.id}>{f.full_name}</SelectItem>)}</SelectContent>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg">Order Items</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product</TableHead>
+                    <TableHead className="w-24">Qty</TableHead>
+                    <TableHead className="w-28">Unit</TableHead>
+                    <TableHead className="w-32">Price</TableHead>
+                    <TableHead className="text-right w-32">Total</TableHead>
+                    <TableHead className="w-12"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <Input 
+                          placeholder="Product Name" 
+                          value={item.product} 
+                          onChange={(e) => updateItem(item.id, "product", e.target.value)} 
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input 
+                          type="number" min="1" 
+                          value={item.quantity} 
+                          onChange={(e) => updateItem(item.id, "quantity", Number(e.target.value))} 
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Select value={item.unit} onValueChange={(val) => updateItem(item.id, "unit", val)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="kg">kg</SelectItem>
+                            <SelectItem value="ton">ton</SelectItem>
+                            <SelectItem value="piece">piece</SelectItem>
+                            <SelectItem value="box">box</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input 
+                          type="number" min="0" step="0.01" 
+                          value={item.unit_price} 
+                          onChange={(e) => updateItem(item.id, "unit_price", Number(e.target.value))} 
+                        />
+                      </TableCell>
+                      <TableCell className="text-right font-medium pt-5">
+                        {(item.quantity * item.unit_price).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => removeItem(item.id)} disabled={items.length === 1}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <Button variant="outline" size="sm" onClick={addItem}><Plus className="mr-2 h-4 w-4" /> Add Item</Button>
+          </CardContent>
+          <CardFooter className="justify-end border-t p-4 bg-muted/20">
+            <div className="text-lg font-bold">
+              Total: {currency} {totalAmount.toLocaleString()}
+            </div>
+          </CardFooter>
+        </Card>
+
+        <Card className="md:col-span-1 h-fit">
+          <CardHeader>
+            <CardTitle className="text-lg">Order Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Supplier *</Label>
+              <Select value={supplierId} onValueChange={setSupplierId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suppliers.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
-            </FormRow>
-            <FormRow label="Warehouse">
-              <Select value={warehouseId} onValueChange={setWarehouseId}>
-                <SelectTrigger><SelectValue placeholder="Select warehouse" /></SelectTrigger>
-                <SelectContent>{warehouses?.map((w: any) => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Currency</Label>
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="INR">INR (₹)</SelectItem>
+                  <SelectItem value="USD">USD ($)</SelectItem>
+                  <SelectItem value="EUR">EUR (€)</SelectItem>
+                </SelectContent>
               </Select>
-            </FormRow>
-            <FormRow label="Currency"><Input value={currency} onChange={(e) => setCurrency(e.target.value)} /></FormRow>
-            <FormRow label="Order date" required><Input type="date" required value={orderDate} onChange={(e) => setOrderDate(e.target.value)} /></FormRow>
-            <FormRow label="Expected delivery"><Input type="date" value={expectedDelivery} onChange={(e) => setExpectedDelivery(e.target.value)} /></FormRow>
-          </FormGrid>
-        </Section>
+            </div>
 
-        <Section title="Line items" actions={<Button type="button" size="sm" variant="outline" onClick={addRow}><Plus className="h-3.5 w-3.5 mr-1" />Add row</Button>}>
-          <div className="space-y-2">
-            {items.map((item, idx) => (
-              <div key={idx} className="grid grid-cols-12 gap-2 items-end">
-                <div className="col-span-4">
-                  <label className="text-xs text-muted-foreground">Product</label>
-                  <Select value={item.product_id} onValueChange={(v) => updateItem(idx, "product_id", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
-                    <SelectContent>{products?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name} ({p.sku})</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-2">
-                  <label className="text-xs text-muted-foreground">Quantity (kg)</label>
-                  <Input type="number" step="0.001" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", e.target.value)} />
-                </div>
-                <div className="col-span-2">
-                  <label className="text-xs text-muted-foreground">Unit price</label>
-                  <Input type="number" step="0.01" value={item.unit_price} onChange={(e) => updateItem(idx, "unit_price", e.target.value)} />
-                </div>
-                <div className="col-span-2">
-                  <label className="text-xs text-muted-foreground">Grade</label>
-                  <Select value={item.expected_grade} onValueChange={(v) => updateItem(idx, "expected_grade", v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A">A</SelectItem>
-                      <SelectItem value="B">B</SelectItem>
-                      <SelectItem value="C">C</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-1 text-right text-sm tabular-nums">
-                  {(() => {
-                    const val = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
-                    return val > 0 && val < 0.01 ? val.toFixed(4) : val.toFixed(2);
-                  })()}
-                </div>
-                <div className="col-span-1 flex justify-end">
-                  <Button type="button" size="icon" variant="ghost" onClick={() => removeRow(idx)} disabled={items.length === 1}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 pt-3 border-t border-border flex justify-end gap-8 text-sm">
-            <span className="text-muted-foreground">Subtotal</span>
-            <span className="font-semibold tabular-nums">
-              {currency} {subtotal > 0 && subtotal < 0.01 ? subtotal.toFixed(4) : subtotal.toFixed(2)}
-            </span>
-          </div>
-        </Section>
+            <div className="space-y-2">
+              <Label>Expected Delivery</Label>
+              <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
+            </div>
 
-        <Section title="Notes">
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
-        </Section>
-
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => nav("/procurement/orders")} disabled={busy}>Cancel</Button>
-          <Button type="submit" disabled={busy}>
-            {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Create purchase order
-          </Button>
-        </div>
-      </form>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea 
+                placeholder="Special instructions..." 
+                value={notes} 
+                onChange={(e) => setNotes(e.target.value)}
+                className="h-24"
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-2 border-t p-4">
+            <Button 
+              className="w-full bg-blue-600 hover:bg-blue-700" 
+              onClick={() => handleSave('sent')}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              Save & Send
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              onClick={() => handleSave('draft')}
+              disabled={saving}
+            >
+              <Save className="mr-2 h-4 w-4" /> Save as Draft
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   );
 }
