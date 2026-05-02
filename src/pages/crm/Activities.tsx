@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Plus, Calendar as CalendarIcon, Trash2 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -35,7 +34,6 @@ export default function LeadActivities() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { user } = useAuth();
 
   // Form state
   const [title, setTitle] = useState("");
@@ -82,12 +80,21 @@ export default function LeadActivities() {
 
     setSubmitting(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
+      if (!userId) {
+        throw new Error("You must be logged in to create an activity");
+      }
+
+      const finalLeadId = leadId && leadId !== "none" ? leadId : null;
+
       const { error } = await supabase.from("activities").insert({
         title,
         type,
-        lead_id: leadId || null,
+        lead_id: finalLeadId,
         due_date: dueDate ? new Date(dueDate).toISOString() : null,
-        created_by: user?.id,
+        created_by: userId,
       });
 
       if (error) throw error;
@@ -115,8 +122,9 @@ export default function LeadActivities() {
 
       if (error) throw error;
       setActivities(activities.map(a => a.id === id ? { ...a, completed: !currentStatus } : a));
+      toast.success("Status updated");
     } catch (error: any) {
-      toast.error("Failed to update status");
+      toast.error(error.message || "Failed to update status");
     }
   };
 
@@ -153,7 +161,7 @@ export default function LeadActivities() {
                 <Label>Type</Label>
                 <Select value={type} onValueChange={setType}>
                   <SelectTrigger>
-                    <SelectValue />
+                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {TYPES.map(t => (

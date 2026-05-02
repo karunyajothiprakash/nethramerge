@@ -2,63 +2,78 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const { session, loading } = useAuth();
   const [errorMsg, setErrorMsg] = useState("");
-  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    if (loading) return; // Wait for AuthProvider to finish
+    let mounted = true;
+    let handled = false;
 
-    const handleUser = async () => {
-      if (!session) {
-        // No session after loading complete = real failure
-        setErrorMsg("Login failed. Please try again.");
-        return;
-      }
-
-      if (processing) return;
-      setProcessing(true);
+    const handleUser = async (userId: string, email: string, metadata: any) => {
+      if (handled) return;
+      handled = true;
 
       try {
-        const user = session.user;
-
-        const { data: profile, error: fetchError } = await supabase
+        const { data: profile, error } = await supabase
           .from("profiles")
           .select("status")
-          .eq("id", user.id)
+          .eq("id", userId)
           .maybeSingle();
 
-        if (fetchError) throw fetchError;
+        if (error) throw error;
 
         if (!profile) {
-          const { error: insertError } = await supabase
-            .from("profiles")
-            .insert({
-              id: user.id,
-              email: user.email,
-              status: "pending",
-              full_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "Unknown",
-            });
-          if (insertError) throw insertError;
-          navigate("/pending", { replace: true });
+          await supabase.from("profiles").insert({
+            id: userId,
+            email: email,
+            status: "pending",
+            full_name: metadata?.full_name || email?.split("@")[0] || "User",
+          });
+          if (mounted) navigate("/pending", { replace: true });
         } else {
-          if (profile.status === "approved") {
-            navigate("/dashboard", { replace: true });
-          } else {
-            navigate("/pending", { replace: true });
-          }
+          if (mounted) navigate(
+            profile.status === "approved" ? "/dashboard" : "/pending",
+            { replace: true }
+          );
         }
       } catch (err: any) {
-        setErrorMsg(err.message || "An error occurred.");
+        if (mounted) setErrorMsg(err.message || "An error occurred.");
       }
     };
 
-    handleUser();
-  }, [session, loading]);
+    // Wait a bit for Supabase to parse the hash tokens first
+    const init = setTimeout(async () => {
+      // Try getSession first
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && mounted) {
+        await handleUser(session.user.id, session.user.email ?? "", session.user.user_metadata);
+        return;
+      }
+
+      // Then listen for SIGNED_IN
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === "SIGNED_IN" && session && mounted) {
+          await handleUser(session.user.id, session.user.email ?? "", session.user.user_metadata);
+        }
+      });
+
+      // Final timeout - 8 seconds
+      setTimeout(() => {
+        if (!handled && mounted) {
+          subscription.unsubscribe();
+          setErrorMsg("Login failed. Please try again.");
+        }
+      }, 8000);
+
+    }, 500); // 500ms delay lets Supabase parse hash
+
+    return () => {
+      mounted = false;
+      clearTimeout(init);
+    };
+  }, [navigate]);
 
   if (errorMsg) {
     return (

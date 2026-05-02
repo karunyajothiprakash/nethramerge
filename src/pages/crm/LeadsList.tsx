@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, Plus, Trash2 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 type Lead = {
@@ -37,7 +36,6 @@ export default function LeadsList() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { user } = useAuth();
 
   // Form state
   const [companyName, setCompanyName] = useState("");
@@ -78,13 +76,21 @@ export default function LeadsList() {
 
     setSubmitting(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
+      if (!userId) {
+        throw new Error("You must be logged in to create a lead");
+      }
+
       const { error } = await supabase.from("leads").insert({
         company_name: companyName,
         contact_name: contactName,
         country: country,
         interested_product: product,
         stage: "new",
-        assigned_to: user?.id,
+        assigned_to: userId,
+        created_by: userId,
       });
 
       if (error) throw error;
