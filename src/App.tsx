@@ -12,6 +12,7 @@ import AuthCallback from "./pages/AuthCallback";
 import LeadActivities from "./pages/crm/Activities";
 import LeadsList from "./pages/crm/LeadsList";
 import LeadPipeline from "./pages/crm/Pipeline";
+import EmailIntegration from "./pages/crm/EmailIntegration";
 import CompleteProfile from "./pages/CompleteProfile";
 import WaitingApproval from "./pages/WaitingApproval";
 import Pending from "./pages/Pending";
@@ -38,9 +39,9 @@ import SuppliersList from "./pages/procurement/SuppliersList";
 import SupplierDetail from "./pages/procurement/SupplierDetail";
 import SupplierAnalytics from "./pages/procurement/SupplierAnalytics";
 
-// Quality Control (live)
 import InspectionsList from "./pages/qc/InspectionsList";
 import CreateInspection from "./pages/qc/CreateInspection";
+import QCApprovals from "./pages/qc/QCApprovals";
 
 // Barcode & Tracking
 import BarcodesList from "./pages/barcodes/BarcodesList";
@@ -144,7 +145,7 @@ const App = () => (
               {/* Quality Control (live) */}
               <Route path="/qc/inspections" element={<InspectionsList />} />
               <Route path="/qc/inspections/create" element={<CreateInspection />} />
-              <Route path="/qc/approvals" element={<InspectionsList />} />
+              <Route path="/qc/approvals" element={<QCApprovals />} />
 
               {/* Barcode & Tracking */}
               <Route path="/barcodes" element={<BarcodesList />} />
@@ -171,6 +172,7 @@ const App = () => (
                 <Route path="/crm/activities" element={<LeadActivities />} />
                 <Route path="/crm/leads" element={<LeadsList />} />
                 <Route path="/crm/pipeline" element={<LeadPipeline />} />
+                <Route path="/crm/email" element={<EmailIntegration />} />
               {/* Orders */}
               <Route path="/orders" element={<OrdersList />} />
               <Route path="/orders/create" element={<CreateOrder />} />

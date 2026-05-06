@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth, useIsAdminOrManager } from "@/hooks/useAuth";
 
 type ProfileRow = {
   id: string;
@@ -17,6 +18,7 @@ type ProfileRow = {
   requested_role: string | null;
   status: "pending" | "approved" | "rejected";
   is_active: boolean;
+  avatar_url: string | null;
 };
 
 const ROLE_NAMES: Record<string, string> = {
@@ -30,6 +32,8 @@ const ROLE_NAMES: Record<string, string> = {
 };
 
 export default function EmployeeDirectory() {
+  const { onlineUsers } = useAuth();
+  const isAdminOrManager = useIsAdminOrManager();
   const [employees, setEmployees] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,7 +43,7 @@ export default function EmployeeDirectory() {
     setLoading(true);
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, phone, requested_role, status, is_active")
+      .select("id, full_name, email, phone, requested_role, status, is_active, avatar_url")
       .eq("status", "approved")
       .order("full_name");
 
@@ -150,19 +154,33 @@ export default function EmployeeDirectory() {
               ? e.full_name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()
               : "?";
             const roleName = e.requested_role ? (ROLE_NAMES[e.requested_role] || e.requested_role) : "Employee";
+            const isOnline = onlineUsers.includes(e.id);
 
             return (
               <Section key={e.id} className="hover:border-primary/50 transition-colors">
                 <div className="flex items-start gap-3">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-lg shrink-0">
-                    {initials}
+                  <div className="relative shrink-0">
+                    <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-lg overflow-hidden border border-primary/20">
+                      {e.avatar_url ? (
+                        <img src={e.avatar_url} alt={e.full_name || "Avatar"} className="h-full w-full object-cover" />
+                      ) : (
+                        initials
+                      )}
+                    </div>
+                    {isAdminOrManager && (
+                      isOnline ? (
+                        <span className="absolute bottom-0 right-0 block h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-background shadow-sm" title="Online" />
+                      ) : (
+                        <span className="absolute bottom-0 right-0 block h-3.5 w-3.5 rounded-full bg-muted-foreground border-2 border-background shadow-sm" title="Offline" />
+                      )
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <div className="font-semibold truncate" title={e.full_name || "Unknown"}>
                         {e.full_name || "Unknown"}
                       </div>
-                      <StatusBadge status={e.is_active ? "Active" : "Inactive"} />
+                      {isAdminOrManager && <StatusBadge status={e.is_active ? "Active" : "Inactive"} />}
                     </div>
                     <div className="text-xs font-medium text-muted-foreground bg-muted inline-flex px-2 py-0.5 rounded mb-3">
                       {roleName}

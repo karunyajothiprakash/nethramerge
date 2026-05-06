@@ -12,7 +12,7 @@ import {
   FileSpreadsheet, FileBox, Award, BookOpen, Eye,
   Wallet, Receipt, AlertCircle, BarChart3, Coins,
   UsersRound, CalendarCheck, ShieldCheck,
-  Bell, ScrollText, CreditCard, Settings
+  Bell, ScrollText, CreditCard, Settings, Mail
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -39,6 +39,7 @@ export const navGroups: NavGroup[] = [
       { title: "Shipment Analytics", url: "/dashboards/shipments", icon: Truck },
       { title: "Financial Overview", url: "/dashboards/financial", icon: DollarSign },
       { title: "Employee Productivity", url: "/dashboards/employees", icon: Users },
+      { title: "Roles & Permissions", url: "/employees/roles", icon: ShieldCheck, permission: "settings.manage" },
     ],
   },
   {
@@ -57,6 +58,7 @@ export const navGroups: NavGroup[] = [
       { title: "Activities", url: "/crm/activities", icon: CalendarCheck, permission: "farmers.view" },
       { title: "Leads", url: "/crm/leads", icon: UserCheck, permission: "farmers.view" },
       { title: "Pipeline", url: "/crm/pipeline", icon: GitBranch, permission: "farmers.view" },
+      { title: "Email Integration", url: "/crm/email", icon: Mail, permission: "farmers.view" },
     ],
   },
 
@@ -158,7 +160,6 @@ export const navGroups: NavGroup[] = [
       { title: "User Approvals", url: "/approvals", icon: ShieldCheck, permission: "hr.manage" },
       { title: "Directory", url: "/employees", icon: UsersRound, permission: "hr.view" },
       { title: "Attendance", url: "/employees/attendance", icon: CalendarCheck, permission: "hr.view" },
-      { title: "Roles & Permissions", url: "/employees/roles", icon: ShieldCheck, permission: "settings.manage" },
     ],
   },
   {

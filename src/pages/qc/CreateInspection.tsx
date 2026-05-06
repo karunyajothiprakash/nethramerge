@@ -53,13 +53,7 @@ export default function CreateInspection() {
       result: result as any,
       lab_notes: notes || null,
     });
-    if (!error && (result === "approved" || result === "rejected")) {
-      // Cascade batch status
-      await supabase.from("inventory_batches").update({
-        status: result === "approved" ? "approved" : "rejected",
-        grade,
-      }).eq("id", batchId);
-    }
+
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Inspection recorded");

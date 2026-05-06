@@ -87,7 +87,7 @@ export const payments = [
 
 export const employees = [
   { id: "E-001", name: "Preethi", role: "Manager", department: "Management", email: "preethi@acme.com", phone: "+91 98765 00001", status: "Active", joinedAt: "2020-01-15" },
-  { id: "E-002", name: "Madhumithi", role: "Secretary", department: "Admin", email: "madhumithamurugesan2005@gmail.com", phone: "+91 98765 00002", status: "Active", joinedAt: "2021-02-10" },
+  { id: "E-002", name: "Madhumitha", role: "Secretary", department: "Admin", email: "madhumithamurugesan2005@gmail.com", phone: "+91 98765 00002", status: "Active", joinedAt: "2021-02-10" },
   { id: "E-003", name: "Uma Parameshwari", role: "Networks and Security", department: "IT", email: "uma@acme.com", phone: "+91 98765 00003", status: "Active", joinedAt: "2021-03-22" },
   { id: "E-004", name: "Karunya", role: "Software Developer", department: "IT", email: "karunyaahjothiprakash@gmail.com", phone: "+91 98765 00004", status: "Active", joinedAt: "2022-05-18" },
   { id: "E-005", name: "Nethra", role: "Software Developer Intern", department: "IT", email: "sreenethra681@gmail.com", phone: "+91 98765 00005", status: "Active", joinedAt: "2024-01-10" },

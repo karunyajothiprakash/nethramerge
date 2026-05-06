@@ -1,10 +1,16 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+<<<<<<< HEAD
 import { ArrowLeft, Edit, Mail, Phone, Building, Calendar, Package, UserCheck, Loader2 } from "lucide-react";
+=======
+import { useState } from "react";
+import { ArrowLeft, Edit, Mail, Phone, Building, Calendar, DollarSign, UserCheck, Send, Loader2 } from "lucide-react";
+>>>>>>> 2b5d6ca (update 3)
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Section } from "@/components/shared/FormShell";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+<<<<<<< HEAD
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -29,10 +35,18 @@ type Lead = {
   updated_at: string;
   profiles?: { full_name: string };
 };
+=======
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { leads } from "@/data/mock";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+>>>>>>> 2b5d6ca (update 3)
 
 export default function LeadDetail() {
   const { id } = useParams();
   const nav = useNavigate();
+<<<<<<< HEAD
   
   const [lead, setLead] = useState<Lead | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -81,6 +95,39 @@ export default function LeadDetail() {
   }
 
   const ownerName = lead.profiles?.full_name || "Unassigned";
+=======
+  const lead = leads.find((l) => l.id === id) ?? leads[0];
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const handleSendEmail = async () => {
+    if (!subject || !message) {
+      return toast.error("Please fill in both subject and message");
+    }
+    
+    setSending(true);
+    try {
+      const email = `${lead.contact.toLowerCase().replace(" ", ".")}@${lead.company.split(" ")[0].toLowerCase()}.com`;
+      
+      // Call our Supabase Edge Function to send the email via Resend
+      const { data, error } = await supabase.functions.invoke('send-email', {
+        body: { to: email, subject, message, leadName: lead.contact }
+      });
+      
+      if (error) throw new Error("Failed to send email");
+      
+      toast.success("Email sent successfully!");
+      setSubject("");
+      setMessage("");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Failed to send email");
+    } finally {
+      setSending(false);
+    }
+  };
+>>>>>>> 2b5d6ca (update 3)
 
   return (
     <div>
@@ -144,6 +191,27 @@ export default function LeadDetail() {
               {lead.interested_product || "No Product Specified"}
             </div>
             <div className="text-xs text-muted-foreground mt-1">Primary product interest</div>
+          </Section>
+          <Section title="Send Email">
+            <div className="space-y-3">
+              <Input 
+                placeholder="Subject" 
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                disabled={sending}
+              />
+              <Textarea 
+                placeholder="Type your message here..." 
+                className="min-h-[120px]" 
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                disabled={sending}
+              />
+              <Button className="w-full" onClick={handleSendEmail} disabled={sending}>
+                {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                {sending ? "Sending..." : "Send to BDE Lead"}
+              </Button>
+            </div>
           </Section>
         </div>
       </div>

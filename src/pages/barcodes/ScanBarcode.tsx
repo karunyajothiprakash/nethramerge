@@ -42,7 +42,7 @@ const LOCATIONS = [
 export default function ScanBarcode() {
   const nav = useNavigate();
   const [code, setCode] = useState("");
-  const [updateLoc, setUpdateLoc] = useState<string>("");
+  const [updateLoc, setUpdateLoc] = useState<string>("none");
   const [result, setResult] = useState<ScanResult | null>(null);
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -54,7 +54,7 @@ export default function ScanBarcode() {
     try {
       const { data, error } = await supabase.rpc("scan_barcode", {
         _code: raw,
-        _new_location: (updateLoc as any) || null,
+        _new_location: updateLoc === "none" || !updateLoc ? null : (updateLoc as any),
       });
       if (error) throw error;
       const row = (data as any[])?.[0] as ScanResult | undefined;
@@ -167,7 +167,7 @@ export default function ScanBarcode() {
               <Select value={updateLoc} onValueChange={setUpdateLoc}>
                 <SelectTrigger><SelectValue placeholder="Keep current" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Keep current</SelectItem>
+                  <SelectItem value="none">Keep current</SelectItem>
                   {LOCATIONS.map((l) => (
                     <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
                   ))}

@@ -52,6 +52,9 @@ export default function ShipmentAnalytics() {
           id,
           tracking_number,
           destination,
+          origin,
+          carrier,
+          eta_date,
           status,
           created_at,
           sales_orders (
@@ -59,7 +62,8 @@ export default function ShipmentAnalytics() {
               name
             )
           )
-        `);
+        `)
+        .order('created_at', { ascending: false });
       
       if (error) throw error;
       return data;
@@ -75,11 +79,13 @@ export default function ShipmentAnalytics() {
         id: s.tracking_number || s.id.substring(0, 8),
         dbId: s.id,
         customer: s.sales_orders?.customers?.name || 'Unknown',
-        origin: 'Global HQ', // Mock origin since we don't track it yet
-        destination: s.destination,
-        carrier: 'Maersk Line', // Mock carrier
+        origin: s.origin || 'Mumbai, IN',
+        destination: s.destination || '—',
+        carrier: s.carrier || 'Maersk',
         status: s.status,
-        eta: new Date(new Date(s.created_at).getTime() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString() // Mock ETA as 14 days after creation
+        eta: s.eta_date
+          ? new Date(s.eta_date).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: '2-digit' })
+          : new Date(new Date(s.created_at).getTime() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: '2-digit' })
       }))
     : mockShipments;
 
@@ -143,10 +149,12 @@ export default function ShipmentAnalytics() {
                   <SelectValue placeholder="Select a status" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="Pending">Pending</SelectItem>
                   <SelectItem value="Processing">Processing</SelectItem>
                   <SelectItem value="Shipped">Shipped</SelectItem>
                   <SelectItem value="In Transit">In Transit</SelectItem>
                   <SelectItem value="Delayed">Delayed</SelectItem>
+                  <SelectItem value="Customs Hold">Customs Hold</SelectItem>
                   <SelectItem value="Delivered">Delivered</SelectItem>
                 </SelectContent>
               </Select>

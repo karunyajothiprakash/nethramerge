@@ -22,6 +22,7 @@ type AuthCtx = {
   permissions: Set<string>;
   roleSlugs: Set<string>;
   loading: boolean;
+  onlineUsers: string[];
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -34,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [permissions, setPermissions] = useState<Set<string>>(new Set());
   const [roleSlugs, setRoleSlugs] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
 
   const loadUserData = async (userId: string) => {
     const { data: prof } = await supabase
@@ -63,11 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let userId: string | null = null;
     let profileSub: ReturnType<typeof supabase.channel> | null = null;
     let rolesSub: ReturnType<typeof supabase.channel> | null = null;
+    let presenceChannel: ReturnType<typeof supabase.channel> | null = null;
 
     const subscribeRealtime = (uid: string) => {
       // Unsubscribe from any previous channels
       profileSub?.unsubscribe();
       rolesSub?.unsubscribe();
+      presenceChannel?.unsubscribe();
 
       // Listen to changes on this user's profile row
       profileSub = supabase
@@ -88,6 +92,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           () => loadUserData(uid)
         )
         .subscribe();
+
+      // Realtime Presence for Online Status
+      presenceChannel = supabase.channel('online-users', {
+        config: { presence: { key: uid } }
+      });
+      
+      presenceChannel
+        .on('presence', { event: 'sync' }, () => {
+          const state = presenceChannel!.presenceState();
+          setOnlineUsers(Object.keys(state));
+        })
+        .subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            await presenceChannel!.track({ online_at: new Date().toISOString() });
+          }
+        });
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_evt, sess) => {
@@ -100,9 +120,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userId = null;
         profileSub?.unsubscribe();
         rolesSub?.unsubscribe();
+        presenceChannel?.unsubscribe();
         setProfile(null);
         setPermissions(new Set());
         setRoleSlugs(new Set());
+        setOnlineUsers([]);
       }
     });
 
@@ -121,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
       profileSub?.unsubscribe();
       rolesSub?.unsubscribe();
+      presenceChannel?.unsubscribe();
     };
   }, []);
 
@@ -133,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ session, user: session?.user ?? null, profile, permissions, roleSlugs, loading, signOut, refresh }}>
+    <Ctx.Provider value={{ session, user: session?.user ?? null, profile, permissions, roleSlugs, loading, onlineUsers, signOut, refresh }}>
       {children}
     </Ctx.Provider>
   );

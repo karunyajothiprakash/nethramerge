@@ -26,6 +26,13 @@ export default function Settings() {
   const [soPrefix, setSoPrefix] = useState("SO-");
   const [shPrefix, setShPrefix] = useState("SH-");
 
+  // Email Integration State
+  const [smtpHost, setSmtpHost] = useState("");
+  const [smtpPort, setSmtpPort] = useState("587");
+  const [smtpUser, setSmtpUser] = useState("");
+  const [smtpPass, setSmtpPass] = useState("");
+  const [fromEmail, setFromEmail] = useState("");
+
   useEffect(() => {
     if (!profile?.company_id) return;
     const fetchCompany = async () => {
@@ -39,6 +46,12 @@ export default function Settings() {
         if (data.quotation_prefix !== undefined) setQtPrefix(data.quotation_prefix || "QT-");
         if (data.order_prefix !== undefined) setSoPrefix(data.order_prefix || "SO-");
         if (data.shipment_prefix !== undefined) setShPrefix(data.shipment_prefix || "SH-");
+
+        // Email Setup
+        if (data.smtp_host) setSmtpHost(data.smtp_host);
+        if (data.smtp_port) setSmtpPort(data.smtp_port);
+        if (data.smtp_user) setSmtpUser(data.smtp_user);
+        if (data.from_email) setFromEmail(data.from_email);
       }
       setLoading(false);
     };
@@ -50,14 +63,23 @@ export default function Settings() {
     setSaving(true);
     
     // Update company table in Supabase
-    const { error } = await supabase.from("companies").update({
+    const updateData: any = {
       name,
       base_currency: currency.toUpperCase(),
       invoice_prefix: invPrefix,
       quotation_prefix: qtPrefix,
       order_prefix: soPrefix,
-      shipment_prefix: shPrefix
-    }).eq("id", profile.company_id);
+      shipment_prefix: shPrefix,
+      smtp_host: smtpHost,
+      smtp_port: smtpPort,
+      smtp_user: smtpUser,
+      from_email: fromEmail
+    };
+    if (smtpPass) {
+      updateData.smtp_pass = smtpPass;
+    }
+
+    const { error } = await supabase.from("companies").update(updateData).eq("id", profile.company_id);
     
     setSaving(false);
     if (error) {
@@ -107,6 +129,16 @@ export default function Settings() {
             <FormRow label="Quotation prefix"><Input value={qtPrefix} onChange={e => setQtPrefix(e.target.value)} /></FormRow>
             <FormRow label="Order prefix"><Input value={soPrefix} onChange={e => setSoPrefix(e.target.value)} /></FormRow>
             <FormRow label="Shipment prefix"><Input value={shPrefix} onChange={e => setShPrefix(e.target.value)} /></FormRow>
+          </FormGrid>
+        </Section>
+        
+        <Section title="Email Integration (SMTP)">
+          <FormGrid>
+            <FormRow label="SMTP Host"><Input value={smtpHost} onChange={e => setSmtpHost(e.target.value)} placeholder="smtp.gmail.com" /></FormRow>
+            <FormRow label="SMTP Port"><Input value={smtpPort} onChange={e => setSmtpPort(e.target.value)} placeholder="587" /></FormRow>
+            <FormRow label="SMTP Username"><Input value={smtpUser} onChange={e => setSmtpUser(e.target.value)} placeholder="user@company.com" /></FormRow>
+            <FormRow label="SMTP Password"><Input type="password" value={smtpPass} onChange={e => setSmtpPass(e.target.value)} placeholder="••••••••" /></FormRow>
+            <FormRow label="From Email Address"><Input value={fromEmail} onChange={e => setFromEmail(e.target.value)} placeholder="noreply@company.com" /></FormRow>
           </FormGrid>
         </Section>
       </div>
