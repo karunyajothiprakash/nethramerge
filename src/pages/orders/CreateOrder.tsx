@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,26 +9,48 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
-
-const PRODUCTS = [
-  "Nendran Banana",
-  "Yellow Cucumber",
-  "White Pumpkin",
-  "Watermelon",
-  "Black Diamond Watermelon",
-  "Tomato",
-  "Semi-Husked Coconut"
-];
+import { useAuth } from "@/hooks/useAuth";
 
 export default function CreateOrder() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [productsList, setProductsList] = useState<{id: string, name: string}[]>([]);
+  const [leadsList, setLeadsList] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (!profile?.company_id) return;
+      
+      const [productsRes, leadsRes] = await Promise.all([
+        supabase.from('products').select('id, name').eq('company_id', profile.company_id).order('name'),
+        supabase.from('leads').select('id, company_name, contact_name, country, interested_product').eq('stage', 'won').order('company_name')
+      ]);
+      
+      if (productsRes.data) setProductsList(productsRes.data);
+      if (leadsRes.data) setLeadsList(leadsRes.data);
+    };
+    loadData();
+  }, [profile?.company_id]);
 
   // Form State
+  const [selectedLeadId, setSelectedLeadId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerCountry, setCustomerCountry] = useState("");
   const [product, setProduct] = useState("");
+  
+  // Update fields when a lead is selected
+  useEffect(() => {
+    if (!selectedLeadId) return;
+    const lead = leadsList.find(l => l.id === selectedLeadId);
+    if (lead) {
+      setCustomerName(lead.company_name || lead.contact_name);
+      setCustomerCountry(lead.country || "");
+      if (lead.interested_product && !product) setProduct(lead.interested_product);
+    }
+  }, [selectedLeadId, leadsList]);
+
   const [quantity, setQuantity] = useState<number | "">("");
   const [unit, setUnit] = useState("kg");
   const [unitPrice, setUnitPrice] = useState<number | "">("");
@@ -104,6 +126,17 @@ export default function CreateOrder() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
+              <Label>Select CRM Customer</Label>
+              <Select value={selectedLeadId} onValueChange={setSelectedLeadId}>
+                <SelectTrigger><SelectValue placeholder="Select a converted lead (Optional)" /></SelectTrigger>
+                <SelectContent>
+                  {leadsList.map(l => (
+                    <SelectItem key={l.id} value={l.id}>{l.company_name || l.contact_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>Customer Name *</Label>
               <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Company or Individual Name" />
             </div>
@@ -134,7 +167,7 @@ export default function CreateOrder() {
               <Select value={product} onValueChange={setProduct}>
                 <SelectTrigger><SelectValue placeholder="Select Product" /></SelectTrigger>
                 <SelectContent>
-                  {PRODUCTS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  {productsList.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

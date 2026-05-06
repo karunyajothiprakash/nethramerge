@@ -1,5 +1,5 @@
 -- =========================================================
--- Approval workflow, role-locking, shared default tenant
+-- Approval , role-locking, shared default tenant
 -- =========================================================
 
 -- 1. Status enum

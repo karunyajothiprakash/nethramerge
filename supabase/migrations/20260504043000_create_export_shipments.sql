@@ -37,5 +37,8 @@ CREATE TABLE IF NOT EXISTS public.export_containers (
 ALTER TABLE public.export_shipments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.export_containers ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow all operations on export_shipments" ON public.export_shipments;
 CREATE POLICY "Allow all operations on export_shipments" ON public.export_shipments FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all operations on export_containers" ON public.export_containers;
 CREATE POLICY "Allow all operations on export_containers" ON public.export_containers FOR ALL USING (true) WITH CHECK (true);
