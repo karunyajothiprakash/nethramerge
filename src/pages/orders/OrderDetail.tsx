@@ -138,9 +138,16 @@ export default function OrderDetail() {
               </div>
             </div>
 
+            {order.payment_terms && (
+              <div className="pt-4 border-t">
+                <h3 className="font-medium mb-2 text-primary flex items-center gap-2"><DollarSign className="h-4 w-4" /> Terms of Payment</h3>
+                <p className="text-sm bg-muted p-3 rounded-md whitespace-pre-wrap">{order.payment_terms}</p>
+              </div>
+            )}
+
             {order.notes && (
               <div className="pt-4 border-t">
-                <h3 className="font-medium mb-2">Notes</h3>
+                <h3 className="font-medium mb-2 flex items-center gap-2"><Edit3 className="h-4 w-4 text-muted-foreground" /> Internal Notes</h3>
                 <p className="text-sm bg-muted p-3 rounded-md">{order.notes}</p>
               </div>
             )}

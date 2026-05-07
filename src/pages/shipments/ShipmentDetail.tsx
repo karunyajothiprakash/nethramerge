@@ -104,11 +104,9 @@ export default function ShipmentDetail() {
     <div>
       <PageHeader title={shipment.shipment_number} description={`${shipment.customer_name} · ${shipment.carrier}`} breadcrumbs={[{ label: "Shipments", to: "/shipments" }, { label: shipment.shipment_number }]}
         actions={<div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowInvoice(true)}><FileText className="h-4 w-4 mr-1.5 text-primary" />Generate PI</Button>
+          <Button variant="outline" size="sm" onClick={() => nav(`/documents/invoices/${id}`)}><FileText className="h-4 w-4 mr-1.5 text-primary" />Generate PI</Button>
           <Button variant="outline" size="sm" onClick={() => nav(-1)}><ArrowLeft className="h-4 w-4 mr-1.5" />Back</Button>
         </div>} />
-      
-      {showInvoice && <ProformaInvoice shipment={shipment} onClose={() => setShowInvoice(false)} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
@@ -191,10 +189,17 @@ export default function ShipmentDetail() {
 
           <Section title="Linked Order">
             <dl className="space-y-2 text-sm">
-              <div className="flex justify-between"><dt className="text-muted-foreground">Order Ref</dt><dd className="font-mono">{shipment.export_orders?.order_number}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">Product</dt><dd>{shipment.export_orders?.product}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">Carrier</dt><dd>{shipment.carrier}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">Total Qty</dt><dd>{shipment.export_orders?.quantity} {shipment.export_orders?.unit}</dd></div>
+              {(() => {
+                const order = Array.isArray(shipment.export_orders) ? shipment.export_orders[0] : shipment.export_orders;
+                return (
+                  <>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Order Ref</dt><dd className="font-mono">{order?.order_number || 'N/A'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Product</dt><dd>{order?.product || 'N/A'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Carrier</dt><dd>{shipment.carrier}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">Total Qty</dt><dd>{order?.quantity || 0} {order?.unit || ''}</dd></div>
+                  </>
+                );
+              })()}
             </dl>
           </Section>
         </div>

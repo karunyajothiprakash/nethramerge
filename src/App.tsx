@@ -17,6 +17,7 @@ import CompleteProfile from "./pages/CompleteProfile";
 import WaitingApproval from "./pages/WaitingApproval";
 import Pending from "./pages/Pending";
 import Approvals from "./pages/Approvals";
+import InvoicePreview from "./pages/documents/InvoicePreview";
 // (Quotations Approvals is imported below as QuotationApprovals to avoid name clash)
 
 // Dashboards
@@ -84,6 +85,7 @@ import PackingLists from "./pages/documents/PackingLists";
 import Certificates from "./pages/documents/Certificates";
 import BillsOfLading from "./pages/documents/BillsOfLading";
 import DocumentViewer from "./pages/documents/DocumentViewer";
+import InvoiceReport from "./pages/documents/InvoiceReport";
 
 // Payments
 import PaymentsRegister from "./pages/payments/PaymentsRegister";
@@ -118,6 +120,7 @@ const App = () => (
             <Route path="/pending" element={<Pending />} />
             <Route path="/complete-profile" element={<CompleteProfile />} />
             <Route path="/waiting-approval" element={<WaitingApproval />} />
+            <Route path="/invoices/:id/preview" element={<InvoicePreview />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/dashboard" element={<Navigate to="/dashboards/executive" replace />} />
               <Route path="/approvals" element={<Approvals />} />
@@ -194,6 +197,7 @@ const App = () => (
               <Route path="/documents/certificates" element={<Certificates />} />
               <Route path="/documents/bills-of-lading" element={<BillsOfLading />} />
               <Route path="/documents/viewer" element={<DocumentViewer />} />
+              <Route path="/documents/invoices/:id" element={<InvoiceReport />} />
 
               {/* Payments */}
               <Route path="/payments" element={<PaymentsRegister />} />

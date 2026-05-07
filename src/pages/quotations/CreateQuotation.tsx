@@ -1,58 +1,194 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Save, Trash2, Eye } from "lucide-react";
+import { ArrowLeft, Plus, Save, Trash2, Eye, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Section, FormGrid, FormRow } from "@/components/shared/FormShell";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
-type Item = { id: number; product: string; qty: number; price: number };
+type Item = { id: string; product_id: string; product_name: string; qty: number; price: number };
 
 export default function CreateQuotation() {
   const nav = useNavigate();
+  const { profile } = useAuth();
+  const [saving, setSaving] = useState(false);
+  const [leadsList, setLeadsList] = useState<any[]>([]);
+  const [productsList, setProductsList] = useState<any[]>([]);
+
+  // Form State
+  const [selectedLeadId, setSelectedLeadId] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [validUntil, setValidUntil] = useState("");
+  const [incoterm, setIncoterm] = useState("CIF");
+  const [paymentTerms, setPaymentTerms] = useState("90 % of the invoice value to be paid in advance, and the remaining 10 % of the invoice value to be paid after the loading of goods.\n\nNote : Including packing, loading and Transport.");
+  
   const [items, setItems] = useState<Item[]>([
-    { id: 1, product: "", qty: 1, price: 0 },
+    { id: Date.now().toString(), product_id: "", product_name: "", qty: 1, price: 0 },
   ]);
 
-  const addItem = () => setItems((s) => [...s, { id: Date.now(), product: "", qty: 1, price: 0 }]);
-  const removeItem = (id: number) => setItems((s) => s.filter((i) => i.id !== id));
-  const updateItem = (id: number, patch: Partial<Item>) => setItems((s) => s.map((i) => (i.id === id ? { ...i, ...patch } : i)));
-  const subtotal = items.reduce((s, i) => s + i.qty * i.price, 0);
-  const tax = subtotal * 0.18;
-  const total = subtotal + tax;
+  useEffect(() => {
+    const loadData = async () => {
+      if (!profile?.company_id) return;
+      const [leadsRes, productsRes] = await Promise.all([
+        supabase.from('leads').select('*').eq('company_id', profile.company_id),
+        supabase.from('products').select('*').eq('company_id', profile.company_id)
+      ]);
+      if (leadsRes.data) setLeadsList(leadsRes.data);
+      if (productsRes.data) setProductsList(productsRes.data);
+    };
+    loadData();
+  }, [profile?.company_id]);
+
+  useEffect(() => {
+    if (!selectedLeadId) return;
+    const lead = leadsList.find(l => l.id === selectedLeadId);
+    if (lead) {
+      setCustomerName(lead.company_name || lead.contact_name);
+    }
+  }, [selectedLeadId, leadsList]);
+
+  const addItem = () => setItems((s) => [...s, { id: Date.now().toString(), product_id: "", product_name: "", qty: 1, price: 0 }]);
+  const removeItem = (id: string) => setItems((s) => s.filter((i) => i.id !== id));
+  const updateItem = (id: string, patch: Partial<Item>) => setItems((s) => s.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+  
+  const subtotal = items.reduce((s, i) => s + (Number(i.qty) * Number(i.price)), 0);
+
+  const handleSave = async () => {
+    if (!customerName || items.length === 0 || !items[0].product_name) {
+      return toast.error("Please provide a customer name and at least one product.");
+    }
+
+    setSaving(true);
+    try {
+      // 1. Create Customer record if needed
+      let customerId = null;
+      const { data: custData, error: custErr } = await supabase
+        .from('customers')
+        .insert({ company_id: profile!.company_id, name: customerName })
+        .select('id').single();
+      
+      if (!custErr && custData) customerId = custData.id;
+
+      // 2. Create Quotation
+      const year = new Date().getFullYear();
+      const rand = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const quoteNumber = `QT-${year}-${rand}`;
+
+      const { data: quoteData, error: quoteErr } = await supabase
+        .from('quotations')
+        .insert({
+          company_id: profile!.company_id,
+          customer_id: customerId,
+          quotation_number: quoteNumber,
+          amount: subtotal,
+          currency,
+          status: 'Draft',
+          items_count: items.length,
+          valid_until: validUntil || null,
+          payment_terms: paymentTerms
+        })
+        .select('id').single();
+
+      if (quoteErr) throw quoteErr;
+
+      // 3. Create Quotation Items
+      const insertItems = items.filter(i => i.product_name).map(i => ({
+        quotation_id: quoteData.id,
+        // Since we allow custom text for product_name, we check if it matches a known product id
+        product_id: i.product_id || null, 
+        quantity: Number(i.qty),
+        unit_price: Number(i.price),
+        total_price: Number(i.qty) * Number(i.price)
+      }));
+
+      if (insertItems.length > 0) {
+        const { error: itemsErr } = await supabase.from('quotation_items').insert(insertItems);
+        if (itemsErr) throw itemsErr;
+      }
+
+      toast.success("Quotation created successfully!");
+      nav("/quotations");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to create quotation");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div>
       <PageHeader title="Create Quotation" breadcrumbs={[{ label: "Quotations", to: "/quotations" }, { label: "New" }]}
         actions={<>
           <Button variant="outline" size="sm" onClick={() => nav(-1)}><ArrowLeft className="h-4 w-4 mr-1.5" />Cancel</Button>
-          <Button variant="outline" size="sm"><Eye className="h-4 w-4 mr-1.5" />Preview</Button>
-          <Button size="sm" onClick={() => { toast.success("Quotation saved"); nav("/quotations"); }}><Save className="h-4 w-4 mr-1.5" />Save</Button>
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+            Save
+          </Button>
         </>}
       />
       <div className="space-y-4">
         <Section title="Customer & Terms">
           <FormGrid cols={3}>
-            <FormRow label="Customer" required>
-              <Select><SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
-                <SelectContent><SelectItem value="mum">Mumbai Textiles Ltd</SelectItem><SelectItem value="ber">Berlin Auto GmbH</SelectItem><SelectItem value="osa">Osaka Electronics</SelectItem></SelectContent>
+            <FormRow label="Select CRM Lead">
+              <Select value={selectedLeadId} onValueChange={setSelectedLeadId}>
+                <SelectTrigger><SelectValue placeholder="Link a lead (optional)" /></SelectTrigger>
+                <SelectContent>
+                  {leadsList.map(l => (
+                    <SelectItem key={l.id} value={l.id}>{l.company_name || l.contact_name}</SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </FormRow>
-            <FormRow label="Currency"><Select defaultValue="usd"><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="usd">USD</SelectItem><SelectItem value="eur">EUR</SelectItem><SelectItem value="inr">INR</SelectItem></SelectContent></Select></FormRow>
-            <FormRow label="Valid until"><Input type="date" /></FormRow>
-            <FormRow label="Incoterm"><Select><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent><SelectItem value="fob">FOB</SelectItem><SelectItem value="cif">CIF</SelectItem><SelectItem value="exw">EXW</SelectItem></SelectContent></Select></FormRow>
-            <FormRow label="Payment terms"><Select><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent><SelectItem value="net30">Net 30</SelectItem><SelectItem value="net60">Net 60</SelectItem><SelectItem value="lc">LC at sight</SelectItem></SelectContent></Select></FormRow>
-            <FormRow label="Reference"><Input placeholder="Customer PO #" /></FormRow>
+            <FormRow label="Customer Name *" required>
+              <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Company or contact name" />
+            </FormRow>
+            <FormRow label="Currency">
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USD">USD</SelectItem>
+                  <SelectItem value="EUR">EUR</SelectItem>
+                  <SelectItem value="INR">INR</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormRow>
+            <FormRow label="Valid until">
+              <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} />
+            </FormRow>
+            <FormRow label="Incoterm">
+              <Select value={incoterm} onValueChange={setIncoterm}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FOB">FOB</SelectItem>
+                  <SelectItem value="CIF">CIF</SelectItem>
+                  <SelectItem value="EXW">EXW</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormRow>
           </FormGrid>
+          <div className="mt-4">
+            <FormRow label="Terms of Payment">
+              <textarea 
+                className="w-full min-h-[100px] p-3 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={paymentTerms} 
+                onChange={e => setPaymentTerms(e.target.value)} 
+                placeholder="Enter payment terms..."
+              />
+            </FormRow>
+          </div>
         </Section>
 
         <Section title="Line Items" actions={<Button variant="outline" size="sm" onClick={addItem}><Plus className="h-3.5 w-3.5 mr-1" />Add Item</Button>}>
           <div className="overflow-x-auto -mx-5">
             <table className="w-full text-sm">
               <thead><tr className="border-b border-border">
-                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-2">Product</th>
+                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-2">Product Name</th>
                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-2 w-24">Qty</th>
                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-2 w-32">Unit Price</th>
                 <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-2 w-32">Total</th>
@@ -61,11 +197,21 @@ export default function CreateQuotation() {
               <tbody>
                 {items.map((i) => (
                   <tr key={i.id} className="border-b last:border-0 border-border">
-                    <td className="px-5 py-2"><Input value={i.product} onChange={(e) => updateItem(i.id, { product: e.target.value })} placeholder="Product or SKU" /></td>
-                    <td className="px-3 py-2"><Input type="number" value={i.qty} onChange={(e) => updateItem(i.id, { qty: +e.target.value || 0 })} /></td>
-                    <td className="px-3 py-2"><Input type="number" value={i.price} onChange={(e) => updateItem(i.id, { price: +e.target.value || 0 })} /></td>
+                    <td className="px-5 py-2">
+                      <Input 
+                        value={i.product_name} 
+                        onChange={(e) => updateItem(i.id, { product_name: e.target.value })} 
+                        placeholder="Type product name..." 
+                        list={`products-list-${i.id}`}
+                      />
+                      <datalist id={`products-list-${i.id}`}>
+                        {productsList.map(p => <option key={p.id} value={p.name} />)}
+                      </datalist>
+                    </td>
+                    <td className="px-3 py-2"><Input type="number" min="1" value={i.qty} onChange={(e) => updateItem(i.id, { qty: Number(e.target.value) || 0 })} /></td>
+                    <td className="px-3 py-2"><Input type="number" min="0" value={i.price} onChange={(e) => updateItem(i.id, { price: Number(e.target.value) || 0 })} /></td>
                     <td className="px-3 py-2 text-right tabular-nums font-medium">{(i.qty * i.price).toLocaleString()}</td>
-                    <td className="px-3 py-2"><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeItem(i.id)}><Trash2 className="h-3.5 w-3.5" /></Button></td>
+                    <td className="px-3 py-2"><Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => removeItem(i.id)}><Trash2 className="h-3.5 w-3.5" /></Button></td>
                   </tr>
                 ))}
               </tbody>
@@ -73,9 +219,7 @@ export default function CreateQuotation() {
           </div>
           <div className="mt-4 flex justify-end">
             <div className="w-64 space-y-1.5 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums">${subtotal.toLocaleString()}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Tax (18%)</span><span className="tabular-nums">${tax.toLocaleString()}</span></div>
-              <div className="flex justify-between pt-2 border-t border-border font-semibold"><span>Total</span><span className="tabular-nums">${total.toLocaleString()}</span></div>
+              <div className="flex justify-between pt-2 border-t border-border font-semibold"><span>Total Amount</span><span className="tabular-nums">{currency === 'USD' ? '$' : currency} {subtotal.toLocaleString()}</span></div>
             </div>
           </div>
         </Section>

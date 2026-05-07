@@ -19,6 +19,8 @@ export default function Settings() {
   const [currency, setCurrency] = useState("inr");
   const [taxId, setTaxId] = useState("");
   const [timezone, setTimezone] = useState("ist");
+  const [signatureUrl, setSignatureUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   // Document Numbering State
   const [invPrefix, setInvPrefix] = useState("INV-");
@@ -40,6 +42,7 @@ export default function Settings() {
       if (!error && data) {
         setName(data.name || "Shastika Global Impex Pvt Ltd");
         setCurrency(data.base_currency?.toLowerCase() || "inr");
+        setSignatureUrl(data.signature_url || "");
         
         // Document Numbering Setup
         if (data.invoice_prefix !== undefined) setInvPrefix(data.invoice_prefix || "INV-");
@@ -58,6 +61,35 @@ export default function Settings() {
     fetchCompany();
   }, [profile?.company_id]);
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile?.company_id) return;
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `signature-${profile.company_id}-${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('logos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('logos')
+        .getPublicUrl(filePath);
+
+      setSignatureUrl(publicUrl);
+      toast.success("Signature uploaded successfully!");
+    } catch (err: any) {
+      toast.error("Upload failed: " + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!profile?.company_id) return;
     setSaving(true);
@@ -66,6 +98,7 @@ export default function Settings() {
     const updateData: any = {
       name,
       base_currency: currency.toUpperCase(),
+      signature_url: signatureUrl,
       invoice_prefix: invPrefix,
       quotation_prefix: qtPrefix,
       order_prefix: soPrefix,
@@ -120,6 +153,20 @@ export default function Settings() {
                   <SelectItem value="utc">UTC</SelectItem>
                 </SelectContent>
               </Select>
+            </FormRow>
+            <FormRow label="Digital Seal & Sign">
+              <div className="flex flex-col gap-3">
+                {signatureUrl && (
+                  <div className="border rounded-md p-2 bg-white max-w-[200px]">
+                    <img src={signatureUrl} alt="Signature" className="w-full h-auto object-contain max-h-24" />
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Input type="file" accept="image/*" onChange={handleFileUpload} disabled={uploading} className="max-w-xs" />
+                  {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
+                </div>
+                <p className="text-xs text-muted-foreground">Upload your company seal and signature (PNG/JPG). It will appear on all PDFs.</p>
+              </div>
             </FormRow>
           </FormGrid>
         </Section>

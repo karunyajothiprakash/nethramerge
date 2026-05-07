@@ -60,6 +60,7 @@ export default function CreateOrder() {
   const [hsnCode, setHsnCode] = useState("");
   const [incoterms, setIncoterms] = useState("CIF");
   const [packingDetails, setPackingDetails] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState("90 % of the invoice value to be paid in advance, and the remaining 10 % of the invoice value to be paid after the loading of goods.\n\nNote : Including packing, loading and Transport.");
   const [notes, setNotes] = useState("");
 
   const totalAmount = (Number(quantity) || 0) * (Number(unitPrice) || 0);
@@ -96,6 +97,7 @@ export default function CreateOrder() {
         hsn_code: hsnCode,
         incoterms: incoterms,
         packing_details: packingDetails,
+        payment_terms: paymentTerms,
         notes,
         created_by: userId,
         status: 'pending',
@@ -252,8 +254,12 @@ export default function CreateOrder() {
               <Input value={packingDetails} onChange={e => setPackingDetails(e.target.value)} placeholder="e.g. 13 Kg per box" />
             </div>
             <div className="space-y-2 md:col-span-2">
+              <Label>Terms of Payment</Label>
+              <Textarea value={paymentTerms} onChange={e => setPaymentTerms(e.target.value)} placeholder="e.g. 90% advance..." className="h-20" />
+            </div>
+            <div className="space-y-2 md:col-span-2">
               <Label>Notes</Label>
-              <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Terms, logistics details..." />
+              <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Internal notes, etc..." className="h-20" />
             </div>
           </CardContent>
           <CardFooter className="justify-end border-t p-4 mt-2">
