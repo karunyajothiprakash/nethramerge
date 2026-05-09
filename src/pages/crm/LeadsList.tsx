@@ -63,6 +63,7 @@ export default function LeadsList() {
           id, company_name, contact_name, country, interested_product, stage, assigned_to,
           profiles:assigned_to (full_name)
         `)
+        .eq('company_id', (await supabase.from('profiles').select('company_id').eq('id', (await supabase.auth.getSession()).data.session?.user?.id).single()).data?.company_id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -117,6 +118,7 @@ export default function LeadsList() {
         stage: "new",
         assigned_to: assignedTo || userId,
         created_by: userId,
+        company_id: (await supabase.from('profiles').select('company_id').eq('id', userId).single()).data?.company_id
       });
 
       if (error) throw error;

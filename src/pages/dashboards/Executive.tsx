@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/shared/StatCard";
 import { Section } from "@/components/shared/FormShell";
-import { DollarSign, Package, Ship, TrendingUp, Users, AlertCircle } from "lucide-react";
+import { DollarSign, Package, Ship, TrendingUp, Users, AlertCircle, Bell } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
@@ -140,65 +140,95 @@ export default function ExecutiveDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-fade-in" style={{ animationDelay: '200ms', animationFillMode: 'both' }}>
         <Section title="Revenue Trend" description="Last 6 months" className="lg:col-span-2">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartSales}>
-                <defs>
-                  <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => `$${v/1000}k`} />
-                <Tooltip contentStyle={{ background: "rgba(20,20,20,0.6)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12, color: "#fff", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }} itemStyle={{ color: "#fff" }} />
-                <Area type="monotone" dataKey="revenue" stroke="hsl(var(--chart-1))" fill="url(#rev)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="h-64 flex items-center justify-center">
+            {chartSales.length === 0 ? (
+              <div className="text-center">
+                <TrendingUp className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-20" />
+                <p className="text-xs text-muted-foreground italic">No revenue data available</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartSales}>
+                  <defs>
+                    <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => `$${v/1000}k`} />
+                  <Tooltip contentStyle={{ background: "rgba(20,20,20,0.6)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12, color: "#fff", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }} itemStyle={{ color: "#fff" }} />
+                  <Area type="monotone" dataKey="revenue" stroke="hsl(var(--chart-1))" fill="url(#rev)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Section>
         <Section title="Shipment Status" description="Current breakdown">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={chartShipments} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2}>
-                  {chartShipments.map((e: any, i: number) => <Cell key={i} fill={e.color || `hsl(var(--chart-${(i % 5) + 1}))`} />)}
-                </Pie>
-                <Tooltip contentStyle={{ background: "rgba(20,20,20,0.6)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12, color: "#fff", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }} itemStyle={{ color: "#fff" }} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="h-64 flex items-center justify-center">
+            {chartShipments.length === 0 ? (
+              <div className="text-center">
+                <Ship className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-20" />
+                <p className="text-xs text-muted-foreground italic">No shipment data</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={chartShipments} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2}>
+                    {chartShipments.map((e: any, i: number) => <Cell key={i} fill={e.color || `hsl(var(--chart-${(i % 5) + 1}))`} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: "rgba(20,20,20,0.6)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12, color: "#fff", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }} itemStyle={{ color: "#fff" }} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Section>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-fade-in" style={{ animationDelay: '300ms', animationFillMode: 'both' }}>
         <Section title="Revenue by Country" className="lg:col-span-2">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartCountries}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="country" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => `$${v/1000}k`} />
-                <Tooltip contentStyle={{ background: "rgba(20,20,20,0.6)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12, color: "#fff", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }} itemStyle={{ color: "#fff" }} />
-                <Bar dataKey="revenue" fill="hsl(var(--chart-1))" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-64 flex items-center justify-center">
+            {chartCountries.length === 0 ? (
+              <div className="text-center">
+                <Users className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-20" />
+                <p className="text-xs text-muted-foreground italic">No country-wise data</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartCountries}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="country" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => `$${v/1000}k`} />
+                  <Tooltip contentStyle={{ background: "rgba(20,20,20,0.6)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12, color: "#fff", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }} itemStyle={{ color: "#fff" }} />
+                  <Bar dataKey="revenue" fill="hsl(var(--chart-1))" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Section>
         <Section title="Recent Alerts">
           <div className="space-y-3">
-            {displayNotifications.slice(0, 4).map((n: any) => (
-              <div key={n.id} className="flex items-start gap-3 text-sm">
-                <div className="h-2 w-2 rounded-full bg-primary mt-1.5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-xs">{n.title}</div>
-                  <div className="text-xs text-muted-foreground truncate">{n.body}</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">{n.time}</div>
-                </div>
+            {displayNotifications.length === 0 ? (
+              <div className="py-6 text-center text-xs text-muted-foreground italic">
+                <Bell className="h-8 w-8 mx-auto mb-2 opacity-10" />
+                No recent alerts
               </div>
-            ))}
+            ) : (
+              displayNotifications.slice(0, 4).map((n: any) => (
+                <div key={n.id} className="flex items-start gap-3 text-sm">
+                  <div className="h-2 w-2 rounded-full bg-primary mt-1.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-xs">{n.title}</div>
+                    <div className="text-xs text-muted-foreground truncate">{n.body}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                      {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </Section>
       </div>

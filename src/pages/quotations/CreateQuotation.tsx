@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Save, Trash2, Eye, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Save, Trash2, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Section, FormGrid, FormRow } from "@/components/shared/FormShell";
-import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 type Item = { id: string; product_id: string; product_name: string; qty: number; price: number };
 
@@ -140,7 +140,8 @@ export default function CreateQuotation() {
           status: 'Draft',
           items_count: items.length,
           valid_until: validUntil || null,
-          payment_terms: paymentTerms
+          payment_terms: paymentTerms,
+          lead_id: selectedLeadId || null
         })
         .select('id').single();
 
@@ -149,7 +150,6 @@ export default function CreateQuotation() {
       // 3. Create Quotation Items
       const insertItems = items.filter(i => i.product_name).map(i => ({
         quotation_id: quoteData.id,
-        // Since we allow custom text for product_name, we check if it matches a known product id
         product_id: i.product_id || null, 
         quantity: Number(i.qty),
         unit_price: Number(i.price),
@@ -159,6 +159,10 @@ export default function CreateQuotation() {
       if (insertItems.length > 0) {
         const { error: itemsErr } = await supabase.from('quotation_items').insert(insertItems);
         if (itemsErr) throw itemsErr;
+      }
+
+      if (selectedLeadId) {
+        await supabase.from("leads").update({ stage: "negotiation" }).eq("id", selectedLeadId);
       }
 
       toast.success("Quotation created successfully!");
@@ -178,7 +182,7 @@ export default function CreateQuotation() {
           <Button variant="outline" size="sm" onClick={() => nav(-1)}><ArrowLeft className="h-4 w-4 mr-1.5" />Cancel</Button>
           <Button size="sm" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
-            Save
+            Save Quotation
           </Button>
         </>}
       />
@@ -197,6 +201,7 @@ export default function CreateQuotation() {
           </form>
         </DialogContent>
       </Dialog>
+
       <div className="space-y-4">
         <Section title="Customer & Terms">
           <FormGrid cols={3}>
@@ -270,7 +275,7 @@ export default function CreateQuotation() {
           </div>
         </Section>
 
-        <Section title="Line Items" actions={<Button variant="outline" size="sm" onClick={addItem}><Plus className="h-3.5 w-3.5 mr-1" />Add Item</Button>}>
+        <Section title="Line Items" actions={<Button variant="outline" size="sm" onClick={addItem} disabled={saving}><Plus className="h-3.5 w-3.5 mr-1" />Add Item</Button>}>
           <div className="overflow-x-auto -mx-5">
             <table className="w-full text-sm">
               <thead><tr className="border-b border-border">
@@ -297,7 +302,7 @@ export default function CreateQuotation() {
                     <td className="px-3 py-2"><Input type="number" min="1" value={i.qty} onChange={(e) => updateItem(i.id, { qty: Number(e.target.value) || 0 })} /></td>
                     <td className="px-3 py-2"><Input type="number" min="0" value={i.price} onChange={(e) => updateItem(i.id, { price: Number(e.target.value) || 0 })} /></td>
                     <td className="px-3 py-2 text-right tabular-nums font-medium">{(i.qty * i.price).toLocaleString()}</td>
-                    <td className="px-3 py-2"><Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => removeItem(i.id)}><Trash2 className="h-3.5 w-3.5" /></Button></td>
+                    <td className="px-3 py-2"><Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => removeItem(i.id)} disabled={items.length === 1}><Trash2 className="h-3.5 w-3.5" /></Button></td>
                   </tr>
                 ))}
               </tbody>
