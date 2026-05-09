@@ -66,6 +66,7 @@ import CreateQuotation from "./pages/quotations/CreateQuotation";
 import QuotationPreview from "./pages/quotations/QuotationPreview";
 import PublicQuotationView from "./pages/quotations/PublicQuotationView";
 import QuotationApprovals from "./pages/quotations/Approvals";
+import QuotationReport from "./pages/quotations/QuotationReport";
 import ConvertQuotation from "./pages/quotations/Convert";
 
 // Orders
@@ -176,6 +177,7 @@ const App = () => (
               <Route path="/quotations/approvals" element={<QuotationApprovals />} />
               <Route path="/quotations/convert" element={<ConvertQuotation />} />
               <Route path="/quotations/:id" element={<QuotationPreview />} />
+              <Route path="/quotations/:id/report" element={<QuotationReport />} />
 
                 {/* CRM */}
                 <Route path="/crm/activities" element={<LeadActivities />} />

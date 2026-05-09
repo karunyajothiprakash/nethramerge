@@ -3,6 +3,7 @@ import { DataTable } from "@/components/shared/DataTable";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Coins } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const EXCHANGE_RATES: Record<string, number> = {
   "USD": 83.50,
@@ -23,12 +24,15 @@ const CURRENCY_NAMES: Record<string, string> = {
 };
 
 export default function Ledger() {
+  const { profile } = useAuth();
   const { data: ledger, isLoading } = useQuery({
-    queryKey: ["currency_ledger_live"],
+    queryKey: ["currency_ledger_live", profile?.company_id],
     queryFn: async () => {
+      if (!profile?.company_id) return [];
       const { data, error } = await supabase
         .from("payments")
         .select("amount, currency")
+        .eq("company_id", profile.company_id)
         .eq("status", "Completed");
 
       if (error) throw error;

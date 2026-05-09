@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Loader2, Plus, Trash2, Save, Send } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 type POItem = {
   id: string;
@@ -21,6 +22,7 @@ type POItem = {
 
 export default function CreatePOLive() {
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
   const [suppliers, setSuppliers] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -78,41 +80,40 @@ export default function CreatePOLive() {
   };
 
   const handleSave = async (status: 'draft' | 'sent') => {
+    if (!user?.id || !profile?.company_id) {
+      return toast.error("Authentication error. Please refresh and try again.");
+    }
     if (!supplierId) return toast.error("Please select a supplier");
     if (items.some(i => !i.product)) return toast.error("Please fill all product names");
 
     setSaving(true);
     try {
-      // Fetch user's company_id
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('company_id')
-        .eq('id', userId)
-        .single();
-
-      if (profileError || !profile?.company_id) {
-        throw new Error("Could not determine your company ID");
-      }
+      // Generate a unique PO number for this company
+      const poNumber = `PO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      
+      // Clean items for storage
+      const cleanItems = items.map(({ id, ...rest }) => rest);
 
       const { error } = await supabase.from("purchase_orders").insert({
         company_id: profile.company_id,
         po_number: poNumber,
-        farmer_id: supplierId, // Using farmer_id
-        status,
+        farmer_id: supplierId,
+        status: status === 'draft' ? 'draft' : 'approved', // 'sent' maps to 'approved' in po_status enum
         expected_delivery: expectedDate ? new Date(expectedDate).toISOString() : null,
         total: totalAmount,
         currency,
-        items: cleanItems, // Now supported via new migration
+        items: cleanItems,
         notes,
-        created_by: userId
+        created_by: user.id
       });
 
       if (error) throw error;
 
-      toast.success(`Purchase order ${status === 'draft' ? 'saved as draft' : 'sent'} successfully`);
+      toast.success(`Purchase order ${status === 'draft' ? 'saved as draft' : 'issued'} successfully`);
       navigate("/procurement/orders");
     } catch (err: any) {
       toast.error(err.message || "Failed to create purchase order");
+      console.error("Save error:", err);
     } finally {
       setSaving(false);
     }

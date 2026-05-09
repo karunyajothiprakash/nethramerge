@@ -12,9 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function PaymentsRegister() {
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -24,29 +26,34 @@ export default function PaymentsRegister() {
   const [method, setMethod] = useState("Wire Transfer");
   const [ref, setRef] = useState("");
   const [currency, setCurrency] = useState("USD");
+  const [orderId, setOrderId] = useState<string | null>(null);
 
   const { data: allPayments, isLoading } = useQuery({
-    queryKey: ["payments_live"],
+    queryKey: ["payments_live", profile?.company_id],
     queryFn: async () => {
+      if (!profile?.company_id) return [];
+
       // Fetch confirmed payments
       const { data: pData, error: pError } = await supabase
         .from("payments")
-        .select("*, customer:customers(name)")
+        .select("*")
+        .eq("company_id", profile.company_id)
         .order("created_at", { ascending: false });
       
       if (pError) throw pError;
 
-      // Fetch pending sales orders (unpaid)
-      const { data: sData, error: sError } = await supabase
-        .from("sales_orders")
-        .select("*, customer:customers(name)")
-        .eq("status", "Pending");
+      // Fetch pending export orders (unpaid)
+      const { data: eData, error: eError } = await supabase
+        .from("export_orders")
+        .select("*")
+        .eq("company_id", profile.company_id)
+        .eq("payment_status", "unpaid");
 
-      if (sError) throw sError;
+      if (eError) throw eError;
 
       const formattedPayments = (pData || []).map(p => ({
         id: p.payment_number || p.id.split('-')[0].toUpperCase(),
-        party: p.customer?.name || "Unknown",
+        party: p.payer_name || "Unknown",
         ref: p.reference_number || "Direct",
         method: p.method,
         amount: p.amount,
@@ -55,19 +62,35 @@ export default function PaymentsRegister() {
         date: p.received_at ? format(new Date(p.received_at), "yyyy-MM-dd") : "—"
       }));
 
-      const formattedOrders = (sData || []).map(s => ({
-        id: s.order_number,
-        party: s.customer?.name || "Unknown",
-        ref: s.order_number,
+      const formattedOrders = (eData || []).map(e => ({
+        id: e.order_number,
+        party: e.customer_name || "Unknown",
+        ref: e.order_number,
         method: "Pending",
-        amount: s.amount,
-        currency: s.currency,
-        status: "Pending",
-        date: s.created_at ? format(new Date(s.created_at), "yyyy-MM-dd") : "—"
+        amount: e.total_amount,
+        currency: e.currency,
+        status: "Unpaid",
+        date: e.created_at ? format(new Date(e.created_at), "yyyy-MM-dd") : "—"
       }));
 
       return [...formattedPayments, ...formattedOrders];
-    }
+    },
+    enabled: !!profile?.company_id
+  });
+
+  const { data: unpaidOrders = [] } = useQuery({
+    queryKey: ["unpaid_export_orders", profile?.company_id],
+    queryFn: async () => {
+      if (!profile?.company_id) return [];
+      const { data, error } = await supabase
+        .from("export_orders")
+        .select("id, order_number, customer_name, total_amount, currency")
+        .eq("company_id", profile.company_id)
+        .eq("payment_status", "unpaid");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.company_id && isDialogOpen
   });
 
   const handleAddPayment = async () => {
@@ -78,35 +101,57 @@ export default function PaymentsRegister() {
 
     setIsSubmitting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id;
-      const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', userId).single();
-
       const payNum = `PAY-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000)}`;
 
       const { error } = await supabase.from("payments").insert({
         company_id: profile?.company_id,
         payment_number: payNum,
+        payer_name: partyName,
         amount: Number(amount),
         currency,
         method,
         status: 'Completed',
         reference_number: ref,
         received_at: new Date().toISOString(),
-        created_by: userId
+        created_by: profile?.id
       });
 
       if (error) throw error;
 
+      // Update order payment status if linked
+      if (orderId) {
+        await supabase
+          .from("export_orders")
+          .update({ payment_status: 'paid' })
+          .eq("id", orderId);
+      }
+
       toast.success("Payment registered successfully");
       setIsDialogOpen(false);
+      setOrderId(null);
+      setPartyName("");
+      setAmount("");
+      setRef("");
       queryClient.invalidateQueries({ queryKey: ["payments_live"] });
+      queryClient.invalidateQueries({ queryKey: ["export_orders"] });
     } catch (err: any) {
       toast.error(err.message || "Failed to register payment");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const handleOrderSelect = (id: string) => {
+    setOrderId(id);
+    const order = unpaidOrders.find(o => o.id === id);
+    if (order) {
+      setPartyName(order.customer_name);
+      setAmount(order.total_amount.toString());
+      setCurrency(order.currency);
+      setRef(order.order_number);
+    }
+  };
+
   return (
     <div className="p-6">
       <PageHeader 
@@ -120,7 +165,7 @@ export default function PaymentsRegister() {
                 <Plus className="mr-2 h-4 w-4" /> Add Payment
               </Button>
             </DialogTrigger>
-            <DialogContent className="erp-card border-white/10">
+            <DialogContent className="erp-card border-white/10 max-w-lg">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <span className="w-1 h-6 bg-primary rounded-full" />
@@ -128,6 +173,23 @@ export default function PaymentsRegister() {
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Link to Export Order (Optional)</Label>
+                  <Select value={orderId || "none"} onValueChange={(val) => val === "none" ? setOrderId(null) : handleOrderSelect(val)}>
+                    <SelectTrigger className="bg-white/5">
+                      <SelectValue placeholder="Select an unpaid order" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card">
+                      <SelectItem value="none">Manual Entry (No Order)</SelectItem>
+                      {unpaidOrders.map(o => (
+                        <SelectItem key={o.id} value={o.id}>
+                          {o.order_number} — {o.customer_name} ({o.currency} {o.total_amount})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="space-y-2">
                   <Label>Payer Name (Party) *</Label>
                   <Input placeholder="e.g. Osaka Electronics" value={partyName} onChange={(e) => setPartyName(e.target.value)} className="bg-white/5" />
@@ -147,7 +209,7 @@ export default function PaymentsRegister() {
                         <SelectItem value="USD">USD ($)</SelectItem>
                         <SelectItem value="INR">INR (₹)</SelectItem>
                         <SelectItem value="EUR">EUR (€)</SelectItem>
-                        <SelectItem value="GBP">GBP (£)</SelectItem>
+                        <SelectItem value="AED">AED (د.إ)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -168,8 +230,8 @@ export default function PaymentsRegister() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Reference #</Label>
-                    <Input placeholder="INV-2025-..." value={ref} onChange={(e) => setRef(e.target.value)} className="bg-white/5" />
+                    <Label>Reference # / Order #</Label>
+                    <Input placeholder="INV-2026-..." value={ref} onChange={(e) => setRef(e.target.value)} className="bg-white/5" />
                   </div>
                 </div>
               </div>
@@ -194,7 +256,7 @@ export default function PaymentsRegister() {
           <Receipt className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-4" />
           <h3 className="text-lg font-medium">No payments recorded</h3>
           <p className="text-muted-foreground text-sm max-w-xs mx-auto mt-1">
-            There are no live payments or pending orders in your database.
+            There are no live payments or pending export orders in your database.
           </p>
         </div>
       ) : (

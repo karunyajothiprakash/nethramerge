@@ -25,16 +25,19 @@ export default function CreateInspection() {
   const [result, setResult] = useState("approved");
   const [notes, setNotes] = useState("");
 
-  const { data: batches } = useQuery({
-    queryKey: ["batches-pending"],
+  const { data: batches, isLoading: batchesLoading } = useQuery({
+    queryKey: ["batches-pending", profile?.company_id],
     queryFn: async () => {
-      const { data } = await supabase
+      if (!profile?.company_id) return [];
+      const { data, error } = await supabase
         .from("inventory_batches")
         .select("id, lot_number, status, product:products(name)")
-        .in("status", ["pending_qc", "approved"])
+        .eq("company_id", profile.company_id)
         .order("received_date", { ascending: false });
+      if (error) throw error;
       return data || [];
     },
+    enabled: !!profile?.company_id
   });
 
   const submit = async (e: React.FormEvent) => {
@@ -73,13 +76,22 @@ export default function CreateInspection() {
         <Section title="Batch">
           <FormRow label="Inventory batch" required>
             <Select value={batchId} onValueChange={setBatchId}>
-              <SelectTrigger><SelectValue placeholder="Select a batch" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder={batchesLoading ? "Loading batches..." : batches?.length === 0 ? "No batches found" : "Select a batch"} />
+              </SelectTrigger>
               <SelectContent>
-                {batches?.map((b: any) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.lot_number} — {b.product?.name} ({b.status})
-                  </SelectItem>
-                ))}
+                {batches?.length === 0 ? (
+                  <div className="p-3 text-xs text-muted-foreground text-center">
+                    No inventory batches found.<br />
+                    <span className="text-primary">Add batches via Inventory → Inventory Batches first.</span>
+                  </div>
+                ) : (
+                  batches?.map((b: any) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.lot_number} — {b.product?.name || "Unknown"} <span className="text-muted-foreground">({b.status})</span>
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </FormRow>

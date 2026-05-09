@@ -11,16 +11,17 @@ import { format } from "date-fns";
 type PurchaseOrder = {
   id: string;
   po_number: string;
-  supplier_id: string;
+  farmer_id: string;
   status: string;
   order_date: string;
-  total_amount: number;
+  total: number;
   currency: string;
-  suppliers?: { name: string };
+  farmers?: { full_name: string };
 };
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-500 hover:bg-gray-600 text-white",
+  approved: "bg-blue-500 hover:bg-blue-600 text-white",
   sent: "bg-blue-500 hover:bg-blue-600 text-white",
   confirmed: "bg-green-500 hover:bg-green-600 text-white",
   received: "bg-purple-500 hover:bg-purple-600 text-white",
@@ -37,13 +38,14 @@ export default function PurchaseOrdersListLive() {
       try {
         const { data, error } = await supabase
           .from("purchase_orders")
-          .select("id, po_number, supplier_id, status, order_date, total_amount, currency, suppliers(name)")
+          .select("id, po_number, farmer_id, status, order_date, total, currency, farmers(full_name)")
           .order("order_date", { ascending: false });
 
         if (error) throw error;
         setOrders(data as unknown as PurchaseOrder[]);
       } catch (err: any) {
         toast.error(err.message || "Failed to fetch purchase orders");
+        console.error("Fetch error:", err);
       } finally {
         setLoading(false);
       }
@@ -97,7 +99,7 @@ export default function PurchaseOrdersListLive() {
               orders.map((po) => (
                 <TableRow key={po.id}>
                   <TableCell className="font-medium text-primary">{po.po_number}</TableCell>
-                  <TableCell>{po.suppliers?.name || "Unknown Supplier"}</TableCell>
+                  <TableCell>{po.farmers?.full_name || "Unknown Supplier"}</TableCell>
                   <TableCell>{format(new Date(po.order_date), "MMM d, yyyy")}</TableCell>
                   <TableCell>
                     <Badge className={`capitalize ${STATUS_COLORS[po.status] || "bg-gray-500"}`}>
@@ -105,7 +107,7 @@ export default function PurchaseOrdersListLive() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right font-medium">
-                    {po.currency} {Number(po.total_amount)?.toLocaleString()}
+                    {po.currency} {Number(po.total)?.toLocaleString()}
                   </TableCell>
                 </TableRow>
               ))

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Download, Edit, Send, Mail, Loader2, Copy, FileText } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, Edit, Send, Mail, Loader2, Copy, FileText, Printer } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Section } from "@/components/shared/FormShell";
@@ -73,7 +73,7 @@ export default function QuotationPreview() {
         ...q,
         customer_name: q.customer?.name || "Unknown"
       };
-      exportQuotationsToPDF([formatted], true);
+      exportQuotationsToPDF([formatted], false);
       toast.success("PDF file downloaded");
     } catch (err) {
       toast.error("Failed to generate PDF");
@@ -99,6 +99,7 @@ export default function QuotationPreview() {
         actions={<>
           <Button variant="outline" size="sm" onClick={() => nav(-1)}><ArrowLeft className="h-4 w-4 mr-1.5" />Back</Button>
           <Button variant="outline" size="sm" onClick={() => nav(`/quotations/edit/${id}`)}><Edit className="h-4 w-4 mr-1.5" />Edit</Button>
+          <Button variant="outline" size="sm" onClick={() => nav(`/quotations/${id}/report`)} className="bg-[#1A5276]/10 text-[#1A5276] border-[#1A5276]/20"><Printer className="h-4 w-4 mr-1.5" />Print Report</Button>
           <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4 mr-1.5" />PDF</Button>
           <Button variant="outline" size="sm" onClick={handleShare}><Copy className="h-4 w-4 mr-1.5" />Share Link</Button>
           <Button variant="outline" size="sm" onClick={handleEmail}><Mail className="h-4 w-4 mr-1.5" />Email</Button>

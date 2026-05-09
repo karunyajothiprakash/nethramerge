@@ -99,7 +99,7 @@ export default function StockDashboard() {
         quantity_remaining_kg: Number(quantity),
         grade,
         moisture_pct: Number(moisture),
-        status: 'approved',
+        status: 'pending_qc',
         received_date: new Date().toISOString().split('T')[0]
       });
 

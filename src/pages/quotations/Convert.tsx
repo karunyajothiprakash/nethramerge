@@ -52,6 +52,7 @@ export default function ConvertQuotation() {
           currency: quote.currency,
           status: 'Pending',
           payment_terms: quote.payment_terms,
+          payment_status: 'unpaid',
           notes: `Converted from Quotation ${quote.quotation_number}`
         })
         .select('id')

@@ -7,6 +7,7 @@ import { DataTable } from "@/components/shared/DataTable";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 type ExportShipment = {
   id: string;
@@ -21,15 +22,18 @@ type ExportShipment = {
 
 export default function ShipmentsList() {
   const nav = useNavigate();
+  const { profile } = useAuth();
   const [shipments, setShipments] = useState<ExportShipment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchShipments = async () => {
       try {
+        if (!profile?.company_id) return;
         const { data, error } = await supabase
           .from("export_shipments")
           .select("*, export_containers(count)")
+          .eq("company_id", profile.company_id)
           .order("created_at", { ascending: false });
 
         if (error) throw error;

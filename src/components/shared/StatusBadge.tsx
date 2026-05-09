@@ -14,7 +14,7 @@ const toneClasses: Record<Tone, string> = {
 const statusMap: Record<string, Tone> = {
   // Generic
   active: "success", paid: "success", completed: "success", delivered: "success", approved: "success", "in stock": "success",
-  pending: "warning", processing: "warning", "in transit": "warning", "in review": "warning", draft: "muted", warm: "warning",
+  pending: "warning", processing: "warning", "in transit": "warning", "in review": "warning", draft: "muted", warm: "warning", unpaid: "destructive",
   cancelled: "destructive", overdue: "destructive", rejected: "destructive", failed: "destructive", "out of stock": "destructive", lost: "destructive",
   hot: "destructive",
   new: "info", shipped: "info", "low stock": "warning",

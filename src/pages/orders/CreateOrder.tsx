@@ -82,6 +82,7 @@ export default function CreateOrder() {
       const orderNumber = `EXP-${year}-${rand}`;
 
       const { error } = await supabase.from("export_orders").insert({
+        company_id: profile!.company_id,
         order_number: orderNumber,
         customer_name: customerName,
         customer_email: customerEmail,

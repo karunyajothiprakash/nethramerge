@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Plus, Download, Loader2, FileText } from "lucide-react";
+import { Plus, Download, Loader2, FileText, Printer } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/DataTable";
@@ -76,7 +76,7 @@ export default function QuotationsList() {
         customer_name: quotation.customer?.name || "Unknown"
       };
 
-      exportQuotationsToPDF([formatted], true);
+      exportQuotationsToPDF([formatted], false);
       toast.success(`Quotation ${quotation.quotation_number} downloaded`);
     } catch (err) {
       console.error("Error downloading quotation:", err);
@@ -149,19 +149,34 @@ export default function QuotationsList() {
             key: "actions", 
             header: "", 
             render: (r) => (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-primary"
-                onClick={(e) => handleRowDownload(e, r)}
-                disabled={downloadingId === r.id}
-              >
-                {downloadingId === r.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-              </Button>
+              <div className="flex gap-1 justify-end">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-[#1A5276]"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    nav(`/quotations/${r.id}/report`);
+                  }}
+                  title="View Report"
+                >
+                  <Printer className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-primary"
+                  onClick={(e) => handleRowDownload(e, r)}
+                  disabled={downloadingId === r.id}
+                  title="Download PDF"
+                >
+                  {downloadingId === r.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             )
           },
         ]}

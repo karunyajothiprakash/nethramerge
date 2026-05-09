@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Plus, Receipt } from "lucide-react";
+import { Loader2, Plus, Receipt, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { useAuth } from "@/hooks/useAuth";
 
 type ExportOrder = {
   id: string;
@@ -23,32 +23,34 @@ type ExportOrder = {
   order_date: string;
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-yellow-500 hover:bg-yellow-600 text-white",
-  confirmed: "bg-blue-500 hover:bg-blue-600 text-white",
-  processing: "bg-orange-500 hover:bg-orange-600 text-white",
-  shipped: "bg-purple-500 hover:bg-purple-600 text-white",
-  delivered: "bg-green-500 hover:bg-green-600 text-white",
-  cancelled: "bg-red-500 hover:bg-red-600 text-white",
-};
-
-const PAYMENT_COLORS: Record<string, string> = {
-  unpaid: "bg-red-500 hover:bg-red-600 text-white",
-  partial: "bg-yellow-500 hover:bg-yellow-600 text-white",
-  paid: "bg-green-500 hover:bg-green-600 text-white",
-};
-
 export default function OrdersList() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [orders, setOrders] = useState<ExportOrder[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this order?")) return;
+    
+    try {
+      const { error } = await supabase.from("export_orders").delete().eq("id", id);
+      if (error) throw error;
+      setOrders(orders.filter(o => o.id !== id));
+      toast.success("Order deleted successfully");
+    } catch (err: any) {
+      toast.error("Failed to delete order");
+    }
+  };
 
   useEffect(() => {
     const fetchOrders = async () => {
       try {
+        if (!profile?.company_id) return;
         const { data, error } = await supabase
           .from("export_orders")
           .select("*")
+          .eq("company_id", profile.company_id)
           .order("order_date", { ascending: false });
 
         if (error) throw error;
@@ -86,6 +88,7 @@ export default function OrdersList() {
               <TableHead className="text-right">Amount</TableHead>
               <TableHead className="text-center">Status</TableHead>
               <TableHead className="text-center">Payment</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -119,14 +122,20 @@ export default function OrdersList() {
                     {order.currency} {Number(order.total_amount).toLocaleString()}
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge className={`capitalize ${STATUS_COLORS[order.status] || "bg-gray-500"}`}>
-                      {order.status}
-                    </Badge>
+                    <StatusBadge status={order.status} />
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge className={`capitalize ${PAYMENT_COLORS[order.payment_status] || "bg-gray-500"}`}>
-                      {order.payment_status}
-                    </Badge>
+                    <StatusBadge status={order.payment_status} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={(e) => handleDelete(e, order.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))

@@ -10,9 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Section, FormGrid, FormRow } from "@/components/shared/FormShell";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function CreateShipment() {
   const nav = useNavigate();
+  const { profile } = useAuth();
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   
@@ -51,6 +53,7 @@ export default function CreateShipment() {
       const { data, error } = await supabase
         .from("export_orders")
         .select("*")
+        .eq("company_id", profile?.company_id)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -149,6 +152,7 @@ export default function CreateShipment() {
 
       // Insert shipment
       const { data: shipment, error: shipErr } = await supabase.from("export_shipments").insert({
+        company_id: profile!.company_id,
         order_id: orderId,
         shipment_number: shipmentNumber,
         customer_name: selectedOrder?.customer_name,
@@ -164,6 +168,7 @@ export default function CreateShipment() {
 
       // Insert containers with pre-filled weights
       const containersToInsert = Array.from({ length: count }).map((_, i) => ({
+        company_id: profile!.company_id,
         shipment_id: shipment.id,
         container_number: `TBD-${i+1}`,
         container_type: containerType,

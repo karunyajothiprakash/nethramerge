@@ -86,7 +86,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
       <div className="relative flex-1 max-w-md">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search farmers, POs, batches…"
+          placeholder="Search orders, farmers, POs…"
           className="pl-9 h-9 bg-secondary border-transparent focus-visible:bg-background"
         />
       </div>
