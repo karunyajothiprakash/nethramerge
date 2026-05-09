@@ -144,6 +144,7 @@ export function QuotationDocument({ quotation, onClose }: QuotationDocumentProps
             <div className="grid grid-cols-[130px_1fr]"><span>Country of Origin :</span> <span className="font-bold">India</span></div>
             <div className="grid grid-cols-[130px_1fr]"><span>Mode of Transport :</span> <span className="font-bold">{quotation.mode_of_transport || 'Sea'}</span></div>
             <div className="grid grid-cols-[130px_1fr]"><span>Incoterms :</span> <span className="font-bold">{quotation.incoterms || 'CIF'}</span></div>
+            <div className="grid grid-cols-[130px_1fr]"><span>Shipment Type :</span> <span className="font-bold">{quotation.shipment_type || 'FCL'}</span></div>
             <div className="grid grid-cols-[130px_1fr]"><span>Port of Loading :</span> <span className="font-bold">{quotation.port_of_loading || 'CHENNAI PORT'}</span></div>
             <div className="grid grid-cols-[130px_1fr]"><span>Port of Discharge :</span> <span className="font-bold">{quotation.port_of_discharge || 'TBD'}</span></div>
           </div>
@@ -221,6 +222,14 @@ export function QuotationDocument({ quotation, onClose }: QuotationDocumentProps
               <div className="grid grid-cols-2 px-4 py-2 text-[10px] border-b border-gray-100">
                 <span className="text-gray-700 font-medium">Tax Rate</span>
                 <span className="text-right font-bold">{quotation.tax_rate || 0}%</span>
+              </div>
+              <div className="grid grid-cols-2 px-4 py-2 text-[10px] border-b border-gray-100">
+                <span className="text-gray-700 font-medium">Packaging Cost</span>
+                <span className="text-right font-bold">{currencySym} {Number(quotation.packaging_cost || 0).toLocaleString()}</span>
+              </div>
+              <div className="grid grid-cols-2 px-4 py-2 text-[10px] border-b border-gray-100">
+                <span className="text-gray-700 font-medium">Shipping Cost</span>
+                <span className="text-right font-bold">{currencySym} {Number(quotation.shipping_cost || 0).toLocaleString()}</span>
               </div>
               <div className="grid grid-cols-2 px-4 py-2.5 text-[11px] font-extrabold bg-[#BDD7EE] text-[#1A5276]">
                 <span>TOTAL</span>
