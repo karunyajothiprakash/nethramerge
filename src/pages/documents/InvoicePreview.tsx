@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Download, Printer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,10 +8,13 @@ import html2canvas from "html2canvas";
 
 export default function InvoicePreview() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const autoDownload = searchParams.get("download") === "true";
   const [shipment, setShipment] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState(false);
+  const [hasAutoDownloaded, setHasAutoDownloaded] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [company, setCompany] = useState<any>(null);
 
@@ -79,6 +82,15 @@ export default function InvoicePreview() {
     };
     if (id) fetchData();
   }, [id]);
+
+  useEffect(() => {
+    if (autoDownload && !hasAutoDownloaded && !loading && shipment && invoiceRef.current) {
+      setHasAutoDownloaded(true);
+      setTimeout(() => {
+        handleDownloadPDF();
+      }, 1000);
+    }
+  }, [autoDownload, hasAutoDownloaded, loading, shipment]);
 
   const handleDownloadPDF = async () => {
     if (!invoiceRef.current) return;

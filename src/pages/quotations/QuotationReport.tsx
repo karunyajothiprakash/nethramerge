@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { QuotationDocument } from "@/components/quotations/QuotationDocument";
 import { Loader2 } from "lucide-react";
@@ -7,6 +7,8 @@ import { Loader2 } from "lucide-react";
 export default function QuotationReport() {
   const { id } = useParams();
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
+  const autoDownload = searchParams.get("download") === "true";
   const [quotation, setQuotation] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -54,6 +56,10 @@ export default function QuotationReport() {
   );
 
   return (
-    <QuotationDocument quotation={quotation} onClose={() => nav("/quotations")} />
+    <QuotationDocument 
+      quotation={quotation} 
+      onClose={() => nav("/quotations")} 
+      autoDownload={autoDownload}
+    />
   );
 }

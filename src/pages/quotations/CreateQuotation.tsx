@@ -33,6 +33,9 @@ export default function CreateQuotation() {
   const [containerType, setContainerType] = useState("");
   const [packagingType, setPackagingType] = useState("");
   const [taxRate, setTaxRate] = useState(0);
+  const [packagingCost, setPackagingCost] = useState(0);
+  const [shippingCost, setShippingCost] = useState(0);
+  const [shipmentType, setShipmentType] = useState("FCL");
   const [paymentTerms, setPaymentTerms] = useState("90 % of the invoice value to be paid in advance, and the remaining 10 % of the invoice value to be paid after the loading of goods.\n\nNote : Including packing, loading and Transport.");
   
   const [items, setItems] = useState<Item[]>(
@@ -101,7 +104,7 @@ export default function CreateQuotation() {
   
   const subtotal = items.reduce((s, i) => s + (Number(i.qty) * Number(i.price)), 0);
   const taxAmount = (subtotal * taxRate) / 100;
-  const totalAmount = subtotal + taxAmount;
+  const totalAmount = subtotal + taxAmount + Number(packagingCost) + Number(shippingCost);
 
   const handleSave = async () => {
     if (!customerName || items.length === 0 || !items[0].product_name) {
@@ -141,7 +144,10 @@ export default function CreateQuotation() {
           items_count: items.length,
           valid_until: validUntil || null,
           payment_terms: paymentTerms,
-          lead_id: selectedLeadId || null
+          lead_id: selectedLeadId || null,
+          packaging_cost: Number(packagingCost),
+          shipping_cost: Number(shippingCost),
+          shipment_type: shipmentType
         })
         .select('id').single();
 
@@ -152,8 +158,7 @@ export default function CreateQuotation() {
         quotation_id: quoteData.id,
         product_id: i.product_id || null, 
         quantity: Number(i.qty),
-        unit_price: Number(i.price),
-        total_price: Number(i.qty) * Number(i.price)
+        unit_price: Number(i.price)
       }));
 
       if (insertItems.length > 0) {
@@ -262,6 +267,23 @@ export default function CreateQuotation() {
                 </Button>
               </div>
             </FormRow>
+            <FormRow label="Shipment Type">
+              <Select value={shipmentType} onValueChange={setShipmentType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FCL">FCL (Full Container Load)</SelectItem>
+                  <SelectItem value="LCL">LCL (Less than Container Load)</SelectItem>
+                  <SelectItem value="Air">Air Freight</SelectItem>
+                  <SelectItem value="Sea">Sea Freight</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormRow>
+            <FormRow label="Packaging Cost">
+              <Input type="number" value={packagingCost} onChange={e => setPackagingCost(Number(e.target.value) || 0)} placeholder="0.00" />
+            </FormRow>
+            <FormRow label="Shipping Cost">
+              <Input type="number" value={shippingCost} onChange={e => setShippingCost(Number(e.target.value) || 0)} placeholder="0.00" />
+            </FormRow>
           </FormGrid>
           <div className="mt-4">
             <FormRow label="Terms of Payment">
@@ -315,18 +337,16 @@ export default function CreateQuotation() {
                 <span>{currency === 'USD' ? '$' : currency} {subtotal.toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center text-muted-foreground">
-                <span className="flex items-center gap-2">
-                  Tax (%)
-                  <Input 
-                    type="number" 
-                    min="0" 
-                    className="h-7 w-16 text-right px-2 py-0" 
-                    value={taxRate || ""} 
-                    onChange={e => setTaxRate(Number(e.target.value) || 0)} 
-                    placeholder="0"
-                  />
-                </span>
+                <span>Tax Amount ({taxRate}%)</span>
                 <span>{currency === 'USD' ? '$' : currency} {taxAmount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center text-muted-foreground">
+                <span>Packaging Cost</span>
+                <span>{currency === 'USD' ? '$' : currency} {Number(packagingCost).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center text-muted-foreground">
+                <span>Shipping Cost</span>
+                <span>{currency === 'USD' ? '$' : currency} {Number(shippingCost).toLocaleString()}</span>
               </div>
               <div className="flex justify-between pt-2 border-t border-border font-bold text-base">
                 <span>Total Amount</span>

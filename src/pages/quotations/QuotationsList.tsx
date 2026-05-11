@@ -1,20 +1,33 @@
 import { useNavigate } from "react-router-dom";
-import { Plus, Download, Loader2, FileText, Printer } from "lucide-react";
+import { Plus, Download, Loader2, FileText, Printer, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/DataTable";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { exportQuotationsToPDF } from "@/lib/quotation-export";
 import { toast } from "sonner";
 import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function QuotationsList() {
   const nav = useNavigate();
   const { profile } = useAuth();
+  const queryClient = useQueryClient();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { data: quotations = [], isLoading } = useQuery({
     queryKey: ['quotations', profile?.company_id],
@@ -62,28 +75,33 @@ export default function QuotationsList() {
     enabled: !!profile?.company_id
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('quotations')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotations'] });
+      toast.success("Quotation deleted successfully");
+    },
+    onError: (error: any) => {
+      console.error("Delete error:", error);
+      toast.error(error.message || "Failed to delete quotation");
+    }
+  });
+
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    deleteMutation.mutate(id);
+  };
+
   const handleRowDownload = async (e: React.MouseEvent, quotation: any) => {
     e.stopPropagation();
-    setDownloadingId(quotation.id);
-    
-    try {
-      // The data is already fetched by react-query, but we might want the full structure
-      // for the PDF export if it's not already in the mapped object.
-      // In this case, I added quotation_items to the main query above.
-      
-      const formatted = {
-        ...quotation,
-        customer_name: quotation.customer?.name || "Unknown"
-      };
-
-      exportQuotationsToPDF([formatted], false);
-      toast.success(`Quotation ${quotation.quotation_number} downloaded`);
-    } catch (err) {
-      console.error("Error downloading quotation:", err);
-      toast.error("Failed to download quotation");
-    } finally {
-      setDownloadingId(null);
-    }
+    // Navigate to report with download=true to trigger auto-save
+    nav(`/quotations/${quotation.id}/report?download=true`);
   };
 
   const handleExport = () => {
@@ -167,15 +185,42 @@ export default function QuotationsList() {
                   size="icon"
                   className="h-8 w-8 text-muted-foreground hover:text-primary"
                   onClick={(e) => handleRowDownload(e, r)}
-                  disabled={downloadingId === r.id}
                   title="Download PDF"
                 >
-                  {downloadingId === r.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
+                  <Download className="h-4 w-4" />
                 </Button>
+
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => e.stopPropagation()}
+                      title="Delete Quotation"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete the quotation
+                        and all its items.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={(e) => handleDelete(e, r.id)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             )
           },

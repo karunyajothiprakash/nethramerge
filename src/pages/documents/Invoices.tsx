@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, FileText, Loader2, Trash2 } from "lucide-react";
+import { Plus, FileText, Loader2, Trash2, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/DataTable";
@@ -113,7 +113,15 @@ export default function Invoices() {
                       onClick={() => window.open(`/invoices/${shipmentId || r.id}/preview`, '_blank')}
                       title="View Invoice"
                     >
-                      <FileText className="h-4 w-4 text-primary" />
+                      <FileText className="h-4 w-4 text-[#1A5276]" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => window.open(`/invoices/${shipmentId || r.id}/preview?download=true`, '_blank')}
+                      title="Download PDF"
+                    >
+                      <Download className="h-4 w-4 text-primary" />
                     </Button>
                     <Button 
                       variant="ghost" 

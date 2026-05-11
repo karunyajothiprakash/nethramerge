@@ -174,9 +174,11 @@ export default function CertificatePreview() {
                 <p className="text-[9px] font-bold text-gray-500 mb-2 uppercase">1. Exporter (Name, Address, Country)</p>
                 <div className="font-bold text-[11px] uppercase">SHASTIKA GLOBAL IMPEX PRIVATE LIMITED</div>
                 <div className="text-[9px] mt-2 space-y-0.5">
-                  <p>FLAT NO: S2, II FLOOR, DOOR NO. 13/2,</p>
-                  <p>VANNIER STREET, CHOOLAIMEDU,</p>
-                  <p>CHENNAI, TAMIL NADU, INDIA - 600094</p>
+                  <p>41/1, ST-5, Sathy Athani Main Road,</p>
+                  <p>Thuckanayakanpalayam</p>
+                  <p>Erode - 638506, Tamil Nadu, India.</p>
+                  <p>Phone no : 7397612015</p>
+                  <p>GSTIN: 33ABPCS0605LIZ8</p>
                   <p className="font-bold mt-2">IE CODE: 0413045678</p>
                 </div>
               </div>
