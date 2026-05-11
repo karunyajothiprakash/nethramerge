@@ -51,7 +51,7 @@ export default function OrderStatus() {
     }
   };
 
-  const getCount = (statuses: string[]) => orders.filter(o => statuses.includes(o.status)).length;
+
 
   return (
     <div className="p-6 space-y-6">

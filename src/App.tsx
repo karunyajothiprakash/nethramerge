@@ -106,6 +106,7 @@ import Notifications from "./pages/system/Notifications";
 import ActivityLogs from "./pages/system/ActivityLogs";
 import Subscriptions from "./pages/system/Subscriptions";
 import Settings from "./pages/system/Settings";
+import TallyIndex from "./pages/Tally/index";
 
 const queryClient = new QueryClient();
 
@@ -211,7 +212,9 @@ const App = () => (
               <Route path="/payments/overdue" element={<OverduePayments />} />
               <Route path="/payments/ledger" element={<Ledger />} />
               <Route path="/payments/reports" element={<FinancialReports />} />
-
+              
+              {/* Tally Integration */}
+              <Route path="/tally/*" element={<TallyIndex />} />
               {/* Employees */}
               <Route path="/employees" element={<EmployeeDirectory />} />
               <Route path="/employees/attendance" element={<Attendance />} />

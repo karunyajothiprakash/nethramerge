@@ -12,7 +12,7 @@ import {
   FileSpreadsheet, FileBox, Award, BookOpen, Eye,
   Wallet, Receipt, AlertCircle, BarChart3, Coins,
   UsersRound, CalendarCheck, ShieldCheck,
-  Bell, ScrollText, CreditCard, Settings, Mail
+  Bell, ScrollText, CreditCard, Settings, Mail, MinusSquare
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -150,6 +150,40 @@ export const navGroups: NavGroup[] = [
       { title: "Overdue", url: "/payments/overdue", icon: AlertCircle, permission: "finance.view" },
       { title: "Multi-Currency Ledger", url: "/payments/ledger", icon: Coins, permission: "finance.manage" },
       { title: "Financial Reports", url: "/payments/reports", icon: BarChart3, permission: "finance.view" },
+    ],
+  },
+  {
+    title: "TALLY",
+    icon: FileSpreadsheet,
+    items: [
+      { title: "Tally Module", url: "/tally", icon: FileSpreadsheet },
+      { title: "Counts", url: "/tally/counts", icon: MinusSquare },
+    ],
+  },
+  {
+    title: "Accounts",
+    icon: Wallet,
+    items: [
+      { title: "Journal Entry", url: "/tally/journal-entry", icon: FileText },
+      { title: "Ledger", url: "/tally/ledger", icon: FileText },
+      { title: "Trial Balance", url: "/tally/trial-balance", icon: FileText },
+    ],
+  },
+  {
+    title: "Reports",
+    icon: BarChart3,
+    items: [
+      { title: "GST Reports", url: "/tally/gst-reports", icon: BarChart3 },
+      { title: "P&L Statement", url: "/tally/pl-statement", icon: BarChart3 },
+      { title: "Balance Sheet", url: "/tally/balance-sheet", icon: BarChart3 },
+    ],
+  },
+  {
+    title: "Masters",
+    icon: Users,
+    items: [
+      { title: "Parties", url: "/tally/parties", icon: Users },
+      { title: "Chart of Accounts", url: "/tally/chart-of-accounts", icon: Users },
     ],
   },
   {
