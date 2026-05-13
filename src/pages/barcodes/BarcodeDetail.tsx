@@ -103,11 +103,8 @@ export default function BarcodeDetail() {
           ))}
 
           {/* Barcode */}
-          <div className="flex flex-col items-center py-6 px-4 gap-2">
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.25em] mb-1">
-              Barcode Number
-            </p>
-            <p className="text-xl font-mono font-black tracking-widest mb-1">
+          <div className="flex flex-col items-center py-6 px-4 gap-2 flex-1 justify-center w-full overflow-hidden">
+            <p className="text-xs font-bold text-center w-full truncate px-4 mb-1">
               {data.code}
             </p>
             <Barcode

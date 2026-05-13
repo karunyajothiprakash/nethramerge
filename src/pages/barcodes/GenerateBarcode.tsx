@@ -50,7 +50,7 @@ const LABEL_SIZES: LabelSize[] = [
     label: '2 × 1 inch  (5.08 × 2.54 cm)',
     widthIn: 2,  heightIn: 1,
     widthMm: 50.8, heightMm: 25.4,
-    barcodeWidth: 0.55, barcodeHeight: 10,
+    barcodeWidth: 0.4, barcodeHeight: 25,
     fontScale: 0.52,
   },
   {
@@ -58,7 +58,7 @@ const LABEL_SIZES: LabelSize[] = [
     label: '2 × 2 inch  (5.08 × 5.08 cm)',
     widthIn: 2,  heightIn: 2,
     widthMm: 50.8, heightMm: 50.8,
-    barcodeWidth: 0.75, barcodeHeight: 20,
+    barcodeWidth: 0.5, barcodeHeight: 45,
     fontScale: 0.65,
   },
   {
@@ -66,7 +66,7 @@ const LABEL_SIZES: LabelSize[] = [
     label: '3 × 1 inch  (7.62 × 2.54 cm)',
     widthIn: 3,  heightIn: 1,
     widthMm: 76.2, heightMm: 25.4,
-    barcodeWidth: 0.85, barcodeHeight: 12,
+    barcodeWidth: 0.6, barcodeHeight: 30,
     fontScale: 0.58,
   },
   {
@@ -74,7 +74,7 @@ const LABEL_SIZES: LabelSize[] = [
     label: '4 × 2 inch  (10.16 × 5.08 cm)',
     widthIn: 4,  heightIn: 2,
     widthMm: 101.6, heightMm: 50.8,
-    barcodeWidth: 1.4, barcodeHeight: 28,
+    barcodeWidth: 0.8, barcodeHeight: 55,
     fontScale: 1,
   },
 ];
@@ -93,7 +93,9 @@ export default function GenerateBarcode() {
   const qc  = useQueryClient();
 
   const [targetId,       setTargetId]       = useState<string>("");
-  const [boxCount,       setBoxCount]       = useState<number>(10);
+  const [totalCartons,   setTotalCartons]   = useState<number>(10);
+  const [startCarton,    setStartCarton]    = useState<number>(1);
+  const [endCarton,      setEndCarton]      = useState<number>(10);
   const [netWeight,      setNetWeight]      = useState<string>("13.50");
   const [packingDate,    setPackingDate]    = useState<string>(new Date().toISOString().split("T")[0]);
   const [skuCode,        setSkuCode]        = useState<string>("");
@@ -172,6 +174,7 @@ export default function GenerateBarcode() {
     if (t.sku)          setSkuCode(t.sku);
     if (t.product_name) setProductName(t.product_name);
 
+    let boxes = 10;
     if (t.type === "shipment") {
       if (t.unit_net_weight) {
         setNetWeight(String(t.unit_net_weight));
@@ -180,15 +183,18 @@ export default function GenerateBarcode() {
         setNetWeight(String(parsed ?? 13.5));
       }
       if (t.total_cartons) {
-        setBoxCount(t.total_cartons);
+        boxes = t.total_cartons;
       } else if (t.quantity) {
         const w = t.unit_net_weight ?? 13.5;
-        setBoxCount(Math.max(1, Math.ceil(t.quantity / w)));
+        boxes = Math.max(1, Math.ceil(t.quantity / w));
       }
     } else {
       setNetWeight("10.00");
-      if (t.quantity) setBoxCount(Math.max(1, Math.ceil(t.quantity / 10)));
+      if (t.quantity) boxes = Math.max(1, Math.ceil(t.quantity / 10));
     }
+    setTotalCartons(boxes);
+    setStartCarton(1);
+    setEndCarton(boxes);
   }, []);
 
   // Only apply defaults when the user explicitly changes the target, NOT on background refetch
@@ -216,20 +222,24 @@ export default function GenerateBarcode() {
       const prefix       = selected.type === "shipment" ? "SHP" : "LOT";
       const parsedWeight = parseFloat(netWeight) || 0;
 
-      const rows = Array.from({ length: boxCount }, (_, i) => ({
-        company_id:  companyId,
-        batch_id:    selected.type === "batch"    ? selected.id : null,
-        shipment_id: selected.type === "shipment" ? selected.id : null,
-        code:        `SGI|${prefix}|${selected.ref}|${String(i + 1).padStart(3, "0")}`,
-        level:       "box",
-        box_number:  i + 1,
-        current_location: "packing",
-        ...(parsedWeight > 0 && { net_weight: parsedWeight }),
-        ...(packingDate      && { packing_date: packingDate }),
-        ...(skuCode          && { sku_code: skuCode }),
-        ...(productName      && { product_name: productName }),
-        carton_number_total: boxCount,
-      }));
+      const count = endCarton - startCarton + 1;
+      const rows = Array.from({ length: count }, (_, i) => {
+        const boxNumber = startCarton + i;
+        return {
+          company_id:  companyId,
+          batch_id:    selected.type === "batch"    ? selected.id : null,
+          shipment_id: selected.type === "shipment" ? selected.id : null,
+          code:        `${selected.ref} | ${productName || "Product"} | ${parsedWeight > 0 ? parsedWeight + "KG" : ""} | BOX ${boxNumber}/${totalCartons}`.replace(/ \s+/g, " "),
+          level:       "box",
+          box_number:  boxNumber,
+          current_location: "packing",
+          ...(parsedWeight > 0 && { net_weight: parsedWeight }),
+          ...(packingDate      && { packing_date: packingDate }),
+          ...(skuCode          && { sku_code: skuCode }),
+          ...(productName      && { product_name: productName }),
+          carton_number_total: totalCartons,
+        };
+      });
 
       const codes = rows.map((r) => r.code);
       const { error } = await supabase.from("batch_barcodes").insert(rows);
@@ -247,8 +257,8 @@ export default function GenerateBarcode() {
   });
 
   const previewCode = selected
-    ? `SGI|${selected.type === "shipment" ? "SHP" : "LOT"}|${selected.ref}|001`
-    : "SGI|PREVIEW|SAMPLE|001";
+    ? `${selected.ref} | ${productName || "Product"} | ${parseFloat(netWeight) || 0}KG | BOX ${startCarton}/${totalCartons}`.replace(/ \s+/g, " ")
+    : "SHP-000 | Product | 10KG | BOX 1/10";
 
   // ─────────────────────────────────────────────────────────────────────────
   // SUCCESS / PRINT VIEW
@@ -320,7 +330,7 @@ export default function GenerateBarcode() {
                   ["Company",      "Shastika Global Impex Pvt Ltd"],
                   ["Product",      productName || "—"],
                   ["SKU / Code",   skuCode || selected?.sku || "—"],
-                  ["Carton No.",   `BOX ${idx + 1} OF ${boxCount}`],
+                  ["Carton No.",   `BOX ${startCarton + idx} OF ${totalCartons}`],
                   ["Net Weight",   `${netWeight} KG`],
                   ["Packing Date", packingDate],
                 ] as [string, string][]).map(([lbl, val]) => (
@@ -347,17 +357,11 @@ export default function GenerateBarcode() {
                 {/* Barcode — takes remaining height */}
                 <div
                   className="flex flex-col items-center justify-center overflow-hidden"
-                  style={{ flex: "1 1 auto", padding: "1px" }}
+                  style={{ flex: "1 1 auto", padding: "1px", minHeight: `${labelSize.barcodeHeight + 15}px` }}
                 >
                   <div
-                    style={{ fontSize: `${labelPx}px` }}
-                    className="text-gray-500 uppercase font-bold tracking-widest mb-[1px]"
-                  >
-                    Barcode Number
-                  </div>
-                  <div
-                    style={{ fontSize: `${Math.max(5, footerPx + 1)}px` }}
-                    className="font-mono font-black tracking-tight text-center leading-none mb-[1px]"
+                    style={{ fontSize: `${Math.max(5, footerPx - 1)}px` }}
+                    className="font-bold text-center leading-none mb-[2px] w-full truncate px-2"
                   >
                     {code}
                   </div>
@@ -461,12 +465,41 @@ export default function GenerateBarcode() {
               )}
             </FormRow>
 
-            <FormRow label="Labels per Shipment" required>
+            <FormRow label="Total Cartons" required>
               <Input
-                type="number" min={1} max={500}
-                value={boxCount}
-                onChange={(e) => setBoxCount(Math.max(1, Number(e.target.value || 1)))}
+                type="number" min={1} max={5000}
+                value={totalCartons}
+                onChange={(e) => {
+                  const val = Math.max(1, Number(e.target.value || 1));
+                  setTotalCartons(val);
+                  setEndCarton(Math.min(endCarton, val));
+                }}
                 className="h-12 bg-white/5 border-white/10 text-lg font-bold text-primary"
+              />
+            </FormRow>
+
+            <FormRow label="Start Carton No." required>
+              <Input
+                type="number" min={1} max={totalCartons}
+                value={startCarton}
+                onChange={(e) => {
+                  const val = Math.max(1, Math.min(totalCartons, Number(e.target.value || 1)));
+                  setStartCarton(val);
+                  if (endCarton < val) setEndCarton(val);
+                }}
+                className="h-12 bg-white/5 border-white/10 text-lg font-bold"
+              />
+            </FormRow>
+
+            <FormRow label="End Carton No." required>
+              <Input
+                type="number" min={startCarton} max={totalCartons}
+                value={endCarton}
+                onChange={(e) => {
+                  const val = Math.max(startCarton, Math.min(totalCartons, Number(e.target.value || startCarton)));
+                  setEndCarton(val);
+                }}
+                className="h-12 bg-white/5 border-white/10 text-lg font-bold"
               />
             </FormRow>
 
@@ -531,7 +564,7 @@ export default function GenerateBarcode() {
               <div>
                 <h4 className="text-xl font-bold text-primary">System Ready</h4>
                 <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                  Will generate <strong>{boxCount} unique barcodes</strong> for{" "}
+                  Will generate <strong>{endCarton - startCarton + 1} barcodes</strong> (Box {startCarton} to {endCarton}) for{" "}
                   <strong>{selected.ref}</strong> on <strong>{labelSize.label}</strong> stickers.
                 </p>
               </div>
@@ -541,13 +574,13 @@ export default function GenerateBarcode() {
           <div className="mt-12 flex items-center gap-6">
             <Button
               className="btn-gold px-12 h-14 text-lg shadow-2xl"
-              disabled={!targetId || generate.isPending}
+              disabled={!targetId || generate.isPending || endCarton < startCarton}
               onClick={() => generate.mutate()}
             >
               {generate.isPending ? (
                 <><Loader2 className="h-5 w-5 animate-spin mr-2" /> Processing…</>
               ) : (
-                <><BarcodeIcon className="h-5 w-5 mr-2" /> Generate {boxCount} Tracking Barcodes</>
+                <><BarcodeIcon className="h-5 w-5 mr-2" /> Generate {endCarton - startCarton + 1} Tracking Barcodes</>
               )}
             </Button>
             <Button
@@ -586,7 +619,7 @@ export default function GenerateBarcode() {
                     ["Company",   "Shastika Global Impex"],
                     ["Product",   productName || "—"],
                     ["SKU",       skuCode || selected.sku || "—"],
-                    ["Carton",    `BOX 1 OF ${boxCount}`],
+                    ["Carton",    `BOX ${startCarton} OF ${totalCartons}`],
                     ["Weight",    `${netWeight} KG`],
                     ["Pack Date", packingDate],
                   ].map(([lbl, val]) => (
@@ -600,14 +633,14 @@ export default function GenerateBarcode() {
                     </div>
                   ))}
 
-                  <div className="flex flex-col items-center justify-center flex-1 overflow-hidden px-1 py-[1px]">
-                    <div className="text-[6px] font-mono font-black text-center leading-none mb-[2px] tracking-tight">
+                  <div className="flex flex-col items-center justify-center flex-1 overflow-hidden px-1 py-[2px] w-full">
+                    <div className="text-[6px] font-bold text-center leading-none mb-[2px] w-full truncate px-1">
                       {previewCode}
                     </div>
                     <Barcode
                       value={previewCode}
-                      width={0.7}
-                      height={16}
+                      width={0.5}
+                      height={20}
                       format="CODE128"
                       displayValue={false}
                       margin={0}
