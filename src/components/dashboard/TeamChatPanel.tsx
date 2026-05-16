@@ -28,6 +28,9 @@ export function TeamChatPanel() {
   // Auto scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isOpen) {
+      setUnreadCount(0);
+    }
   }, [messages, isOpen]);
 
   // Close when clicking outside
@@ -68,22 +71,6 @@ export function TeamChatPanel() {
 
     fetchMessages();
 
-    const channel = supabase
-      .channel('team-chat-live')
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'team_chat' 
-      }, (payload) => {
-        if (isMounted) {
-          setMessages(prev => [...prev, payload.new]);
-          if (!isOpen && payload.new.sender_id !== currentUser?.id) {
-            setUnreadCount(prev => prev + 1);
-          }
-        }
-      })
-      .subscribe();
-      
     const presenceChannel = supabase.channel('chat_presence_live', {
       config: { presence: { key: currentUser?.id || 'anonymous' } }
     });
@@ -99,8 +86,33 @@ export function TeamChatPanel() {
 
     return () => {
       isMounted = false;
-      supabase.removeChannel(channel);
       supabase.removeChannel(presenceChannel);
+    };
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('team-chat-' + Math.random())
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'team_chat'
+        },
+        (payload) => {
+          setMessages(prev => [...prev, payload.new]);
+          if (!isOpen && payload.new.sender_id !== currentUser?.id) {
+            setUnreadCount(prev => prev + 1);
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('Realtime status:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
     };
   }, [isOpen, currentUser?.id]);
 
@@ -189,11 +201,31 @@ export function TeamChatPanel() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-[#1a1a1a] border-2 border-[#f0a500] flex items-center justify-center shadow-lg hover:scale-105 transition-transform z-50 group"
+          className="h-14 w-14 rounded-full bg-[#1a1a1a] border-2 border-[#f0a500] flex items-center justify-center shadow-lg hover:scale-105 transition-transform group relative"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 9999
+          }}
         >
           <MessageCircle className="h-6 w-6 text-[#f0a500] group-hover:fill-[#f0a500]/20 transition-colors" />
           {unreadCount > 0 && (
-            <div className={`absolute -top-1 -right-1 h-5 w-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#1a1a1a] ${hasUnreadMention ? 'bg-[#f0a500]' : 'bg-red-500'}`}>
+            <div style={{
+              position: 'absolute',
+              top: '-4px',
+              right: '-4px',
+              background: hasUnreadMention ? '#f0a500' : '#ff3b30',
+              color: hasUnreadMention ? 'black' : 'white',
+              borderRadius: '50%',
+              width: '20px',
+              height: '20px',
+              fontSize: '11px',
+              fontWeight: '700',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
               {unreadCount > 9 ? '9+' : unreadCount}
             </div>
           )}
