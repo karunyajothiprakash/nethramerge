@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Ship, Package, Globe, Printer, Barcode as BarcodeIcon } from "lucide-react";
+import { Loader2, Ship, Package, Globe, Printer, Barcode as BarcodeIcon, ShoppingCart } from "lucide-react";
 import Barcode from "react-barcode";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Section, FormGrid, FormRow } from "@/components/shared/FormShell";
@@ -50,7 +50,7 @@ const LABEL_SIZES: LabelSize[] = [
     label: '2 × 1 inch  (5.08 × 2.54 cm)',
     widthIn: 2,  heightIn: 1,
     widthMm: 50.8, heightMm: 25.4,
-    barcodeWidth: 0.55, barcodeHeight: 10,
+    barcodeWidth: 0.4, barcodeHeight: 25,
     fontScale: 0.52,
   },
   {
@@ -58,7 +58,7 @@ const LABEL_SIZES: LabelSize[] = [
     label: '2 × 2 inch  (5.08 × 5.08 cm)',
     widthIn: 2,  heightIn: 2,
     widthMm: 50.8, heightMm: 50.8,
-    barcodeWidth: 0.75, barcodeHeight: 20,
+    barcodeWidth: 0.5, barcodeHeight: 45,
     fontScale: 0.65,
   },
   {
@@ -66,7 +66,7 @@ const LABEL_SIZES: LabelSize[] = [
     label: '3 × 1 inch  (7.62 × 2.54 cm)',
     widthIn: 3,  heightIn: 1,
     widthMm: 76.2, heightMm: 25.4,
-    barcodeWidth: 0.85, barcodeHeight: 12,
+    barcodeWidth: 0.6, barcodeHeight: 30,
     fontScale: 0.58,
   },
   {
@@ -74,7 +74,7 @@ const LABEL_SIZES: LabelSize[] = [
     label: '4 × 2 inch  (10.16 × 5.08 cm)',
     widthIn: 4,  heightIn: 2,
     widthMm: 101.6, heightMm: 50.8,
-    barcodeWidth: 1.4, barcodeHeight: 28,
+    barcodeWidth: 0.8, barcodeHeight: 55,
     fontScale: 1,
   },
 ];
@@ -200,7 +200,9 @@ export default function GenerateBarcode() {
   const qc  = useQueryClient();
 
   const [targetId,       setTargetId]       = useState<string>("");
-  const [boxCount,       setBoxCount]       = useState<number>(10);
+  const [totalCartons,   setTotalCartons]   = useState<number>(10);
+  const [startCarton,    setStartCarton]    = useState<number>(1);
+  const [endCarton,      setEndCarton]      = useState<number>(10);
   const [netWeight,      setNetWeight]      = useState<string>("13.50");
   const [packingDate,    setPackingDate]    = useState<string>(new Date().toISOString().split("T")[0]);
   const [skuCode,        setSkuCode]        = useState<string>("");
@@ -218,7 +220,7 @@ export default function GenerateBarcode() {
   const { data: targets = [], isLoading } = useQuery<LogisticsTarget[]>({
     queryKey: ["logistics_targets"],
     queryFn: async () => {
-      const [shipRes, batchRes, barcodeRes] = await Promise.all([
+      const [shipRes, batchRes, orderRes, barcodeRes] = await Promise.all([
         supabase
           .from("export_shipments")
           .select(`id, shipment_number, destination_port, total_cartons, unit_net_weight,
@@ -228,7 +230,11 @@ export default function GenerateBarcode() {
           .from("inventory_batches")
           .select("id, lot_number, quantity_kg, product:products(name, sku)")
           .order("created_at", { ascending: false }).limit(30),
-        supabase.from("batch_barcodes").select("shipment_id, batch_id"),
+        supabase
+          .from("export_orders")
+          .select("id, order_number, destination, quantity, net_weight, packing_details, product, total_cartons, unit_net_weight")
+          .order("created_at", { ascending: false }).limit(30),
+        supabase.from("batch_barcodes").select("shipment_id, batch_id"), // ignore order_id to prevent errors if it doesn't exist
       ]);
 
       const list: LogisticsTarget[] = [];
@@ -265,6 +271,21 @@ export default function GenerateBarcode() {
         });
       });
 
+      orderRes.data?.forEach((o) => {
+        list.push({
+          id: o.id,
+          name: `Export Order: ${o.order_number}`,
+          ref: o.order_number,
+          type: "order",
+          detail: `Dest: ${o.destination ?? "—"} (Pending Shipment)`,
+          product_name: o.product ?? undefined,
+          quantity: o.quantity ?? undefined,
+          packing_details: o.packing_details ?? undefined,
+          total_cartons: o.total_cartons ?? undefined,
+          unit_net_weight: o.unit_net_weight ?? undefined,
+        });
+      });
+
       return list;
     },
   });
@@ -279,7 +300,8 @@ export default function GenerateBarcode() {
     if (t.sku)          setSkuCode(t.sku);
     if (t.product_name) setProductName(t.product_name);
 
-    if (t.type === "shipment") {
+    let boxes = 10;
+    if (t.type === "shipment" || t.type === "order") {
       if (t.unit_net_weight) {
         setNetWeight(String(t.unit_net_weight));
       } else {
@@ -287,15 +309,18 @@ export default function GenerateBarcode() {
         setNetWeight(String(parsed ?? 13.5));
       }
       if (t.total_cartons) {
-        setBoxCount(t.total_cartons);
+        boxes = t.total_cartons;
       } else if (t.quantity) {
         const w = t.unit_net_weight ?? 13.5;
-        setBoxCount(Math.max(1, Math.ceil(t.quantity / w)));
+        boxes = Math.max(1, Math.ceil(t.quantity / w));
       }
     } else {
       setNetWeight("10.00");
-      if (t.quantity) setBoxCount(Math.max(1, Math.ceil(t.quantity / 10)));
+      if (t.quantity) boxes = Math.max(1, Math.ceil(t.quantity / 10));
     }
+    setTotalCartons(boxes);
+    setStartCarton(1);
+    setEndCarton(boxes);
   }, []);
 
   // Only apply defaults when the user explicitly changes the target, NOT on background refetch
@@ -323,6 +348,7 @@ export default function GenerateBarcode() {
       const prefix       = selected.type === "shipment" ? "SHP" : "LOT";
       const parsedWeight = parseFloat(netWeight) || 0;
 
+      const count = endCarton - startCarton + 1;
       let currentBatchId = selected.type === 'batch' ? selected.id : null;
 
       if (selected.type === 'shipment') {
@@ -335,7 +361,6 @@ export default function GenerateBarcode() {
           .maybeSingle();
         
         if (existingBatch) {
-          // 3. If batch found -> proceed as normal
           currentBatchId = existingBatch.id;
         } else {
           // 2. If batch NOT found -> automatically CREATE a new batch record
@@ -346,7 +371,7 @@ export default function GenerateBarcode() {
               shipment_id: shipmentNumber,
               shipment_uuid: selected.id,
               status: 'active',
-              carton_number_total: boxCount
+              carton_number_total: totalCartons
             })
             .select("id")
             .single();
@@ -359,20 +384,24 @@ export default function GenerateBarcode() {
         }
       }
 
-      const rows = Array.from({ length: boxCount }, (_, i) => ({
-        company_id:  companyId,
-        batch_id:    currentBatchId,
-        shipment_id: selected.type === "shipment" ? selected.id : null,
-        code:        `SGI|${prefix}|${selected.ref}|${String(i + 1).padStart(3, "0")}`,
-        level:       "box",
-        box_number:  i + 1,
-        current_location: "packing",
-        ...(parsedWeight > 0 && { net_weight: parsedWeight }),
-        ...(packingDate      && { packing_date: packingDate }),
-        ...(skuCode          && { sku_code: skuCode }),
-        ...(productName      && { product_name: productName }),
-        carton_number_total: boxCount,
-      }));
+      const rows = Array.from({ length: count }, (_, i) => {
+        const boxNumber = startCarton + i;
+        return {
+          company_id:  companyId,
+          batch_id:    currentBatchId,
+          shipment_id: selected.type === "shipment" ? selected.id : null,
+          order_id:    selected.type === "order"    ? selected.id : null,
+          code:        `${selected.ref} | ${productName || "Product"} | ${parsedWeight > 0 ? parsedWeight + "KG" : ""} | BOX ${boxNumber}/${totalCartons}`.replace(/ \s+/g, " "),
+          level:       "box",
+          box_number:  boxNumber,
+          current_location: "packing",
+          ...(parsedWeight > 0 && { net_weight: parsedWeight }),
+          ...(packingDate      && { packing_date: packingDate }),
+          ...(skuCode          && { sku_code: skuCode }),
+          ...(productName      && { product_name: productName }),
+          carton_number_total: totalCartons,
+        };
+      });
 
       const codes = rows.map((r) => r.code);
       const { error: barcodeError } = await supabase.from("batch_barcodes").insert(rows);
@@ -392,8 +421,8 @@ export default function GenerateBarcode() {
   });
 
   const previewCode = selected
-    ? `SGI|${selected.type === "shipment" ? "SHP" : "LOT"}|${selected.ref}|001`
-    : "SGI|PREVIEW|SAMPLE|001";
+    ? `${selected.ref} | ${productName || "Product"} | ${parseFloat(netWeight) || 0}KG | BOX ${startCarton}/${totalCartons}`.replace(/ \s+/g, " ")
+    : "SHP-000 | Product | 10KG | BOX 1/10";
 
   // ─────────────────────────────────────────────────────────────────────────
   // SUCCESS / PRINT VIEW
@@ -442,8 +471,8 @@ export default function GenerateBarcode() {
               <LabelContent
                 sizeId={labelSizeId}
                 code={code}
-                idx={idx}
-                boxCount={boxCount}
+                idx={startCarton - 1 + idx}
+                boxCount={totalCartons}
                 productName={productName}
                 skuCode={skuCode}
                 selectedSku={selected?.sku}
@@ -519,9 +548,9 @@ export default function GenerateBarcode() {
                     ) : targets.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         <div className="flex items-center gap-2 text-white">
-                          {t.type === "shipment"
-                            ? <Ship className="h-4 w-4 text-primary" />
-                            : <Package className="h-4 w-4 text-amber-500" />}
+                            {t.type === "shipment" && <Ship className="h-4 w-4 text-primary" />}
+                            {t.type === "batch" && <Package className="h-4 w-4 text-amber-500" />}
+                            {t.type === "order" && <ShoppingCart className="h-4 w-4 text-emerald-500" />}
                           <span className="font-medium">{t.name}</span>
                           <span className="text-[10px] text-muted-foreground ml-2 px-1.5 py-0.5 bg-white/5 rounded">
                             ({t.detail})
@@ -534,12 +563,41 @@ export default function GenerateBarcode() {
               )}
             </FormRow>
 
-            <FormRow label="Labels per Shipment" required>
+            <FormRow label="Total Cartons" required>
               <Input
-                type="number" min={1} max={500}
-                value={boxCount}
-                onChange={(e) => setBoxCount(Math.max(1, Number(e.target.value || 1)))}
+                type="number" min={1} max={5000}
+                value={totalCartons}
+                onChange={(e) => {
+                  const val = Math.max(1, Number(e.target.value || 1));
+                  setTotalCartons(val);
+                  setEndCarton(Math.min(endCarton, val));
+                }}
                 className="h-12 bg-white/5 border-white/10 text-lg font-bold text-primary"
+              />
+            </FormRow>
+
+            <FormRow label="Start Carton No." required>
+              <Input
+                type="number" min={1} max={totalCartons}
+                value={startCarton}
+                onChange={(e) => {
+                  const val = Math.max(1, Math.min(totalCartons, Number(e.target.value || 1)));
+                  setStartCarton(val);
+                  if (endCarton < val) setEndCarton(val);
+                }}
+                className="h-12 bg-white/5 border-white/10 text-lg font-bold"
+              />
+            </FormRow>
+
+            <FormRow label="End Carton No." required>
+              <Input
+                type="number" min={startCarton} max={totalCartons}
+                value={endCarton}
+                onChange={(e) => {
+                  const val = Math.max(startCarton, Math.min(totalCartons, Number(e.target.value || startCarton)));
+                  setEndCarton(val);
+                }}
+                className="h-12 bg-white/5 border-white/10 text-lg font-bold"
               />
             </FormRow>
 
@@ -604,7 +662,7 @@ export default function GenerateBarcode() {
               <div>
                 <h4 className="text-xl font-bold text-primary">System Ready</h4>
                 <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                  Will generate <strong>{boxCount} unique barcodes</strong> for{" "}
+                  Will generate <strong>{endCarton - startCarton + 1} barcodes</strong> (Box {startCarton} to {endCarton}) for{" "}
                   <strong>{selected.ref}</strong> on <strong>{labelSize.label}</strong> stickers.
                 </p>
               </div>
@@ -614,13 +672,13 @@ export default function GenerateBarcode() {
           <div className="mt-12 flex items-center gap-6">
             <Button
               className="btn-gold px-12 h-14 text-lg shadow-2xl"
-              disabled={!targetId || generate.isPending}
+              disabled={!targetId || generate.isPending || endCarton < startCarton}
               onClick={() => generate.mutate()}
             >
               {generate.isPending ? (
                 <><Loader2 className="h-5 w-5 animate-spin mr-2" /> Processing…</>
               ) : (
-                <><BarcodeIcon className="h-5 w-5 mr-2" /> Generate {boxCount} Tracking Barcodes</>
+                <><BarcodeIcon className="h-5 w-5 mr-2" /> Generate {endCarton - startCarton + 1} Tracking Barcodes</>
               )}
             </Button>
             <Button
@@ -650,6 +708,7 @@ export default function GenerateBarcode() {
                 style={{ aspectRatio: `${labelSize.widthIn} / ${labelSize.heightIn}` }}
                 className="w-full max-w-[300px] flex flex-col overflow-hidden shadow-2xl"
               >
+<<<<<<< HEAD
                 <LabelContent
                   sizeId={labelSizeId}
                   code={previewCode}
@@ -662,6 +721,51 @@ export default function GenerateBarcode() {
                   packingDate={packingDate}
                   labelSize={labelSize}
                 />
+=======
+                <div className="bg-black text-white text-center py-[2px] text-[7px] font-black tracking-widest uppercase shrink-0">
+                  Export Cargo Identification
+                </div>
+
+                <div className="flex flex-col flex-1 overflow-hidden text-[6px] font-bold">
+                  {[
+                    ["Company",   "Shastika Global Impex"],
+                    ["Product",   productName || "—"],
+                    ["SKU",       skuCode || selected.sku || "—"],
+                    ["Carton",    `BOX ${startCarton} OF ${totalCartons}`],
+                    ["Weight",    `${netWeight} KG`],
+                    ["Pack Date", packingDate],
+                  ].map(([lbl, val]) => (
+                    <div key={lbl} className="flex border-b border-black shrink-0" style={{ minHeight: "9px" }}>
+                      <div className="w-[36%] border-r border-black px-[2px] flex items-center text-gray-500 uppercase leading-tight">
+                        {lbl}
+                      </div>
+                      <div className="w-[64%] px-[2px] flex items-center font-black truncate leading-tight">
+                        {val}
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="flex flex-col items-center justify-center flex-1 overflow-hidden px-1 py-[2px] w-full">
+                    <div className="text-[6px] font-bold text-center leading-none mb-[2px] w-full truncate px-1">
+                      {previewCode}
+                    </div>
+                    <Barcode
+                      value={previewCode}
+                      width={0.5}
+                      height={20}
+                      format="CODE128"
+                      displayValue={false}
+                      margin={0}
+                      background="transparent"
+                      lineColor="#000000"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-black text-white text-center py-[1px] text-[5px] font-bold tracking-widest uppercase shrink-0">
+                  Official Cargo ID
+                </div>
+>>>>>>> 1c838871329980cc429252c16ed8570e9e9d01fb
               </div>
 
               <p className="text-[10px] text-muted-foreground text-center max-w-[220px] leading-relaxed">

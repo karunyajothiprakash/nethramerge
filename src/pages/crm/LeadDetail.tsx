@@ -117,13 +117,13 @@ export default function LeadDetail() {
     
     setSending(true);
     try {
-      // 1. Upload Attachments if any
+      // 1. Upload Attachments to Storage
       const uploadedAttachments = [];
       if (attachments.length > 0) {
         setUploading(true);
         for (const file of attachments) {
           const fileExt = file.name.split('.').pop();
-          const filePath = `${lead.company_id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const filePath = `temp/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
           
           const { error: uploadError } = await supabase.storage
             .from('email-attachments')
@@ -131,28 +131,45 @@ export default function LeadDetail() {
 
           if (uploadError) throw uploadError;
           
+          const { data: { publicUrl } } = supabase.storage
+            .from('email-attachments')
+            .getPublicUrl(filePath);
+
           uploadedAttachments.push({
             filename: file.name,
-            path: filePath
+            path: filePath,
+            url: publicUrl,
+            contentType: file.type
           });
+
         }
         setUploading(false);
+        // Safety delay to ensure file is indexed in storage
+        await new Promise(r => setTimeout(r, 2000));
       }
+
+
 
       const emailBody = `${message}${company?.email_signature || ''}`;
       
-      const { error } = await supabase.functions.invoke("send-email", {
+      const { data, error } = await supabase.functions.invoke("send-email", {
         body: {
           to: lead.email,
           subject,
           text: emailBody.replace(/<[^>]*>?/gm, ''),
           html: emailBody,
           companyId: lead.company_id,
-          attachments: uploadedAttachments // Send attachment metadata
+          attachments: uploadedAttachments
         },
       });
-      
+
       if (error) throw error;
+      
+      const count = data?.attachmentCount || 0;
+      toast.success(`Email sent successfully! (Verified ${count} attachments)`);
+
+      setShowComposer(false);
+      setAttachments([]); // Clear attachments
       
       // 2. Record the sent email in the database history
       await supabase.from("activities").insert({
@@ -165,10 +182,6 @@ export default function LeadDetail() {
         company_id: lead.company_id
       });
 
-      toast.success("Email sent successfully!");
-      setShowComposer(false);
-      setAttachments([]); // Clear attachments
-      
       // 3. Refresh activities list immediately
       const { data: newActs } = await supabase
         .from("activities")
@@ -177,10 +190,24 @@ export default function LeadDetail() {
         .order("created_at", { ascending: false });
       if (newActs) setActivities(newActs as unknown as Activity[]);
     } catch (e: any) {
-      toast.error(e.message);
+      console.error("Email error:", e);
+      let errorMsg = e.message;
+      
+      // If it's a Supabase Functions error, try to get the real error from the response body
+      if (e.context && typeof e.context.json === 'function') {
+        try {
+          const body = await e.context.json();
+          if (body.error) errorMsg = body.error;
+        } catch (err) {
+          console.error("Failed to parse error body", err);
+        }
+      }
+      
+      toast.error(errorMsg);
     } finally {
       setSending(false);
     }
+
   };
   const handleSync = async () => {
     if (!lead || !id) return;

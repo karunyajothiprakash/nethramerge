@@ -112,8 +112,14 @@ import Notifications from "./pages/system/Notifications";
 import ActivityLogs from "./pages/system/ActivityLogs";
 import Subscriptions from "./pages/system/Subscriptions";
 import Settings from "./pages/system/Settings";
+import Maintenance from "./pages/system/Maintenance";
+import ZohoIntegration from "./pages/system/ZohoIntegration";
+import Mailbox from "./pages/system/Mailbox";
 import TallyIndex from "./pages/Tally/index";
 import JournalEntry from "./pages/Tally/JournalEntry";
+
+
+
 
 const queryClient = new QueryClient();
 
@@ -240,7 +246,13 @@ const App = () => (
               <Route path="/system/logs" element={<ActivityLogs />} />
               <Route path="/system/subscriptions" element={<Subscriptions />} />
               <Route path="/system/settings" element={<Settings />} />
+              <Route path="/system/maintenance" element={<Maintenance />} />
+              <Route path="/system/integrations/zoho" element={<ZohoIntegration />} />
+              <Route path="/system/mailbox" element={<Mailbox />} />
             </Route>
+
+
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

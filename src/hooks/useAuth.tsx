@@ -7,6 +7,7 @@ export type ApprovalStatus = "pending" | "approved" | "rejected";
 type Profile = {
   id: string;
   company_id: string | null;
+  company_name?: string | null;
   full_name: string | null;
   email: string | null;
   avatar_url: string | null;
@@ -38,13 +39,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
 
   const loadUserData = async (userId: string) => {
+    // 1. Fetch Profile
     const { data: prof } = await supabase
       .from("profiles")
       .select("id, company_id, full_name, email, avatar_url, status, requested_role, rejection_reason")
       .eq("id", userId)
       .maybeSingle();
-    setProfile((prof as Profile) ?? null);
 
+    if (prof) {
+      // 2. Fetch Company Name separately
+      let companyName = null;
+      if (prof.company_id) {
+        const { data: comp } = await supabase
+          .from("companies")
+          .select("name")
+          .eq("id", prof.company_id)
+          .maybeSingle();
+        companyName = comp?.name || null;
+      }
+
+      setProfile({
+        ...(prof as Profile),
+        company_name: companyName
+      });
+    } else {
+      setProfile(null);
+    }
+
+    // 3. Fetch Roles & Permissions
     const { data: roles } = await supabase
       .from("user_roles")
       .select("role_id, roles(slug, role_permissions(permissions(code)))")

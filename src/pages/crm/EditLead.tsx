@@ -3,20 +3,33 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Section, FormGrid, FormRow } from "@/components/shared/FormShell";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { COUNTRIES } from "@/lib/countries";
+import { useAuth } from "@/hooks/useAuth";
+
 
 export default function EditLead() {
   const { id } = useParams();
+  const { roleSlugs } = useAuth();
+  const isAdmin = roleSlugs.has("admin");
   const nav = useNavigate();
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   // Form State
+  const [openCountry, setOpenCountry] = useState(false);
   const [companyName, setCompanyName] = useState("");
   const [website, setWebsite] = useState("");
   const [country, setCountry] = useState("");
@@ -134,7 +147,48 @@ export default function EditLead() {
               <Input value={website} onChange={e => setWebsite(e.target.value)} />
             </FormRow>
             <FormRow label="Country">
-              <Input value={country} onChange={e => setCountry(e.target.value)} />
+              <Popover open={openCountry} onOpenChange={setOpenCountry}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openCountry}
+                    className="w-full justify-between font-normal bg-card text-left px-3 h-10 border-input shadow-none"
+                  >
+                    {country ? country : <span className="text-muted-foreground">Select country</span>}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search country..." />
+                    <CommandList>
+                      <CommandEmpty>No country found.</CommandEmpty>
+                      <CommandGroup>
+                        {COUNTRIES.map((c) => (
+                          <CommandItem
+                            key={c}
+                            value={c}
+                            onSelect={(currentValue) => {
+                              const original = COUNTRIES.find(x => x.toLowerCase() === currentValue.toLowerCase()) || currentValue;
+                              setCountry(original === country ? "" : original);
+                              setOpenCountry(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                country === c ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {c}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </FormRow>
             <FormRow label="Industry">
               <Input value={industry} onChange={e => setIndustry(e.target.value)} />
@@ -145,20 +199,25 @@ export default function EditLead() {
         <Section title="Lead Details">
           <FormGrid>
             <FormRow label="Current Stage">
-              <Select value={stage} onValueChange={setStage}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="New">New</SelectItem>
-                  <SelectItem value="Contacted">Contacted</SelectItem>
-                  <SelectItem value="Qualified">Qualified</SelectItem>
-                  <SelectItem value="Proposal">Proposal</SelectItem>
-                  <SelectItem value="Negotiation">Negotiation</SelectItem>
-                  <SelectItem value="Nurturing">Nurturing</SelectItem>
-                  <SelectItem value="Won">Won</SelectItem>
-                  <SelectItem value="Lost">Lost</SelectItem>
-                </SelectContent>
-              </Select>
+              {isAdmin ? (
+                <Select value={stage} onValueChange={setStage}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="New">New</SelectItem>
+                    <SelectItem value="Contacted">Contacted</SelectItem>
+                    <SelectItem value="Qualified">Qualified</SelectItem>
+                    <SelectItem value="Proposal">Proposal</SelectItem>
+                    <SelectItem value="Negotiation">Negotiation</SelectItem>
+                    <SelectItem value="Nurturing">Nurturing</SelectItem>
+                    <SelectItem value="Won">Won</SelectItem>
+                    <SelectItem value="Lost">Lost</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Badge variant="secondary" className="h-10 px-4 text-sm font-bold">{stage}</Badge>
+              )}
             </FormRow>
+
             <FormRow label="Product of Interest">
               <Input value={product} onChange={e => setProduct(e.target.value)} />
             </FormRow>
