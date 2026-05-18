@@ -9,8 +9,7 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  try {
-    const { accountId, messageId, emailId } = await req.json();
+    const { accountId, messageId, emailId, folderName } = await req.json();
 
     if (!accountId || !messageId || !emailId) {
       throw new Error("Missing required parameters");
@@ -67,16 +66,29 @@ serve(async (req) => {
     const verifiedZohoId = accountsData.data?.[0]?.accountId;
     if (!verifiedZohoId) throw new Error("No verified Zoho account ID found.");
 
-    // 4. Get Folders to find Inbox folderId
+    // 4. Get Folders to find the target folderId
     const foldersResponse = await fetch(`https://mail.${apiDomain}/api/accounts/${verifiedZohoId}/folders`, {
       headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
     });
     const foldersData = await foldersResponse.json();
-    const inboxFolder = (foldersData.data || []).find((f: any) => f.folderName.toLowerCase() === 'inbox');
-    if (!inboxFolder) throw new Error("Could not find Inbox folder.");
+    
+    const targetFolderName = (folderName || 'inbox').toLowerCase();
+    let targetFolder = (foldersData.data || []).find((f: any) => f.folderName.toLowerCase() === targetFolderName);
+    
+    // If exact match fails, maybe it's nested or we just fallback to searching
+    if (!targetFolder) {
+       targetFolder = (foldersData.data || []).find((f: any) => f.folderName.toLowerCase().includes(targetFolderName));
+    }
+    
+    // Default to inbox if still not found
+    if (!targetFolder) {
+       targetFolder = (foldersData.data || []).find((f: any) => f.folderName.toLowerCase() === 'inbox');
+    }
+
+    if (!targetFolder) throw new Error(`Could not find ${targetFolderName} or Inbox folder.`);
 
     // 5. Fetch specific message content
-    const contentUrl = `https://mail.${apiDomain}/api/accounts/${verifiedZohoId}/folders/${inboxFolder.folderId}/messages/${messageId}/content`;
+    const contentUrl = `https://mail.${apiDomain}/api/accounts/${verifiedZohoId}/folders/${targetFolder.folderId}/messages/${messageId}/content`;
     const contentResponse = await fetch(contentUrl, {
       headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
     });
@@ -93,12 +105,86 @@ serve(async (req) => {
       htmlContent = `<div style="font-family: sans-serif; white-space: pre-wrap; font-size: 14px; padding: 12px;">${htmlContent}</div>`;
     }
 
-    // 6. Cache the HTML body in our database so we don't fetch it again!
-    await supabase.from("emails").update({
-      body_html: htmlContent
-    }).eq("id", emailId);
+    // 6. Fetch attachments info and download them
+    const attachmentInfoUrl = `https://mail.${apiDomain}/api/accounts/${verifiedZohoId}/folders/${inboxFolder.folderId}/messages/${messageId}/attachmentinfo`;
+    const attachmentInfoResponse = await fetch(attachmentInfoUrl, {
+      headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
+    });
+    
+    let dbAttachments: any[] = [];
+    let attachmentDebugInfo = null;
+    if (attachmentInfoResponse.ok) {
+      const attachmentInfoData = await attachmentInfoResponse.json();
+      attachmentDebugInfo = attachmentInfoData;
+      let attachmentsList: any[] = [];
+      
+      // Handle different Zoho API response structures
+      if (Array.isArray(attachmentInfoData.data)) {
+        attachmentsList = attachmentInfoData.data;
+      } else if (attachmentInfoData.data && Array.isArray(attachmentInfoData.data.attachments)) {
+        attachmentsList = attachmentInfoData.data.attachments;
+      }
+      
+      if (attachmentsList.length > 0) {
+        console.log(`Found ${attachmentsList.length} attachments to download...`);
+        for (const att of attachmentsList) {
+          const storagePath = `mailbox/zoho-${messageId}-${att.attachmentId}-${att.attachmentName}`;
+          
+          // Download attachment content from Zoho
+          const downloadUrl = `https://mail.${apiDomain}/api/accounts/${verifiedZohoId}/folders/${inboxFolder.folderId}/messages/${messageId}/attachments/${att.attachmentId}`;
+          const downloadResponse = await fetch(downloadUrl, {
+            headers: { 
+              Authorization: `Zoho-oauthtoken ${accessToken}`,
+              Accept: "application/octet-stream"
+            },
+          });
+          
+          if (downloadResponse.ok) {
+            const blob = await downloadResponse.blob();
+            const arrayBuffer = await blob.arrayBuffer();
+            const fileData = new Uint8Array(arrayBuffer);
+            
+            // Upload to Supabase Storage
+            const { error: uploadError } = await supabase.storage
+              .from("email-attachments")
+              .upload(storagePath, fileData, {
+                contentType: att.contentType || "application/octet-stream",
+                upsert: true
+              });
+              
+            if (uploadError) {
+              console.error(`Failed to upload attachment ${att.attachmentName} to Supabase Storage:`, uploadError);
+            } else {
+              console.log(`Successfully uploaded ${att.attachmentName} to Supabase Storage!`);
+              dbAttachments.push({
+                filename: att.attachmentName,
+                path: storagePath,
+                contentType: att.contentType || "application/octet-stream"
+              });
+            }
+          } else {
+            console.error(`Failed to download attachment ${att.attachmentName} from Zoho. Status: ${downloadResponse.status}`);
+          }
+        }
+      }
+    }
 
-    return new Response(JSON.stringify({ success: true, content: htmlContent }), {
+    // 7. Cache the HTML body & attachments in our database so we don't fetch it again!
+    const updatePayload: any = {
+      body_html: htmlContent
+    };
+    if (dbAttachments.length > 0) {
+      updatePayload.attachments = dbAttachments;
+    }
+    
+    await supabase.from("emails").update(updatePayload).eq("id", emailId);
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      content: htmlContent,
+      attachments: dbAttachments.length > 0 ? dbAttachments : null,
+      debug: attachmentDebugInfo
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
