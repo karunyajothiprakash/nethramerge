@@ -30,6 +30,7 @@ export function TeamChatPanel() {
   
   const [mentionPopups, setMentionPopups] = useState<any[]>([]);
   const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const currentUserRef = useRef<any>(null);
   useEffect(() => {
@@ -108,12 +109,29 @@ export function TeamChatPanel() {
 
     fetchUserProfile();
 
-    const resolvePresenceName = () => {
+    const resolvePresenceName = async () => {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', currentUser.id)
+        .single();
+
       return (
+        profile?.full_name ||
         currentUser?.user_metadata?.full_name ||
         currentUser?.user_metadata?.name ||
         currentUser?.email?.split('@')[0] ||
-        'User'
+        'Team Member'
+      );
+    };
+
+    const dedupeUsers = (users: any[]) => {
+      return Object.values(
+        users.reduce((acc: Record<string, any>, user: any) => {
+          const key = user.user_id || user.user_name || user.email || user.online_at || JSON.stringify(user);
+          if (!acc[key]) acc[key] = user;
+          return acc;
+        }, {})
       );
     };
 
@@ -126,15 +144,17 @@ export function TeamChatPanel() {
       presenceChannel.on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState();
         const users = Object.values(state).flat();
+        const uniqueUsers = dedupeUsers(users);
         if (isMounted) {
-          setOnlineUsers(users);
-          setOnlineCount(users.length);
+          setOnlineUsers(uniqueUsers);
+          setOnlineCount(uniqueUsers.length);
         }
       }).subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
+          const displayName = await resolvePresenceName();
           await presenceChannel.track({
             user_id: currentUser.id,
-            user_name: resolvePresenceName(),
+            user_name: displayName,
             online_at: new Date().toISOString()
           });
         }
@@ -277,7 +297,6 @@ export function TeamChatPanel() {
   };
 
   const handleDeleteMessage = async (messageId: string) => {
-    if (!window.confirm('Are you sure?')) return;
     const { error } = await supabase.from('team_chat').delete().eq('id', messageId);
     if (error) {
       console.error('Delete error:', error);
@@ -553,7 +572,8 @@ export function TeamChatPanel() {
             {isOnlineDropdownOpen && (
               <div
                 ref={dropdownRef}
-                className="absolute left-4 top-full mt-2 min-w-[220px] bg-[#1a1a1a] border border-[#f0a500] rounded-xl p-3 z-[99999] shadow-2xl"
+                className="absolute left-4 top-full mt-2 w-[240px] max-h-[250px] overflow-y-auto bg-[#1a1a1a] border-2 border-[#f0a500] rounded-xl p-3 z-[99999] shadow-2xl scrollbar-thin scrollbar-thumb-white/10"
+                style={{ maxHeight: '250px', overflowY: 'auto' }}
               >
                 {onlineUsers.length > 0 ? (
                   onlineUsers.map((user, idx) => (
@@ -562,11 +582,11 @@ export function TeamChatPanel() {
                       className="pb-2 mb-2 border-b border-white/10 last:mb-0 last:border-b-0"
                     >
                       <div className="flex items-center gap-2 text-sm text-white">
-                        <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                        {user.user_name || user.email?.split('@')[0] || 'User'}
+                        <span className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0" />
+                        <span className="truncate">{user.user_name || user.email?.split('@')[0] || 'Team Member'}</span>
                       </div>
                       {(currentUserRole === 'admin' || currentUserRole === 'manager') && user.online_at && (
-                        <div className="text-[11px] text-white/60 mt-1">
+                        <div className="text-[11px] text-white/60 mt-1 pl-4.5">
                           Last active: {formatTime(user.online_at)}
                         </div>
                       )}
@@ -583,6 +603,9 @@ export function TeamChatPanel() {
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#111111]">
             {messages.map((msg, idx) => {
               const isMe = currentUser && (msg.sender_id === currentUser.id || msg.sender_name === currentUser.email);
+              const senderDisplay = msg.sender_name?.includes('@')
+                ? msg.sender_name.split('@')[0]
+                : msg.sender_name || 'Unknown';
               const hasMention = currentUserFirstName && msg.message?.includes(`@${currentUserFirstName}`);
               
               return (
@@ -595,7 +618,7 @@ export function TeamChatPanel() {
                     {/* Avatar */}
                     <div className="shrink-0 flex items-end">
                       <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold border border-white/10 ${isMe ? 'bg-[#f0a500] text-black' : 'bg-[#444] text-white'}`}>
-                        {getInitials(msg.sender_name || "U")}
+                        {getInitials(senderDisplay || "U")}
                       </div>
                     </div>
 
@@ -609,7 +632,7 @@ export function TeamChatPanel() {
                     >
                       {!isMe && (
                         <div className="text-[11px] font-bold text-[#f0a500] mb-0.5">
-                          {msg.sender_name}
+                          {senderDisplay}
                         </div>
                       )}
 
@@ -640,7 +663,10 @@ export function TeamChatPanel() {
                           {canManageMessage(msg) && (
                             <button
                               type="button"
-                              onClick={() => handleDeleteMessage(msg.id)}
+                              onClick={() => {
+                                setDeleteConfirm(msg.id);
+                                setActiveMenuMessageId(null);
+                              }}
                               className="w-full text-left px-3 py-2 text-sm text-white hover:text-red-500 hover:bg-white/5 transition-colors"
                             >
                               🗑️ Delete
@@ -796,6 +822,39 @@ export function TeamChatPanel() {
               </button>
             </div>
           </div>
+          {deleteConfirm && (
+            <div style={{
+              position: 'absolute',
+              bottom: '70px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: '#1a1a1a',
+              border: '1px solid #f0a500',
+              borderRadius: '12px',
+              padding: '16px 20px',
+              zIndex: 99999,
+              textAlign: 'center',
+              minWidth: '220px'
+            }}>
+              <p style={{ color: 'white', marginBottom: '12px', fontSize: '14px' }}>
+                🗑️ Delete this message?
+              </p>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                <button 
+                  onClick={() => { handleDeleteMessage(deleteConfirm); setDeleteConfirm(null) }}
+                  style={{ background: '#dc2626', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  Delete
+                </button>
+                <button 
+                  onClick={() => setDeleteConfirm(null)}
+                  style={{ background: '#333', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>

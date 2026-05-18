@@ -3,7 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import AppLayout from "./components/layout/AppLayout";
 import NotFound from "./pages/NotFound";
@@ -28,6 +28,7 @@ import SalesAnalytics from "./pages/dashboards/SalesAnalytics";
 import ShipmentAnalytics from "./pages/dashboards/ShipmentAnalytics";
 import FinancialOverview from "./pages/dashboards/FinancialOverview";
 import EmployeeProductivity from "./pages/dashboards/EmployeeProductivity";
+import FinanceTally from "./pages/dashboards/FinanceTally";
 
 // Farmers
 import FarmersList from "./pages/farmers/FarmersList";
@@ -115,6 +116,12 @@ import JournalEntry from "./pages/Tally/JournalEntry";
 
 const queryClient = new QueryClient();
 
+const DashboardRedirect = () => {
+  const { roleSlugs } = useAuth();
+  const isSecretary = roleSlugs.has("secretary");
+  return <Navigate to={isSecretary ? "/dashboards/finance-tally" : "/dashboards/executive"} replace />;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -136,11 +143,12 @@ const App = () => (
             <Route path="/share/quote/:id" element={<PublicQuotationView />} />
             
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-              <Route path="/dashboard" element={<Navigate to="/dashboards/executive" replace />} />
+              <Route path="/dashboard" element={<DashboardRedirect />} />
               <Route path="/approvals" element={<Navigate to="/employees/roles" replace />} />
 
               {/* Dashboards */}
               <Route path="/dashboards/executive" element={<Executive />} />
+              <Route path="/dashboards/finance-tally" element={<FinanceTally />} />
               <Route path="/dashboards/sales" element={<SalesAnalytics />} />
               <Route path="/dashboards/shipments" element={<ShipmentAnalytics />} />
               <Route path="/dashboards/financial" element={<FinancialOverview />} />
@@ -223,6 +231,7 @@ const App = () => (
               {/* Tally Integration */}
               <Route path="/tally/*" element={<TallyIndex />} />
               <Route path="/journal" element={<JournalEntry />} />
+              <Route path="/gst-reports" element={<Navigate to="/tally/gst-reports" replace />} />
               {/* Employees */}
               <Route path="/employees" element={<EmployeeDirectory />} />
               <Route path="/employees/attendance" element={<Attendance />} />

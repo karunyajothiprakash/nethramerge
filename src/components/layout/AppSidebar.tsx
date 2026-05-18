@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { ChevronDown, Sprout } from "lucide-react";
+import { ChevronDown, Sprout, LayoutDashboard } from "lucide-react";
 import { navGroups } from "@/config/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth, useCan } from "@/hooks/useAuth";
@@ -22,7 +22,15 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
 
   // Filter items by permission (if no permission set, always visible)
   const visibleGroups = navGroups
-    .map((g) => ({ ...g, items: g.items.filter((i) => !i.permission || can(i.permission)) }))
+    .map((g) => {
+      let items = g.items.filter((i) => !i.permission || can(i.permission));
+      if (g.title === "Dashboards" && isSecretary) {
+        items = [
+          { title: "Finance & Tally", url: "/dashboards/finance-tally", icon: LayoutDashboard }
+        ];
+      }
+      return { ...g, items };
+    })
     .filter((g) => g.items.length > 0)
     .filter((g) => !isSecretary || allowedSecretaryGroups.has(g.title.toLowerCase()));
 

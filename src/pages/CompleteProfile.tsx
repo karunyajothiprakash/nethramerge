@@ -24,7 +24,7 @@ const ROLE_OPTIONS = [
 
 export default function CompleteProfile() {
   const nav = useNavigate();
-  const { session, profile, loading, refresh } = useAuth();
+  const { session, profile, loading, refresh, roleSlugs } = useAuth();
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState("");
@@ -35,8 +35,12 @@ export default function CompleteProfile() {
     if (profile?.phone) setPhone((profile as any).phone || "");
   }, [profile]);
 
+  const isSecretary = roleSlugs?.has("secretary");
+
   if (!loading && !session) return <Navigate to="/auth" replace />;
-  if (!loading && profile?.status === "approved") return <Navigate to="/dashboards/executive" replace />;
+  if (!loading && profile?.status === "approved") {
+    return <Navigate to={isSecretary ? "/dashboards/finance-tally" : "/dashboards/executive"} replace />;
+  }
   if (!loading && profile?.requested_role) return <Navigate to="/waiting-approval" replace />;
 
   const submit = async (e: React.FormEvent) => {
@@ -61,7 +65,8 @@ export default function CompleteProfile() {
       return;
     }
     await refresh();
-    nav("/dashboards/executive", { replace: true });
+    const isSec = roleSlugs?.has("secretary") || role === "secretary";
+    nav(isSec ? "/dashboards/finance-tally" : "/dashboards/executive", { replace: true });
   };
 
   const skip = async () => {
@@ -71,7 +76,8 @@ export default function CompleteProfile() {
       .update({ status: "approved" })
       .eq("id", session.user.id);
     await refresh();
-    nav("/dashboards/executive", { replace: true });
+    const isSec = roleSlugs?.has("secretary");
+    nav(isSec ? "/dashboards/finance-tally" : "/dashboards/executive", { replace: true });
   };
 
   return (
