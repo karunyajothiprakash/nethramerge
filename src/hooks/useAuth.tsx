@@ -211,3 +211,8 @@ export function useIsAdminOrManager() {
   const { roleSlugs } = useAuth();
   return roleSlugs.has("admin") || roleSlugs.has("manager");
 }
+
+export function useCanManageApprovals() {
+  const { roleSlugs } = useAuth();
+  return roleSlugs.has("admin") || roleSlugs.has("manager") || roleSlugs.has("secretary");
+}

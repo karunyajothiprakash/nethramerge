@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { Send, MessageCircle, X, Paperclip, FileText, Loader2 } from "lucide-react";
+import { Send, MessageCircle, X, Paperclip, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export function TeamChatPanel() {
@@ -9,17 +8,25 @@ export function TeamChatPanel() {
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [onlineCount, setOnlineCount] = useState(1);
+  const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
+  const [onlineCount, setOnlineCount] = useState(0);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [isOnlineDropdownOpen, setIsOnlineDropdownOpen] = useState(false);
   
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const popupRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [freshFileUrls, setFreshFileUrls] = useState<Record<string, string>>({});
   
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [showMentions, setShowMentions] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
+  const [activeMenuMessageId, setActiveMenuMessageId] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingMessageText, setEditingMessageText] = useState("");
   
   const [mentionPopups, setMentionPopups] = useState<any[]>([]);
   const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
@@ -47,10 +54,13 @@ export function TeamChatPanel() {
       if (isOpen && popupRef.current && !popupRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
+      if (isOnlineDropdownOpen && dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOnlineDropdownOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
+  }, [isOpen, isOnlineDropdownOpen]);
 
   useEffect(() => {
     let isMounted = true;
@@ -79,22 +89,63 @@ export function TeamChatPanel() {
 
     fetchMessages();
 
-    const presenceChannel = supabase.channel('chat_presence_live', {
-      config: { presence: { key: currentUser?.id || 'anonymous' } }
-    });
-    
-    presenceChannel.on('presence', { event: 'sync' }, () => {
-      const state = presenceChannel.presenceState();
-      if (isMounted) setOnlineCount(Object.keys(state).length);
-    }).subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        await presenceChannel.track({ online_at: new Date().toISOString() });
+    const fetchUserProfile = async () => {
+      if (!currentUser?.id) return;
+      const { data, error } = await supabase.from('profiles').select('role, full_name').eq('id', currentUser.id).single();
+      if (!error && isMounted && data) {
+        if (data.role) setCurrentUserRole(data.role);
+        if (data.full_name) {
+          setCurrentUser((prev: any) => ({
+            ...prev,
+            user_metadata: {
+              ...prev?.user_metadata,
+              full_name: prev?.user_metadata?.full_name || data.full_name
+            }
+          }));
+        }
       }
-    });
+    };
+
+    fetchUserProfile();
+
+    const resolvePresenceName = () => {
+      return (
+        currentUser?.user_metadata?.full_name ||
+        currentUser?.user_metadata?.name ||
+        currentUser?.email?.split('@')[0] ||
+        'User'
+      );
+    };
+
+    let presenceChannel: any;
+    if (currentUser?.id) {
+      presenceChannel = supabase.channel('online-users', {
+        config: { presence: { key: currentUser.id } }
+      });
+
+      presenceChannel.on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const users = Object.values(state).flat();
+        if (isMounted) {
+          setOnlineUsers(users);
+          setOnlineCount(users.length);
+        }
+      }).subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({
+            user_id: currentUser.id,
+            user_name: resolvePresenceName(),
+            online_at: new Date().toISOString()
+          });
+        }
+      });
+    }
 
     return () => {
       isMounted = false;
-      supabase.removeChannel(presenceChannel);
+      if (presenceChannel) {
+        supabase.removeChannel(presenceChannel);
+      }
     };
   }, [currentUser?.id]);
 
@@ -162,40 +213,42 @@ export function TeamChatPanel() {
     const file = e.target.files?.[0];
     if (!file || !currentUser) return;
 
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size must be under 10MB');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     setIsUploading(true);
     try {
       const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const { data, error } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('chat-attachments')
         .upload(fileName, file);
 
-      if (error) {
-        toast.error("File upload failed: " + error.message);
-        console.error(error);
+      if (uploadError || !uploadData) {
+        toast.error("File upload failed: " + (uploadError?.message || 'Unknown error'));
+        console.error(uploadError);
         return;
       }
 
-      const { data: urlData } = supabase.storage
-        .from('chat-attachments')
-        .getPublicUrl(data.path);
-
       const sender_name = currentUser?.email || 'Unknown';
       const { error: dbError } = await supabase.from('team_chat').insert({
-        sender_name: sender_name,
+        sender_name,
         sender_id: currentUser?.id,
         message: file.name,
-        file_url: urlData.publicUrl,
+        file_url: uploadData.path,
         file_type: file.type,
         file_size: file.size
       });
 
       if (dbError) {
-        toast.error("Failed to send file message");
+        toast.error('Failed to send file message');
         console.error(dbError);
       }
     } catch (err) {
       console.error(err);
-      toast.error("Upload error");
+      toast.error('Upload error');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -206,6 +259,159 @@ export function TeamChatPanel() {
     if (!ts) return "";
     return new Date(ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   };
+
+  const formatFileSize = (size: number) => {
+    if (size > 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(size / 1024).toFixed(1)} KB`;
+  };
+
+  const canManageMessage = (msg: any) => {
+    if (!currentUser) return false;
+    const isMe = msg.sender_id === currentUser.id || msg.sender_name === currentUser.email;
+    return isMe || currentUserRole === 'admin';
+  };
+
+  const canEditMessage = (msg: any) => {
+    if (!currentUser) return false;
+    return msg.sender_id === currentUser.id || msg.sender_name === currentUser.email;
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!window.confirm('Are you sure?')) return;
+    const { error } = await supabase.from('team_chat').delete().eq('id', messageId);
+    if (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete message');
+      return;
+    }
+    setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+    if (activeMenuMessageId === messageId) {
+      setActiveMenuMessageId(null);
+    }
+  };
+
+  const handleStartEditMessage = (msg: any) => {
+    setEditingMessageId(msg.id);
+    setEditingMessageText(msg.message || '');
+    setActiveMenuMessageId(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingMessageText('');
+  };
+
+  const handleSaveEditMessage = async (messageId: string) => {
+    const newText = editingMessageText.trim();
+    if (!newText) {
+      toast.error('Message cannot be empty');
+      return;
+    }
+    const { error } = await supabase.from('team_chat').update({ message: newText, edited: true }).eq('id', messageId);
+    if (error) {
+      console.error('Edit error:', error);
+      toast.error('Failed to save changes');
+      return;
+    }
+    setMessages((prev) => prev.map((msg) => msg.id === messageId ? { ...msg, message: newText, edited: true } : msg));
+    setEditingMessageId(null);
+    setEditingMessageText('');
+  };
+
+  const getFileIcon = (type?: string) => {
+    if (!type) return '📎';
+    if (type.startsWith('image/')) return '🖼️';
+    if (type === 'application/pdf') return '📄';
+    if (type.includes('word') || type === 'application/msword' || type.includes('officedocument.wordprocessingml.document')) return '📝';
+    if (type.includes('excel') || type === 'spreadsheetml' || type === 'csv' || type === 'text/csv' || type === 'application/vnd.ms-excel') return '📊';
+    return '📎';
+  };
+
+  const getFileTitle = (type?: string) => {
+    if (!type) return 'File attachment';
+    if (type.startsWith('image/')) return 'Image attachment';
+    if (type === 'application/pdf') return 'PDF document';
+    if (type.includes('word') || type === 'application/msword' || type.includes('officedocument.wordprocessingml.document')) return 'Word document';
+    if (type.includes('excel') || type.includes('spreadsheetml') || type === 'text/csv' || type === 'application/vnd.ms-excel') return 'Spreadsheet';
+    return 'File attachment';
+  };
+
+  const handleDownload = async (fileUrl: string, fileName: string) => {
+    try {
+      const response = await fetch(fileUrl);
+      if (!response.ok) throw new Error('Network response was not ok');
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
+  };
+
+  const getFreshUrl = async (filePath: string) => {
+    if (!filePath) return undefined;
+    if (filePath.startsWith('http')) return filePath;
+
+    const { data, error } = await supabase.storage
+      .from('chat-attachments')
+      .createSignedUrl(filePath, 3600);
+
+    if (error) {
+      console.error('Failed to create signed url for', filePath, error);
+      return undefined;
+    }
+    return data?.signedUrl;
+  };
+
+  const handleImageClick = async (filePath: string) => {
+    const url = freshFileUrls[filePath] || await getFreshUrl(filePath);
+    if (!url) return;
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadMessage = async (filePath: string, fileName: string) => {
+    const url = freshFileUrls[filePath] || await getFreshUrl(filePath);
+    if (!url) return;
+    await handleDownload(url, fileName);
+  };
+
+  useEffect(() => {
+    if (!isOpen || messages.length === 0) return;
+
+    const uniquePaths = Array.from(new Set(messages
+      .filter((msg) => msg.file_url)
+      .map((msg) => msg.file_url)
+      .filter((path) => typeof path === 'string' && !path.startsWith('http'))
+    ));
+
+    const fetchUrls = async () => {
+      const urlMap: Record<string, string> = {};
+      for (const filePath of uniquePaths) {
+        if (freshFileUrls[filePath]) continue;
+        const url = await getFreshUrl(filePath);
+        if (url) {
+          urlMap[filePath] = url;
+        }
+      }
+      if (Object.keys(urlMap).length > 0) {
+        setFreshFileUrls((prev) => ({ ...prev, ...urlMap }));
+      }
+    };
+
+    fetchUrls();
+  }, [isOpen, messages, freshFileUrls]);
 
   const getInitials = (name: string) => {
     return name.slice(0, 2).toUpperCase();
@@ -322,20 +528,55 @@ export function TeamChatPanel() {
           style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
         >
           {/* HEADER */}
-          <div className="h-[60px] shrink-0 bg-[#f0a500] flex items-center justify-between px-4">
-            <div>
-              <h3 className="font-bold text-black leading-tight">Team Chat</h3>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-green-700 animate-pulse"></div>
-                <span className="text-[11px] font-medium text-black/70">Live • {onlineCount} online</span>
+          <div className="h-[60px] shrink-0 bg-[#f0a500] flex flex-col justify-center px-4 relative">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-black leading-tight">Team Chat</h3>
+                <button
+                  type="button"
+                  onClick={() => setIsOnlineDropdownOpen((prev) => !prev)}
+                  className="mt-1 inline-flex items-center gap-2 text-[11px] font-medium text-black/70 hover:text-black transition-colors"
+                >
+                  <span className="h-2.5 w-2.5 rounded-full bg-green-700" />
+                  <span>Live • {onlineCount} online</span>
+                  <span className="text-xs">▾</span>
+                </button>
               </div>
+              <button 
+                onClick={() => setIsOpen(false)}
+                className="h-8 w-8 rounded-full flex items-center justify-center text-black/70 hover:text-black hover:bg-black/10 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            <button 
-              onClick={() => setIsOpen(false)}
-              className="h-8 w-8 rounded-full flex items-center justify-center text-black/70 hover:text-black hover:bg-black/10 transition-colors"
-            >
-              <X className="h-5 w-5" />
-            </button>
+
+            {isOnlineDropdownOpen && (
+              <div
+                ref={dropdownRef}
+                className="absolute left-4 top-full mt-2 min-w-[220px] bg-[#1a1a1a] border border-[#f0a500] rounded-xl p-3 z-[99999] shadow-2xl"
+              >
+                {onlineUsers.length > 0 ? (
+                  onlineUsers.map((user, idx) => (
+                    <div
+                      key={`${user.user_id || user.user_name}-${idx}`}
+                      className="pb-2 mb-2 border-b border-white/10 last:mb-0 last:border-b-0"
+                    >
+                      <div className="flex items-center gap-2 text-sm text-white">
+                        <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                        {user.user_name || user.email?.split('@')[0] || 'User'}
+                      </div>
+                      {(currentUserRole === 'admin' || currentUserRole === 'manager') && user.online_at && (
+                        <div className="text-[11px] text-white/60 mt-1">
+                          Last active: {formatTime(user.online_at)}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-[13px] text-white/70">No users online</div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* MESSAGES AREA */}
@@ -350,7 +591,7 @@ export function TeamChatPanel() {
                   id={`msg-${msg.id}`}
                   className={`flex w-full transition-colors duration-500 ${isMe ? 'justify-end' : 'justify-start'} ${(hasMention && !isMe) || highlightMessageId === msg.id ? 'border-l-[3px] border-[#f0a500] pl-2' : ''} ${highlightMessageId === msg.id ? 'bg-[#f0a500]/10 py-1' : ''}`}
                 >
-                  <div className={`flex max-w-[85%] gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                  <div className={`group flex max-w-[85%] gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                     {/* Avatar */}
                     <div className="shrink-0 flex items-end">
                       <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold border border-white/10 ${isMe ? 'bg-[#f0a500] text-black' : 'bg-[#444] text-white'}`}>
@@ -360,7 +601,7 @@ export function TeamChatPanel() {
 
                     {/* Bubble */}
                     <div 
-                      className={`px-3 py-2 ${
+                      className={`relative px-3 py-2 ${
                         isMe 
                           ? 'bg-[#f0a500] text-black rounded-[18px_18px_4px_18px]' 
                           : 'bg-[#2a2a2a] text-white rounded-[18px_18px_18px_4px]'
@@ -371,22 +612,92 @@ export function TeamChatPanel() {
                           {msg.sender_name}
                         </div>
                       )}
-                      
-                      {msg.file_url ? (
+
+                      {canManageMessage(msg) && !editingMessageId && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuMessageId((prev) => (prev === msg.id ? null : msg.id));
+                          }}
+                          className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/20 text-white/70 hover:text-white hover:bg-black/40 transition-opacity opacity-0 group-hover:opacity-100"
+                        >
+                          ⋮
+                        </button>
+                      )}
+
+                      {activeMenuMessageId === msg.id && !editingMessageId && (
+                        <div className="absolute top-10 right-2 z-20 min-w-[150px] bg-[#1a1a1a] border border-[#f0a500] rounded-xl shadow-2xl overflow-hidden">
+                          {canEditMessage(msg) && (
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditMessage(msg)}
+                              className="w-full text-left px-3 py-2 text-sm text-white hover:text-white hover:bg-white/5 transition-colors"
+                            >
+                              ✏️ Edit
+                            </button>
+                          )}
+                          {canManageMessage(msg) && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMessage(msg.id)}
+                              className="w-full text-left px-3 py-2 text-sm text-white hover:text-red-500 hover:bg-white/5 transition-colors"
+                            >
+                              🗑️ Delete
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {editingMessageId === msg.id ? (
+                        <div className="space-y-2">
+                          <textarea
+                            value={editingMessageText}
+                            onChange={(e) => setEditingMessageText(e.target.value)}
+                            className="w-full min-h-[88px] rounded-xl border border-white/10 bg-[#111111] px-3 py-2 text-white text-sm resize-none focus:outline-none focus:ring-1 focus:ring-[#f0a500]"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={handleCancelEdit}
+                              className="rounded-lg border border-white/10 px-3 py-1 text-sm text-white/80 hover:text-white hover:border-white/20 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveEditMessage(msg.id)}
+                              className="rounded-lg bg-[#f0a500] px-3 py-1 text-sm font-semibold text-black hover:bg-[#ffb515] transition-colors"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : msg.file_url ? (
                         <div className="mt-1">
                           {msg.file_type?.startsWith('image/') ? (
-                            <a href={msg.file_url} target="_blank" rel="noopener noreferrer">
-                              <img src={msg.file_url} alt="attachment" className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-white/10 hover:opacity-90 transition-opacity" />
-                            </a>
+                            <img
+                              src={freshFileUrls[msg.file_url] || (msg.file_url.startsWith('http') ? msg.file_url : undefined)}
+                              alt="attachment"
+                              onClick={() => handleImageClick(msg.file_url)}
+                              style={{ cursor: 'pointer', maxWidth: '200px', borderRadius: '8px' }}
+                              className="max-h-[200px] object-cover border border-white/10 hover:opacity-90 transition-opacity"
+                            />
                           ) : (
-                            <div className={`flex items-center gap-3 p-2 rounded-lg border ${isMe ? 'border-black/20 bg-black/5' : 'border-white/10 bg-white/5'}`}>
-                              <FileText className="h-6 w-6 shrink-0" />
+                            <div className={`flex items-center gap-3 p-3 rounded-lg border ${isMe ? 'border-black/20 bg-black/5' : 'border-white/10 bg-white/5'}`}>
+                              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-lg">
+                                {getFileIcon(msg.file_type)}
+                              </div>
                               <div className="min-w-0">
                                 <p className="text-xs font-semibold truncate max-w-[150px]">{msg.message}</p>
-                                {msg.file_size && <p className="text-[9px] opacity-70 mt-0.5">{(msg.file_size / 1024).toFixed(1)} KB</p>}
-                                <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className={`text-[10px] hover:underline mt-1 block ${isMe ? 'text-black/70' : 'text-[#f0a500]'}`}>
+                                {msg.file_size && <p className="text-[9px] opacity-70 mt-0.5">{formatFileSize(msg.file_size)}</p>}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadMessage(msg.file_url, msg.message)}
+                                  className={`text-[10px] font-semibold mt-1 block ${isMe ? 'text-black/70 hover:text-black' : 'text-[#f0a500] hover:text-[#ffd15c]'} transition-colors`}
+                                >
                                   Download
-                                </a>
+                                </button>
                               </div>
                             </div>
                           )}
@@ -397,7 +708,11 @@ export function TeamChatPanel() {
                           dangerouslySetInnerHTML={renderMessage(msg.message, Boolean(isMe))}
                         />
                       )}
-                      
+
+                      {msg.edited && !editingMessageId && (
+                        <div className="text-[10px] mt-1 text-white/50">(edited)</div>
+                      )}
+
                       <div className={`text-[9px] mt-1 text-right ${isMe ? 'text-black/60' : 'text-white/40'}`}>
                         {formatTime(msg.created_at)}
                       </div>
@@ -444,7 +759,7 @@ export function TeamChatPanel() {
                 type="file" 
                 ref={fileInputRef} 
                 hidden 
-                accept="image/*,.pdf,.doc,.docx,.xlsx" 
+                accept="image/*,.pdf,.doc,.docx,.xlsx,.xls,.txt,.csv,.zip" 
                 onChange={handleFileUpload} 
               />
               <textarea

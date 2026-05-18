@@ -40,7 +40,7 @@ export const navGroups: NavGroup[] = [
       { title: "Shipment Analytics", url: "/dashboards/shipments", icon: Truck },
       { title: "Financial Overview", url: "/dashboards/financial", icon: DollarSign },
       { title: "Employee Productivity", url: "/dashboards/employees", icon: Users },
-      { title: "Roles & Permissions", url: "/employees/roles", icon: ShieldCheck, permission: "settings.manage" },
+      { title: "Roles & Permissions", url: "/employees/roles", icon: ShieldCheck },
     ],
   },
   {
@@ -192,7 +192,6 @@ export const navGroups: NavGroup[] = [
     title: "HR & Employees",
     icon: UsersRound,
     items: [
-      { title: "User Approvals", url: "/approvals", icon: ShieldCheck, permission: "hr.manage" },
       { title: "Directory", url: "/employees", icon: UsersRound, permission: "hr.view" },
       { title: "Attendance", url: "/employees/attendance", icon: CalendarCheck, permission: "hr.view" },
     ],

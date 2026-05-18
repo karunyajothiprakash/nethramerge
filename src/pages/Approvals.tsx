@@ -7,8 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useIsAdminOrManager } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useCanManageApprovals } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/shared/PageHeader";
 
 type ProfileRow = {
@@ -33,8 +32,7 @@ const ROLE_OPTIONS = [
 ];
 
 export default function Approvals() {
-  const isAdminOrManager = useIsAdminOrManager();
-  const navigate = useNavigate();
+  const canManageApprovals = useCanManageApprovals();
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingRoleSel, setPendingRoleSel] = useState<Record<string, string>>({});
@@ -53,7 +51,7 @@ export default function Approvals() {
 
   useEffect(() => { load(); }, []);
 
-  if (!isAdminOrManager) {
+  if (!canManageApprovals) {
     return (
       <div className="flex flex-col items-center justify-center h-[70vh] text-center space-y-5 animate-in fade-in zoom-in duration-500">
         <div className="h-20 w-20 bg-destructive/10 text-destructive rounded-full flex items-center justify-center ring-8 ring-destructive/5">
@@ -62,12 +60,10 @@ export default function Approvals() {
         <div className="space-y-2">
           <h2 className="text-3xl font-bold tracking-tight text-foreground">Access Denied</h2>
           <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">
-            You do not have the required administrative permissions to view or manage user approvals. Please contact your system administrator if you believe this is an error.
+            You do not have the required permissions to view or manage user approvals. Please contact your system administrator if you believe this is an error.
           </p>
         </div>
-        <Button variant="default" onClick={() => navigate("/")} className="mt-4 shadow-md">
-          Return to Dashboard
-        </Button>
+
       </div>
     );
   }

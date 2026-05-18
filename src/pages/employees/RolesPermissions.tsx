@@ -5,6 +5,7 @@ import { Section } from "@/components/shared/FormShell";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import Approvals from "@/pages/Approvals";
 import { useAuth } from "@/hooks/useAuth";
 
 type Role = { id: string; name: string; slug: string };
@@ -121,6 +122,8 @@ export default function RolesPermissions() {
         breadcrumbs={[{ label: "Employees" }, { label: "Roles" }]} 
         actions={<Button onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save to Database"}</Button>}
       />
+      <Approvals />
+      <div className="border-t border-border my-6" />
       <Section>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

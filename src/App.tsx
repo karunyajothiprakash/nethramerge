@@ -17,7 +17,6 @@ import EmailIntegration from "./pages/crm/EmailIntegration";
 import CompleteProfile from "./pages/CompleteProfile";
 import WaitingApproval from "./pages/WaitingApproval";
 import Pending from "./pages/Pending";
-import Approvals from "./pages/Approvals";
 import InvoicePreview from "./pages/documents/InvoicePreview";
 import PackingListPreview from "./pages/documents/PackingListPreview";
 import CertificatePreview from "./pages/documents/CertificatePreview";
@@ -138,7 +137,7 @@ const App = () => (
             
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/dashboard" element={<Navigate to="/dashboards/executive" replace />} />
-              <Route path="/approvals" element={<Approvals />} />
+              <Route path="/approvals" element={<Navigate to="/employees/roles" replace />} />
 
               {/* Dashboards */}
               <Route path="/dashboards/executive" element={<Executive />} />

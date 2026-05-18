@@ -9,9 +9,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { WorkflowHelper } from "@/components/dashboard/WorkflowHelper";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { Button } from "@/components/ui/button";
+
 
 export default function ExecutiveDashboard() {
   const { profile } = useAuth();
+
 
   // --- Query 1: Export Orders (last 6 months) ---
   const { data: orders = [] } = useQuery({
@@ -291,7 +294,6 @@ export default function ExecutiveDashboard() {
           </div>
         </Section>
       </div>
-
     </div>
   );
 }
