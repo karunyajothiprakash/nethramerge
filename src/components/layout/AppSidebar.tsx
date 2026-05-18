@@ -9,6 +9,7 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
   const location = useLocation();
   const can = useCan();
   const { profile, roleSlugs } = useAuth();
+  const isSecretary = roleSlugs.has("secretary");
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     const active = navGroups.find((g) => g.items.some((i) => location.pathname.startsWith(i.url)));
     return active ? [active.title] : [navGroups[0].title];
@@ -17,10 +18,13 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
   const toggleGroup = (title: string) =>
     setOpenGroups((prev) => (prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title]));
 
+  const allowedSecretaryGroups = new Set(["dashboards", "quotations", "documents", "finance", "tally", "accounts"]);
+
   // Filter items by permission (if no permission set, always visible)
   const visibleGroups = navGroups
     .map((g) => ({ ...g, items: g.items.filter((i) => !i.permission || can(i.permission)) }))
-    .filter((g) => g.items.length > 0);
+    .filter((g) => g.items.length > 0)
+    .filter((g) => !isSecretary || allowedSecretaryGroups.has(g.title.toLowerCase()));
 
   return (
     <>

@@ -11,7 +11,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
-type Item = { id: string; product_id: string; product_name: string; qty: number; price: number };
+type Item = { id: string; product_id: string; product_name: string; hsn_code: string; qty: number; price: number };
+
+interface Lead {
+  id: string;
+  company_name?: string;
+  contact_name?: string;
+  interested_product?: string;
+  email?: string;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  hs_code?: string;
+  sku?: string;
+  unit?: string;
+}
+
+interface MetaData {
+  name: string;
+}
 
 export default function CreateQuotation() {
   const nav = useNavigate();
@@ -19,10 +39,10 @@ export default function CreateQuotation() {
   const { profile } = useAuth();
   const leadFromState = location.state?.lead;
   const [saving, setSaving] = useState(false);
-  const [leadsList, setLeadsList] = useState<any[]>([]);
-  const [productsList, setProductsList] = useState<any[]>([]);
-  const [containerTypesList, setContainerTypesList] = useState<any[]>([]);
-  const [packagingTypesList, setPackagingTypesList] = useState<any[]>([]);
+  const [leadsList, setLeadsList] = useState<Lead[]>([]);
+  const [productsList, setProductsList] = useState<Product[]>([]);
+  const [containerTypesList, setContainerTypesList] = useState<MetaData[]>([]);
+  const [packagingTypesList, setPackagingTypesList] = useState<MetaData[]>([]);
 
   // Form State
   const [selectedLeadId, setSelectedLeadId] = useState(leadFromState?.id || "");
@@ -32,16 +52,25 @@ export default function CreateQuotation() {
   const [incoterm, setIncoterm] = useState("CIF");
   const [containerType, setContainerType] = useState("");
   const [packagingType, setPackagingType] = useState("");
-  const [taxRate, setTaxRate] = useState(0);
   const [packagingCost, setPackagingCost] = useState(0);
-  const [shippingCost, setShippingCost] = useState(0);
-  const [shipmentType, setShipmentType] = useState("FCL");
+  const [shipmentType, setShipmentType] = useState("");
+  const [shipmentCost, setShipmentCost] = useState(0);
+  const [taxRate, setTaxRate] = useState(0);
   const [paymentTerms, setPaymentTerms] = useState("90 % of the invoice value to be paid in advance, and the remaining 10 % of the invoice value to be paid after the loading of goods.\n\nNote : Including packing, loading and Transport.");
+  
+  const getCurrencySymbol = (curr: string) => {
+    switch (curr) {
+      case "USD": return "$";
+      case "EUR": return "€";
+      case "INR": return "₹";
+      default: return curr;
+    }
+  };
   
   const [items, setItems] = useState<Item[]>(
     leadFromState?.interested_product 
-      ? [{ id: Date.now().toString(), product_id: "", product_name: leadFromState.interested_product, qty: 1, price: 0 }]
-      : [{ id: Date.now().toString(), product_id: "", product_name: "", qty: 1, price: 0 }]
+      ? [{ id: Date.now().toString(), product_id: "", product_name: leadFromState.interested_product, hsn_code: "", qty: 1, price: 0 }]
+      : [{ id: Date.now().toString(), product_id: "", product_name: "", hsn_code: "", qty: 1, price: 0 }]
   );
 
   // New Packaging Type State
@@ -83,8 +112,9 @@ export default function CreateQuotation() {
       setIsPkgModalOpen(false);
       setNewPkgName("");
       loadPackagingTypes();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to add packaging type");
+    } catch (err: unknown) {
+      const error = err as Error;
+      toast.error(error.message || "Failed to add packaging type");
     } finally {
       setSavingPkg(false);
     }
@@ -98,13 +128,14 @@ export default function CreateQuotation() {
     }
   }, [selectedLeadId, leadsList]);
 
-  const addItem = () => setItems((s) => [...s, { id: Date.now().toString(), product_id: "", product_name: "", qty: 1, price: 0 }]);
+  const addItem = () => setItems((s) => [...s, { id: Date.now().toString(), product_id: "", product_name: "", hsn_code: "", qty: 1, price: 0 }]);
   const removeItem = (id: string) => setItems((s) => s.filter((i) => i.id !== id));
   const updateItem = (id: string, patch: Partial<Item>) => setItems((s) => s.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   
   const subtotal = items.reduce((s, i) => s + (Number(i.qty) * Number(i.price)), 0);
-  const taxAmount = (subtotal * taxRate) / 100;
-  const totalAmount = subtotal + taxAmount + Number(packagingCost) + Number(shippingCost);
+  const taxableAmount = subtotal + Number(packagingCost) + Number(shipmentCost);
+  const taxAmount = (taxableAmount * taxRate) / 100;
+  const totalAmount = taxableAmount + taxAmount;
 
   const handleSave = async () => {
     if (!customerName || items.length === 0 || !items[0].product_name) {
@@ -139,15 +170,15 @@ export default function CreateQuotation() {
           tax_amount: taxAmount,
           container_type: containerType || null,
           packaging_type: packagingType || null,
+          packaging_cost: Number(packagingCost),
+          shipment_type: shipmentType || null,
+          shipping_cost: Number(shipmentCost),
           currency,
           status: 'Draft',
           items_count: items.length,
           valid_until: validUntil || null,
           payment_terms: paymentTerms,
-          lead_id: selectedLeadId || null,
-          packaging_cost: Number(packagingCost),
-          shipping_cost: Number(shippingCost),
-          shipment_type: shipmentType
+          lead_id: selectedLeadId || null
         })
         .select('id').single();
 
@@ -158,7 +189,10 @@ export default function CreateQuotation() {
         quotation_id: quoteData.id,
         product_id: i.product_id || null, 
         quantity: Number(i.qty),
-        unit_price: Number(i.price)
+        unit_price: Number(i.price),
+        total_price: Number(i.qty) * Number(i.price),
+        description: i.product_name,
+        hsn_code: i.hsn_code
       }));
 
       if (insertItems.length > 0) {
@@ -172,9 +206,10 @@ export default function CreateQuotation() {
 
       toast.success("Quotation created successfully!");
       nav("/quotations");
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Failed to create quotation");
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error(error);
+      toast.error(error.message || "Failed to create quotation");
     } finally {
       setSaving(false);
     }
@@ -267,22 +302,31 @@ export default function CreateQuotation() {
                 </Button>
               </div>
             </FormRow>
+            <FormRow label="Packaging Cost">
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">{getCurrencySymbol(currency)}</span>
+                <Input type="number" min="0" className="pl-7" value={packagingCost || ""} onChange={e => setPackagingCost(Number(e.target.value) || 0)} placeholder="0.00" />
+              </div>
+            </FormRow>
             <FormRow label="Shipment Type">
               <Select value={shipmentType} onValueChange={setShipmentType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select shipment type" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="FCL">FCL (Full Container Load)</SelectItem>
-                  <SelectItem value="LCL">LCL (Less than Container Load)</SelectItem>
-                  <SelectItem value="Air">Air Freight</SelectItem>
-                  <SelectItem value="Sea">Sea Freight</SelectItem>
+                  <SelectItem value="Air">Air</SelectItem>
+                  <SelectItem value="Sea">Sea</SelectItem>
+                  <SelectItem value="Road">Road</SelectItem>
+                  <SelectItem value="Courier">Courier</SelectItem>
                 </SelectContent>
               </Select>
             </FormRow>
-            <FormRow label="Packaging Cost">
-              <Input type="number" value={packagingCost} onChange={e => setPackagingCost(Number(e.target.value) || 0)} placeholder="0.00" />
+            <FormRow label="Shipment Cost">
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">{getCurrencySymbol(currency)}</span>
+                <Input type="number" min="0" className="pl-7" value={shipmentCost || ""} onChange={e => setShipmentCost(Number(e.target.value) || 0)} placeholder="0.00" />
+              </div>
             </FormRow>
-            <FormRow label="Shipping Cost">
-              <Input type="number" value={shippingCost} onChange={e => setShippingCost(Number(e.target.value) || 0)} placeholder="0.00" />
+            <FormRow label="Tax Rate (%)">
+              <Input type="number" min="0" max="100" step="any" value={taxRate} onChange={e => setTaxRate(Number(e.target.value) || 0)} placeholder="0.00" />
             </FormRow>
           </FormGrid>
           <div className="mt-4">
@@ -302,6 +346,7 @@ export default function CreateQuotation() {
             <table className="w-full text-sm">
               <thead><tr className="border-b border-border">
                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-2">Product Name</th>
+                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-2 w-32">HSN</th>
                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-2 w-24">Qty</th>
                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-2 w-32">Unit Price</th>
                 <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-2 w-32">Total</th>
@@ -313,13 +358,28 @@ export default function CreateQuotation() {
                     <td className="px-5 py-2">
                       <Input 
                         value={i.product_name} 
-                        onChange={(e) => updateItem(i.id, { product_name: e.target.value })} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const prod = productsList.find(p => p.name === val);
+                          updateItem(i.id, { 
+                            product_name: val, 
+                            product_id: prod?.id || "",
+                            hsn_code: prod?.hs_code || i.hsn_code
+                          });
+                        }} 
                         placeholder="Type product name..." 
                         list={`products-list-${i.id}`}
                       />
                       <datalist id={`products-list-${i.id}`}>
                         {productsList.map(p => <option key={p.id} value={p.name} />)}
                       </datalist>
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input 
+                        value={i.hsn_code} 
+                        onChange={(e) => updateItem(i.id, { hsn_code: e.target.value })} 
+                        placeholder="HSN Code"
+                      />
                     </td>
                     <td className="px-3 py-2"><Input type="number" min="1" value={i.qty} onChange={(e) => updateItem(i.id, { qty: Number(e.target.value) || 0 })} /></td>
                     <td className="px-3 py-2"><Input type="number" min="0" value={i.price} onChange={(e) => updateItem(i.id, { price: Number(e.target.value) || 0 })} /></td>
@@ -334,23 +394,33 @@ export default function CreateQuotation() {
             <div className="w-64 space-y-2 text-sm">
               <div className="flex justify-between items-center text-muted-foreground">
                 <span>Subtotal</span>
-                <span>{currency === 'USD' ? '$' : currency} {subtotal.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center text-muted-foreground">
-                <span>Tax Amount ({taxRate}%)</span>
-                <span>{currency === 'USD' ? '$' : currency} {taxAmount.toLocaleString()}</span>
+                <span>{getCurrencySymbol(currency)} {subtotal.toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center text-muted-foreground">
                 <span>Packaging Cost</span>
-                <span>{currency === 'USD' ? '$' : currency} {Number(packagingCost).toLocaleString()}</span>
+                <span>{getCurrencySymbol(currency)} {Number(packagingCost).toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center text-muted-foreground">
-                <span>Shipping Cost</span>
-                <span>{currency === 'USD' ? '$' : currency} {Number(shippingCost).toLocaleString()}</span>
+                <span>Shipment Cost</span>
+                <span>{getCurrencySymbol(currency)} {Number(shipmentCost).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center text-muted-foreground">
+                <span>Tax (%)</span>
+                <span className="flex items-center gap-2">
+                  <Input 
+                    type="number" 
+                    min="0" 
+                    className="h-7 w-16 text-right px-2 py-0" 
+                    value={taxRate || ""} 
+                    onChange={e => setTaxRate(Number(e.target.value) || 0)} 
+                    placeholder="0"
+                  />
+                </span>
+                <span>{getCurrencySymbol(currency)} {taxAmount.toLocaleString()}</span>
               </div>
               <div className="flex justify-between pt-2 border-t border-border font-bold text-base">
                 <span>Total Amount</span>
-                <span className="tabular-nums text-primary">{currency === 'USD' ? '$' : currency} {totalAmount.toLocaleString()}</span>
+                <span className="tabular-nums text-primary">{getCurrencySymbol(currency)} {totalAmount.toLocaleString()}</span>
               </div>
             </div>
           </div>

@@ -12,15 +12,11 @@ import AuthCallback from "./pages/AuthCallback";
 import LeadActivities from "./pages/crm/Activities";
 import LeadsList from "./pages/crm/LeadsList";
 import LeadDetail from "./pages/crm/LeadDetail";
-import CreateLead from "./pages/crm/CreateLead";
-import EditLead from "./pages/crm/EditLead";
-import ConvertLead from "./pages/crm/Convert";
 import LeadPipeline from "./pages/crm/Pipeline";
 import EmailIntegration from "./pages/crm/EmailIntegration";
 import CompleteProfile from "./pages/CompleteProfile";
 import WaitingApproval from "./pages/WaitingApproval";
 import Pending from "./pages/Pending";
-import Approvals from "./pages/Approvals";
 import InvoicePreview from "./pages/documents/InvoicePreview";
 import PackingListPreview from "./pages/documents/PackingListPreview";
 import CertificatePreview from "./pages/documents/CertificatePreview";
@@ -42,7 +38,6 @@ import ConvertToCustomer from "./pages/farmers/ConvertToCustomer";
 // Procurement (live)
 import PurchaseOrdersListLive from "./pages/procurement/PurchaseOrdersListLive";
 import CreatePOLive from "./pages/procurement/CreatePOLive";
-import PurchaseOrderDetailLive from "./pages/procurement/PurchaseOrderDetailLive";
 import SuppliersList from "./pages/procurement/SuppliersList";
 import SupplierDetail from "./pages/procurement/SupplierDetail";
 import SupplierAnalytics from "./pages/procurement/SupplierAnalytics";
@@ -73,6 +68,7 @@ import PublicQuotationView from "./pages/quotations/PublicQuotationView";
 import QuotationApprovals from "./pages/quotations/Approvals";
 import QuotationReport from "./pages/quotations/QuotationReport";
 import ConvertQuotation from "./pages/quotations/Convert";
+import EditQuotation from "./pages/quotations/EditQuotation";
 
 // Orders
 import OrdersList from "./pages/orders/OrdersList";
@@ -80,7 +76,6 @@ import OrderDetail from "./pages/orders/OrderDetail";
 import CreateOrder from "./pages/orders/CreateOrder";
 import OrderStatus from "./pages/orders/OrderStatus";
 import Fulfillment from "./pages/orders/Fulfillment";
-import OrderReport from "./pages/orders/OrderReport";
 
 // Shipments
 import ShipmentsList from "./pages/shipments/ShipmentsList";
@@ -116,9 +111,7 @@ import Maintenance from "./pages/system/Maintenance";
 import ZohoIntegration from "./pages/system/ZohoIntegration";
 import Mailbox from "./pages/system/Mailbox";
 import TallyIndex from "./pages/Tally/index";
-
-
-
+import JournalEntry from "./pages/Tally/JournalEntry";
 
 const queryClient = new QueryClient();
 
@@ -136,6 +129,7 @@ const App = () => (
             <Route path="/pending" element={<Pending />} />
             <Route path="/complete-profile" element={<CompleteProfile />} />
             <Route path="/waiting-approval" element={<WaitingApproval />} />
+            <Route path="/select-profile" element={<Navigate to="/dashboard" replace />} />
             <Route path="/invoices/:id/preview" element={<InvoicePreview />} />
             <Route path="/packing-lists/:id/preview" element={<PackingListPreview />} />
             <Route path="/certificates/:id/preview" element={<CertificatePreview />} />
@@ -143,7 +137,7 @@ const App = () => (
             
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/dashboard" element={<Navigate to="/dashboards/executive" replace />} />
-              <Route path="/approvals" element={<Approvals />} />
+              <Route path="/approvals" element={<Navigate to="/employees/roles" replace />} />
 
               {/* Dashboards */}
               <Route path="/dashboards/executive" element={<Executive />} />
@@ -161,7 +155,6 @@ const App = () => (
               {/* Procurement (live) */}
               <Route path="/procurement/orders" element={<PurchaseOrdersListLive />} />
               <Route path="/procurement/orders/create" element={<CreatePOLive />} />
-              <Route path="/procurement/orders/:id" element={<PurchaseOrderDetailLive />} />
               <Route path="/procurement/suppliers" element={<SuppliersList />} />
               <Route path="/procurement/suppliers/:id" element={<SupplierDetail />} />
               <Route path="/procurement/analytics" element={<SupplierAnalytics />} />
@@ -188,6 +181,7 @@ const App = () => (
               {/* Quotations */}
               <Route path="/quotations" element={<QuotationsList />} />
               <Route path="/quotations/create" element={<CreateQuotation />} />
+              <Route path="/quotations/edit/:id" element={<EditQuotation />} />
               <Route path="/quotations/approvals" element={<QuotationApprovals />} />
               <Route path="/quotations/convert" element={<ConvertQuotation />} />
               <Route path="/quotations/:id" element={<QuotationPreview />} />
@@ -196,26 +190,22 @@ const App = () => (
                 {/* CRM */}
                 <Route path="/crm/activities" element={<LeadActivities />} />
                 <Route path="/crm/leads" element={<LeadsList />} />
-                <Route path="/crm/leads/create" element={<CreateLead />} />
                 <Route path="/crm/leads/:id" element={<LeadDetail />} />
-                <Route path="/crm/leads/:id/edit" element={<EditLead />} />
                 <Route path="/crm/pipeline" element={<LeadPipeline />} />
                 <Route path="/crm/email" element={<EmailIntegration />} />
-                <Route path="/crm/convert" element={<ConvertLead />} />
               {/* Orders */}
               <Route path="/orders" element={<OrdersList />} />
               <Route path="/orders/create" element={<CreateOrder />} />
               <Route path="/orders/status" element={<OrderStatus />} />
               <Route path="/orders/fulfillment" element={<Fulfillment />} />
               <Route path="/orders/:id" element={<OrderDetail />} />
-              <Route path="/orders/:id/report" element={<OrderReport />} />
 
               {/* Shipments */}
               <Route path="/shipments" element={<ShipmentsList />} />
               <Route path="/shipments/create" element={<CreateShipment />} />
+              <Route path="/shipments/:id" element={<ShipmentDetail />} />
               <Route path="/shipments/containers" element={<ContainerTracking />} />
               <Route path="/shipments/delivery" element={<DeliveryStatus />} />
-              <Route path="/shipments/:id" element={<ShipmentDetail />} />
 
               {/* Documents */}
               <Route path="/documents" element={<Navigate to="/documents/invoices" replace />} />
@@ -230,9 +220,9 @@ const App = () => (
               <Route path="/payments/overdue" element={<OverduePayments />} />
               <Route path="/payments/ledger" element={<Ledger />} />
               <Route path="/payments/reports" element={<FinancialReports />} />
-              
               {/* Tally Integration */}
               <Route path="/tally/*" element={<TallyIndex />} />
+              <Route path="/journal" element={<JournalEntry />} />
               {/* Employees */}
               <Route path="/employees" element={<EmployeeDirectory />} />
               <Route path="/employees/attendance" element={<Attendance />} />
