@@ -84,20 +84,56 @@ export default function LeadDetail() {
         ? `${lead.contact_name.toLowerCase().replace(/\s+/g, ".")}@${lead.company_name.split(" ")[0].toLowerCase()}.com`
         : "");
       
-      const { data, error } = await supabase.functions.invoke("send-email", {
-        body: {
-          to: email,
-          subject,
-          text: message,
-          html: `<p>${message.replace(/\n/g, '<br>')}</p>`,
-          companyId: (lead as any).company_id
-        },
-      });
+      toast.info("Queuing email...");
+
+      const emailBody = `<p>${message.replace(/\n/g, '<br>')}</p>`;
+
+      // 2. Outbox Pattern: Insert into Database (Webhook triggers backend)
+      const { data, error } = await supabase.from("emails").insert({
+        to_address: email,
+        subject: subject,
+        body_html: emailBody,
+        company_id: (lead as any).company_id,
+        lead_id: lead.id,
+        status: 'pending',
+        attachments: []
+      }).select('id').single();
 
       if (error) throw error;
-      toast.success("Email sent successfully!");
-      setSubject("");
-      setMessage("");
+      
+      const emailId = data?.id;
+      
+      if (emailId) {
+        // Subscribe to real-time status updates for this specific email
+        const channel = supabase
+          .channel(`email-status-${emailId}`)
+          .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'emails',
+            filter: `id=eq.${emailId}`
+          }, (payload) => {
+            const { status, error_message } = payload.new;
+            if (status === 'sent') {
+              toast.success(`Email Delivered!`);
+              setSubject("");
+              setMessage("");
+              supabase.removeChannel(channel);
+            }
+            if (status === 'failed') {
+              toast.error(`Delivery Failed: ${error_message}`);
+              supabase.removeChannel(channel);
+            }
+          })
+          .subscribe();
+          
+        toast.loading("Sending...");
+      } else {
+        // Fallback if no emailId returned
+        toast.success(`Email queued!`);
+        setSubject("");
+        setMessage("");
+      }
 
       // Record activity in history
       await supabase.from("activities").insert({
@@ -117,11 +153,22 @@ export default function LeadDetail() {
         .order("created_at", { ascending: false });
       if (acts) setActivities(acts as unknown as Activity[]);
     } catch (e: any) {
-      toast.error(e.message || "Failed to send email");
+      console.error("Email error:", e);
+      let errorMsg = e.message;
+      
+      if (e.context && typeof e.context.json === 'function') {
+        try {
+          const body = await e.context.json();
+          if (body.error) errorMsg = body.error;
+        } catch (err) {
+          console.error("Failed to parse error body", err);
+        }
+      }
+      
+      toast.error(errorMsg || "Failed to send email");
     } finally {
       setSending(false);
     }
-
   };
 
   if (loading) {

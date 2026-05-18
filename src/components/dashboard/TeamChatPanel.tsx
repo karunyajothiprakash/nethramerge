@@ -20,6 +20,14 @@ export function TeamChatPanel() {
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [showMentions, setShowMentions] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
+  
+  const [mentionPopups, setMentionPopups] = useState<any[]>([]);
+  const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
+
+  const currentUserRef = useRef<any>(null);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
 
   const currentUserFirstName = currentUser?.user_metadata?.full_name?.split(' ')[0] || currentUser?.email?.split('@')[0] || "";
 
@@ -104,6 +112,25 @@ export function TeamChatPanel() {
           setMessages(prev => [...prev, payload.new]);
           if (!isOpen && payload.new.sender_id !== currentUser?.id) {
             setUnreadCount(prev => prev + 1);
+          }
+          
+          const cUser = currentUserRef.current;
+          if (cUser && payload.new.sender_id !== cUser.id) {
+            const currentUserName = cUser.user_metadata?.full_name?.split(' ')[0] || cUser.email?.split('@')[0] || "";
+            if (currentUserName && payload.new.message?.toLowerCase().includes('@' + currentUserName.toLowerCase())) {
+              const popupId = Date.now() + Math.random();
+              setMentionPopups(prev => {
+                const newPopups = [...prev, { ...payload.new, popupId }];
+                if (newPopups.length > 3) {
+                  return newPopups.slice(newPopups.length - 3);
+                }
+                return newPopups;
+              });
+
+              setTimeout(() => {
+                setMentionPopups(prev => prev.filter(p => p.popupId !== popupId));
+              }, 5000);
+            }
           }
         }
       )
@@ -197,6 +224,61 @@ export function TeamChatPanel() {
 
   return (
     <>
+      {/* MENTION POPUPS */}
+      <div className="fixed top-6 right-6 z-[99999] flex flex-col gap-3 pointer-events-none">
+        {mentionPopups.map((popup) => (
+          <div 
+            key={popup.popupId} 
+            className="pointer-events-auto bg-[#1a1a1a] border-[1.5px] border-[#f0a500] rounded-xl p-4 w-[300px] animate-in slide-in-from-right duration-300 shadow-xl"
+          >
+            <div className="flex justify-between items-start mb-2">
+              <div className="text-[#f0a500] text-sm font-bold flex items-center gap-1.5">
+                💬 Someone mentioned you
+              </div>
+              <button 
+                onClick={() => setMentionPopups(prev => prev.filter(p => p.popupId !== popup.popupId))}
+                className="text-white/50 hover:text-white transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            
+            <div className="font-bold text-white text-[14px] mb-1">
+              {popup.sender_name}
+            </div>
+            
+            <div className="text-gray-400 text-[13px] line-clamp-2 leading-snug mb-3">
+              {popup.message}
+            </div>
+            
+            <div className="flex justify-between items-end">
+              <button
+                onClick={() => {
+                  setIsOpen(true);
+                  setHighlightMessageId(popup.id);
+                  setMentionPopups(prev => prev.filter(p => p.popupId !== popup.popupId));
+                  setTimeout(() => {
+                    const el = document.getElementById(`msg-${popup.id}`);
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                  }, 300);
+                  setTimeout(() => {
+                    setHighlightMessageId(null);
+                  }, 3000);
+                }}
+                className="text-[12px] bg-[#f0a500] text-black px-3 py-1.5 rounded-lg font-bold hover:bg-[#ffb515] transition-colors"
+              >
+                View Message
+              </button>
+              <div className="text-[10px] text-gray-500">
+                {formatTime(popup.created_at)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* FLOATING BUBBLE */}
       {!isOpen && (
         <button
@@ -263,7 +345,11 @@ export function TeamChatPanel() {
               const hasMention = currentUserFirstName && msg.message?.includes(`@${currentUserFirstName}`);
               
               return (
-                <div key={msg.id || idx} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${hasMention && !isMe ? 'border-l-[3px] border-[#f0a500] pl-2' : ''}`}>
+                <div 
+                  key={msg.id || idx} 
+                  id={`msg-${msg.id}`}
+                  className={`flex w-full transition-colors duration-500 ${isMe ? 'justify-end' : 'justify-start'} ${(hasMention && !isMe) || highlightMessageId === msg.id ? 'border-l-[3px] border-[#f0a500] pl-2' : ''} ${highlightMessageId === msg.id ? 'bg-[#f0a500]/10 py-1' : ''}`}
+                >
                   <div className={`flex max-w-[85%] gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                     {/* Avatar */}
                     <div className="shrink-0 flex items-end">
