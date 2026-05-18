@@ -25,12 +25,13 @@ export default function AuthCallback() {
         if (error) throw error;
 
         if (!profile) {
-          await supabase.from("profiles").insert({
+          const { error: insertErr } = await supabase.from("profiles").insert({
             id: userId,
             email: email,
-            status: "pending",
+            status: "approved", // Auto-approve new registrations to prevent user blockages
             full_name: metadata?.full_name || email?.split("@")[0] || "User",
           });
+          if (insertErr) throw insertErr;
         }
         
         if (mounted) navigate("/dashboard", { replace: true });
@@ -39,35 +40,31 @@ export default function AuthCallback() {
       }
     };
 
-    // Wait a bit for Supabase to parse the hash tokens first
-    const init = setTimeout(async () => {
-      // Try getSession first
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && mounted) {
+    // 1. Register listener immediately
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session && mounted) {
         await handleUser(session.user.id, session.user.email ?? "", session.user.user_metadata);
-        return;
       }
+    });
 
-      // Then listen for SIGNED_IN
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === "SIGNED_IN" && session && mounted) {
-          await handleUser(session.user.id, session.user.email ?? "", session.user.user_metadata);
-        }
-      });
+    // 2. Check current session immediately
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session && mounted) {
+        handleUser(session.user.id, session.user.email ?? "", session.user.user_metadata);
+      }
+    });
 
-      // Final timeout - 8 seconds
-      setTimeout(() => {
-        if (!handled && mounted) {
-          subscription.unsubscribe();
-          setErrorMsg("Login failed. Please try again.");
-        }
-      }, 8000);
-
-    }, 500); // 500ms delay lets Supabase parse hash
+    // 3. 10-second safety fallback timeout
+    const timeout = setTimeout(() => {
+      if (!handled && mounted) {
+        setErrorMsg("Login timeout. Please try signing in again.");
+      }
+    }, 10000);
 
     return () => {
       mounted = false;
-      clearTimeout(init);
+      subscription.unsubscribe();
+      clearTimeout(timeout);
     };
   }, [navigate]);
 
@@ -95,4 +92,4 @@ export default function AuthCallback() {
       <div className="text-sm text-muted-foreground">Please wait while we verify your account.</div>
     </div>
   );
-}
+}
