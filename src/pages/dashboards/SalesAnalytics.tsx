@@ -7,7 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
 export default function SalesAnalytics() {
-  const { data: realSales, error: salesError } = useQuery({
+  // Query 1: Sales from database view
+  const { data: realSales } = useQuery({
     queryKey: ['dashboard_sales'],
     queryFn: async () => {
       const { data, error } = await supabase.from('view_sales_by_month' as any).select('*');
@@ -17,19 +18,55 @@ export default function SalesAnalytics() {
     retry: false
   });
 
-  // Calculate live stats
+  // Query 2: Leads from CRM
+  const { data: leads = [] } = useQuery({
+    queryKey: ['sales_analytics_leads'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('leads').select('stage');
+      if (error) throw error;
+      return data || [];
+    },
+    retry: false
+  });
+
+  // Query 3: Export Orders
+  const { data: orders = [] } = useQuery({
+    queryKey: ['sales_analytics_orders'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('export_orders').select('total_amount');
+      if (error) throw error;
+      return data || [];
+    },
+    retry: false
+  });
+
+  // Calculations
   const chartSales = realSales || [];
   const totalRevenue = chartSales.reduce((sum: number, item: any) => sum + Number(item.revenue || 0), 0);
-  const isLive = !!realSales;
+  
+  const totalLeads = leads.length;
+  const wonLeads = leads.filter((l: any) => l.stage === 'Won').length;
+  const lostLeads = leads.filter((l: any) => l.stage === 'Lost').length;
+  
+  const conversionRate = totalLeads > 0 ? (wonLeads / totalLeads) * 100 : 0;
+  
+  const closedLeads = wonLeads + lostLeads;
+  const winRate = closedLeads > 0 ? (wonLeads / closedLeads) * 100 : 0;
+
+  const totalOrders = orders.length;
+  const totalOrderAmount = orders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
+  const avgDealSize = totalOrders > 0 ? totalOrderAmount / totalOrders : 0;
+
+  const isLive = totalLeads > 0 || totalOrders > 0 || chartSales.length > 0;
 
   return (
     <div>
       <PageHeader title="Sales Analytics" description="Pipeline, conversion and revenue trends" breadcrumbs={[{ label: "Dashboards" }, { label: "Sales" }]} />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Pipeline Value" value={`$${(totalRevenue/1000).toFixed(0)}K`} delta={{ value: isLive ? "Live" : "+12%", positive: true }} hint="from database" />
-        <StatCard label="Conversion Rate" value="34.2%" delta={{ value: "+2.1%", positive: true }} hint="leads → orders" />
-        <StatCard label="Avg Deal Size" value="$28.4K" delta={{ value: "+$3.2K", positive: true }} hint="this month" />
-        <StatCard label="Win Rate" value="62%" delta={{ value: "-3%", positive: false }} hint="last 30 days" />
+        <StatCard label="Pipeline Value" value={`$${(totalRevenue/1000).toFixed(0)}K`} delta={{ value: isLive ? "Live" : "No Data", positive: isLive }} hint="from database" />
+        <StatCard label="Conversion Rate" value={`${conversionRate.toFixed(1)}%`} delta={{ value: isLive ? "Live" : "No Data", positive: isLive }} hint="leads → orders" />
+        <StatCard label="Avg Deal Size" value={`$${(avgDealSize/1000).toFixed(1)}K`} delta={{ value: isLive ? "Live" : "No Data", positive: isLive }} hint="from database" />
+        <StatCard label="Win Rate" value={`${winRate.toFixed(1)}%`} delta={{ value: isLive ? "Live" : "No Data", positive: isLive }} hint="from database" />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Section title="Orders per Month">
