@@ -25,7 +25,7 @@ type Lead = {
   profiles?: { full_name: string };
 };
 
-const STAGES = ["new", "contacted", "negotiation", "qualified", "won", "lost"];
+const STAGES = ["New", "Contacted", "Negotiation", "Qualified", "Won", "Lost"];
 
 const STAGE_COLORS: Record<string, string> = {
   new: "bg-slate-500",
@@ -34,6 +34,12 @@ const STAGE_COLORS: Record<string, string> = {
   qualified: "bg-purple-500",
   won: "bg-green-500",
   lost: "bg-red-500",
+  New: "bg-slate-500",
+  Contacted: "bg-blue-500",
+  Negotiation: "bg-yellow-500",
+  Qualified: "bg-purple-500",
+  Won: "bg-green-500",
+  Lost: "bg-red-500",
 };
 
 export default function LeadsList() {
@@ -120,7 +126,7 @@ export default function LeadsList() {
         contact_name: contactName,
         country: country,
         interested_product: product,
-        stage: "new",
+        stage: "New",
         assigned_to: assignedTo || userId,
         created_by: userId,
         company_id: (await supabase.from('profiles').select('company_id').eq('id', userId).single()).data?.company_id
@@ -163,7 +169,7 @@ export default function LeadsList() {
       if (customerError) throw customerError;
 
       // 2. Update Lead Stage (optional, maybe 'converted')
-      await supabase.from("leads").update({ stage: "won" }).eq("id", lead.id);
+      await supabase.from("leads").update({ stage: "Won" }).eq("id", lead.id);
 
       toast.success(`${lead.company_name} is now a registered Customer!`);
       fetchLeads();
@@ -291,7 +297,7 @@ export default function LeadsList() {
                           }
                         }}
                       >
-                        <SelectTrigger className={`h-8 w-32 ${STAGE_COLORS[lead.stage] || 'bg-slate-500'} text-white border-none font-bold`}>
+                        <SelectTrigger className={`h-8 w-32 ${STAGE_COLORS[lead.stage?.toLowerCase()] || 'bg-slate-500'} text-white border-none font-bold`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -299,7 +305,7 @@ export default function LeadsList() {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <Badge className={`h-8 w-32 justify-center ${STAGE_COLORS[lead.stage] || 'bg-slate-500'} text-white border-none font-bold`}>
+                      <Badge className={`h-8 w-32 justify-center ${STAGE_COLORS[lead.stage?.toLowerCase()] || 'bg-slate-500'} text-white border-none font-bold`}>
                         {lead.stage}
                       </Badge>
                     )}
