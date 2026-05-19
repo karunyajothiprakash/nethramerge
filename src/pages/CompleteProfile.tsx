@@ -43,6 +43,17 @@ export default function CompleteProfile() {
   }
   if (!loading && profile?.requested_role) return <Navigate to="/waiting-approval" replace />;
 
+  if (loading || !profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center">
+          <Loader2 className="h-8 w-8 text-primary animate-spin mb-4" />
+          <p className="text-sm text-muted-foreground animate-pulse">Preparing your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session?.user) return;
@@ -57,7 +68,7 @@ export default function CompleteProfile() {
     setBusy(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ full_name: fullName, phone, requested_role: role, status: "approved" })
+      .update({ full_name: fullName, phone, requested_role: role, status: "pending" })
       .eq("id", session.user.id);
     setBusy(false);
     if (error) {
@@ -65,20 +76,10 @@ export default function CompleteProfile() {
       return;
     }
     await refresh();
-    const isSec = roleSlugs?.has("secretary") || role === "secretary";
-    nav(isSec ? "/dashboards/finance-tally" : "/dashboards/executive", { replace: true });
+    nav("/waiting-approval", { replace: true });
   };
 
-  const skip = async () => {
-    if (!session?.user) return;
-    await supabase
-      .from("profiles")
-      .update({ status: "approved" })
-      .eq("id", session.user.id);
-    await refresh();
-    const isSec = roleSlugs?.has("secretary");
-    nav(isSec ? "/dashboards/finance-tally" : "/dashboards/executive", { replace: true });
-  };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
@@ -125,10 +126,7 @@ export default function CompleteProfile() {
           </div>
           <Button type="submit" className="w-full" disabled={busy}>
             {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Submit & Go to Dashboard
-          </Button>
-          <Button type="button" variant="ghost" className="w-full" onClick={skip}>
-            Skip → Go to Dashboard
+            Submit for Approval
           </Button>
           <Button type="button" variant="ghost" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => signOut()}>
             Sign out / Switch account

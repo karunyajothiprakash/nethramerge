@@ -1,9 +1,22 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useEffect } from "react";
 
 export function ProtectedRoute({ children }: { children: JSX.Element }) {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, refresh } = useAuth();
   const location = useLocation();
+
+  // Robust fallback: if profile is null, poll for it because the trigger might be delayed
+  // and Realtime websockets can sometimes be blocked or dropped.
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (session && !profile && !loading) {
+      interval = setInterval(() => {
+        refresh();
+      }, 1500);
+    }
+    return () => clearInterval(interval);
+  }, [session, profile, loading, refresh]);
 
   if (loading) {
     return (
@@ -17,8 +30,20 @@ export function ProtectedRoute({ children }: { children: JSX.Element }) {
     return <Navigate to="/auth" state={{ from: location.pathname }} replace />;
   }
 
+  // Wait for the backend trigger to create the profile row
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="mt-4 text-sm text-muted-foreground animate-pulse">Setting up your account...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Redirect users with pending/rejected profiles to the correct onboarding/waiting routes
-  if (profile && profile.status !== "approved") {
+  if (profile.status !== "approved") {
     if (profile.requested_role) {
       return <Navigate to="/waiting-approval" replace />;
     } else {
