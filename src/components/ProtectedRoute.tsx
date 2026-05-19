@@ -51,5 +51,20 @@ export function ProtectedRoute({ children }: { children: JSX.Element }) {
     }
   }
 
+  // BDE Role Route Restriction
+  const isBde = roleSlugs.has("bd") || 
+                roleSlugs.has("bde") || 
+                (profile?.requested_role && ["bd", "bde"].includes(profile.requested_role.toLowerCase()));
+
+  if (isBde) {
+    const allowedPrefixes = ["/dashboards", "/dashboard", "/crm", "/customers", "/quotations", "/documents", "/system"];
+    const isAllowed = allowedPrefixes.some(prefix => 
+      location.pathname === prefix || location.pathname.startsWith(prefix + "/")
+    );
+    if (!isAllowed) {
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
+
   return children;
 }
