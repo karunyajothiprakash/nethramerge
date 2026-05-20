@@ -169,18 +169,19 @@ export default function InvoicePreview() {
         {/* Document Header Section */}
         <div className="grid grid-cols-[55%_45%] border-b-[1.5px] border-black">
           {/* Left Side: Logo & Company Address */}
-          <div className="p-5 border-r-[1.5px] border-black flex flex-col items-center">
-            <h1 className="text-[13px] font-extrabold text-[#1A5276] mb-5 tracking-tight">SHASTIKA GLOBAL IMPEX PRIVATE LIMITED</h1>
-            <div className="flex w-full items-start gap-4">
+          <div className="p-5 border-r-[1.5px] border-black flex flex-col items-center text-center">
+            <h1 className="text-[13px] font-extrabold text-[#1A5276] mb-4 tracking-tight">SHASTIKA GLOBAL IMPEX PRIVATE LIMITED</h1>
+            <div className="flex flex-col w-full items-center gap-3">
               <div className="w-24 h-24 flex-shrink-0 flex items-center justify-center">
                 <img src="/logo.webp" alt="SGI Logo" className="w-full h-auto object-contain" />
               </div>
-              <div className="flex flex-col text-[9.5px] space-y-1 text-gray-800 pt-1">
-                <div className="flex gap-2"><span>Address:</span> <span className="font-medium">41/1, ST-5, Sathy Athani Main Road,</span></div>
-                <div className="flex gap-2 ml-11"><span></span> <span className="font-medium">Thuckanayakanpalayam</span></div>
-                <div className="flex gap-2 ml-11"><span></span> <span className="font-medium">Erode - 638506, Tamil Nadu, India.</span></div>
-                <div className="flex gap-2 mt-2"><span>Phone no:</span> <span className="font-bold text-black">7397612015</span></div>
-                <div className="flex gap-2"><span>GSTIN:</span> <span className="font-bold text-black">33ABPCS0605LIZ8</span></div>
+              <div className="flex flex-col text-[9.5px] space-y-1 text-gray-800">
+                <div className="flex justify-center gap-2"><span>Address:</span> <span className="font-medium">41/1, ST-5, Sathy Athani Main Road,</span></div>
+                <div className="font-medium">Thuckanayakanpalayam</div>
+                <div className="font-medium">Erode - 638506, Tamil Nadu, India.</div>
+                <div className="flex justify-center gap-2 mt-2"><span>Phone :</span> <span className="font-bold text-black">+91 7397612015</span></div>
+                <div className="flex justify-center gap-2"><span>GSTIN :</span> <span className="font-bold text-black">33ABPCS0605LIZ8</span></div>
+                <div className="flex justify-center gap-2"><span>Whatsapp :</span> <span className="font-bold text-black">+91 9566266241</span></div>
               </div>
             </div>
           </div>
@@ -230,11 +231,11 @@ export default function InvoicePreview() {
 
           {/* Shipment Terms */}
           <div className="p-4 border-r-[1.5px] border-black space-y-3">
-            <div className="grid grid-cols-[130px_1fr]"><span>Country of Origin :</span> <span className="font-bold">India</span></div>
+            <div className="grid grid-cols-[130px_1fr]"><span>Country of Origin :</span> <span className="font-bold">{order.country_of_origin || 'India'}</span></div>
             <div className="grid grid-cols-[130px_1fr]"><span>Mode of Transport :</span> <span className="font-bold">{order.mode_of_transport || 'Nil'}</span></div>
             <div className="grid grid-cols-[130px_1fr]"><span>Incoterms :</span> <span className="font-bold">{order.incoterms || '—'}</span></div>
-            <div className="grid grid-cols-[130px_1fr]"><span>Port of Loading :</span> <span className="font-bold">{shipment.origin_port || 'Erode'}</span></div>
-            <div className="grid grid-cols-[130px_1fr]"><span>Port of Discharge :</span> <span className="font-bold">{shipment.destination_port || 'Nil'}</span></div>
+            <div className="grid grid-cols-[130px_1fr]"><span>Port of Loading :</span> <span className="font-bold">{order.port_of_loading || shipment.origin_port || 'Nhava Sheva Port, India'}</span></div>
+            <div className="grid grid-cols-[130px_1fr]"><span>Port of Discharge :</span> <span className="font-bold">{order.port_of_discharge || shipment.destination_port || 'Nil'}</span></div>
             <div className="grid grid-cols-[130px_1fr]"><span>Estimated shipment date :</span> <span className="font-bold">{shipment.departure_date ? new Date(shipment.departure_date).toLocaleDateString('en-GB') : today}</span></div>
           </div>
 

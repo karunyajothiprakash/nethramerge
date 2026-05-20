@@ -103,6 +103,21 @@ export default function LeadsList() {
   useEffect(() => {
     fetchLeads();
     fetchTeam();
+    
+    // Add realtime subscription for leads
+    const channel = supabase
+      .channel('leads-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'leads' },
+        () => {
+          fetchLeads();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleAddLead = async (e: React.FormEvent) => {
