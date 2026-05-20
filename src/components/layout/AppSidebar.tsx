@@ -28,7 +28,12 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
   // Filter items by permission (if no permission set, always visible)
   const visibleGroups = navGroups
     .map((g) => {
-      let items = g.items.filter((i) => !i.permission || can(i.permission));
+      const groupTitleLower = g.title.toLowerCase();
+      let items = g.items.filter((i) => {
+        if (isSecretary && allowedSecretaryGroups.has(groupTitleLower)) return true;
+        if (isBde && allowedBdeGroups.has(groupTitleLower)) return true;
+        return !i.permission || can(i.permission);
+      });
       if (g.title === "Dashboards" && isSecretary) {
         items = [
           { title: "Finance & Tally", url: "/dashboards/finance-tally", icon: LayoutDashboard }
