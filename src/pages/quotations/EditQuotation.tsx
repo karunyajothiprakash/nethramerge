@@ -47,6 +47,7 @@ export default function EditQuotation() {
   // Form State
   const [selectedLeadId, setSelectedLeadId] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [currency, setCurrency] = useState("USD");
   const [validUntil, setValidUntil] = useState("");
   const [incoterm, setIncoterm] = useState("CIF");
@@ -56,6 +57,10 @@ export default function EditQuotation() {
   const [shipmentType, setShipmentType] = useState("");
   const [shipmentCost, setShipmentCost] = useState(0);
   const [taxRate, setTaxRate] = useState(0);
+  const [countryOfOrigin, setCountryOfOrigin] = useState("India");
+  const [portOfLoading, setPortOfLoading] = useState("Nhava Sheva Port, India");
+  const [portOfDischarge, setPortOfDischarge] = useState("");
+  const [netWeight, setNetWeight] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
   const [items, setItems] = useState<Item[]>([]);
   const [quoteNumber, setQuoteNumber] = useState("");
@@ -102,6 +107,7 @@ export default function EditQuotation() {
           setQuoteNumber(q.quotation_number);
           setSelectedLeadId(q.lead_id || "");
           setCustomerName(q.customers?.name || "");
+          setCustomerPhone(q.customer_phone || "");
           setCurrency(q.currency || "USD");
           setValidUntil(q.valid_until ? q.valid_until.split('T')[0] : "");
           setIncoterm(q.incoterm || "CIF");
@@ -110,6 +116,10 @@ export default function EditQuotation() {
           setPackagingCost(Number(q.packaging_cost) || 0);
           setShipmentType(q.shipment_type || "");
           setShipmentCost(Number(q.shipping_cost) || 0);
+          setCountryOfOrigin(q.country_of_origin || "India");
+          setPortOfLoading(q.port_of_loading || "Nhava Sheva Port, India");
+          setPortOfDischarge(q.port_of_discharge || "");
+          setNetWeight(q.net_weight || "");
           setTaxRate(Number(q.tax_rate) || 0);
           setPaymentTerms(q.payment_terms || "");
         }
@@ -190,6 +200,7 @@ export default function EditQuotation() {
         .from('quotations')
         .update({
           customer_id: customerId,
+          customer_phone: customerPhone || null,
           amount: totalAmount,
           subtotal: subtotal,
           tax_rate: taxRate,
@@ -199,9 +210,15 @@ export default function EditQuotation() {
           packaging_cost: Number(packagingCost),
           shipment_type: shipmentType || null,
           shipping_cost: Number(shipmentCost),
+          country_of_origin: countryOfOrigin || null,
+          port_of_loading: portOfLoading || null,
+          port_of_discharge: portOfDischarge || null,
+          net_weight: netWeight || null,
+          quotation_number: quoteNumber,
           currency,
           items_count: items.length,
           valid_until: validUntil || null,
+          incoterm: incoterm || "CIF",
           payment_terms: paymentTerms,
           lead_id: selectedLeadId || null
         })
@@ -287,8 +304,14 @@ export default function EditQuotation() {
                 </SelectContent>
               </Select>
             </FormRow>
+            <FormRow label="Quotation No.">
+              <Input value={quoteNumber} onChange={e => setQuoteNumber(e.target.value)} placeholder="e.g. QT-2026-001" />
+            </FormRow>
             <FormRow label="Customer Name *" required>
               <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Company or contact name" />
+            </FormRow>
+            <FormRow label="Customer Phone">
+              <Input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="e.g. +491729819755" />
             </FormRow>
             <FormRow label="Currency">
               <Select value={currency} onValueChange={setCurrency}>
@@ -356,6 +379,18 @@ export default function EditQuotation() {
                 <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">{getCurrencySymbol(currency)}</span>
                 <Input type="number" min="0" className="pl-7" value={shipmentCost || ""} onChange={e => setShipmentCost(Number(e.target.value) || 0)} placeholder="0.00" />
               </div>
+            </FormRow>
+            <FormRow label="Net Weight">
+              <Input value={netWeight} onChange={e => setNetWeight(e.target.value)} placeholder="e.g. 15.00 Kg" />
+            </FormRow>
+            <FormRow label="Country of Origin">
+              <Input value={countryOfOrigin} onChange={e => setCountryOfOrigin(e.target.value)} placeholder="e.g. India" />
+            </FormRow>
+            <FormRow label="Port of Loading">
+              <Input value={portOfLoading} onChange={e => setPortOfLoading(e.target.value)} placeholder="e.g. Nhava Sheva Port" />
+            </FormRow>
+            <FormRow label="Port of Discharge">
+              <Input value={portOfDischarge} onChange={e => setPortOfDischarge(e.target.value)} placeholder="e.g. Jebel Ali Port" />
             </FormRow>
             <FormRow label="Tax Rate (%)">
               <Input type="number" min="0" max="100" step="any" value={taxRate} onChange={e => setTaxRate(Number(e.target.value) || 0)} placeholder="0.00" />

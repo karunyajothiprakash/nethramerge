@@ -53,6 +53,21 @@ export default function LeadPipeline() {
 
   useEffect(() => {
     fetchLeads();
+    
+    // Add realtime subscription for leads
+    const channel = supabase
+      .channel('pipeline-leads-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'leads' },
+        () => {
+          fetchLeads();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const updateLeadStage = async (id: string, newStage: string) => {
@@ -89,7 +104,7 @@ export default function LeadPipeline() {
       <div className="flex-1 overflow-x-auto pb-4">
         <div className="flex gap-4 min-w-max h-full">
           {STAGES.map((stage) => {
-            const stageLeads = leads.filter((l) => l.stage === stage.id);
+            const stageLeads = leads.filter((l) => l.stage?.toLowerCase() === stage.id.toLowerCase());
             
             return (
               <div key={stage.id} className="w-80 flex flex-col bg-muted/30 rounded-lg border border-border/50">

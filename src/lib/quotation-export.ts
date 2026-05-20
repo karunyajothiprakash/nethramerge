@@ -33,8 +33,8 @@ export const exportSingleQuotationToPDF = (quotation: any) => {
   doc.setLineWidth(0.4);
   doc.rect(margin, margin, contentWidth, pageHeight - (margin * 2));
 
-  // --- HEADER SECTION (50 height) ---
-  const headerHeight = 50;
+  // --- HEADER SECTION (80 height) ---
+  const headerHeight = 80;
   const leftColWidth = contentWidth * 0.55;
   const rightColWidth = contentWidth * 0.45;
 
@@ -49,41 +49,51 @@ export const exportSingleQuotationToPDF = (quotation: any) => {
   doc.text("SHASTIKA GLOBAL IMPEX PRIVATE LIMITED", margin + leftColWidth / 2, margin + 7, { align: "center" });
 
   try {
-    doc.addImage("/logo.webp", "WEBP", margin + 5, margin + 12, 20, 20);
+    // Logo on the left side
+    doc.addImage("/logo.webp", "WEBP", margin + 8, margin + 12, 22, 22);
   } catch (e) {
     doc.setFontSize(9);
-    doc.text("LOGO", margin + 10, margin + 22);
+    doc.text("LOGO", margin + 19, margin + 22, { align: "center" });
   }
 
+  // Address and Contact on the right side of the logo
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
+  doc.setFontSize(7.5);
   doc.setTextColor(50);
-  const addrX = margin + 30;
-  let addrY = margin + 15;
+  const addrX = margin + 35; 
+  let addrY = margin + 15; 
   doc.text("Address:", addrX, addrY);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0);
   doc.text("41/1, ST-5, Sathy Athani Main Road,", addrX + 11, addrY);
   addrY += 4.5;
-  doc.text("Thuckanayakanpalayam,", addrX + 11, addrY);
+  doc.text("Thuckanayakanpalayam", addrX + 11, addrY);
   addrY += 4.5;
   doc.text("Erode - 638506, Tamil Nadu, India.", addrX + 11, addrY);
   
   addrY += 6.5;
   doc.setFont("helvetica", "normal");
   doc.setTextColor(50);
-  doc.text("Phone no:", addrX, addrY);
+  doc.text("Phone  :", addrX, addrY);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0);
-  doc.text("7397612015", addrX + 11, addrY);
+  doc.text("+91 7397612015", addrX + 25, addrY);
 
   addrY += 4.5;
   doc.setFont("helvetica", "normal");
   doc.setTextColor(50);
-  doc.text("GSTIN:", addrX, addrY);
+  doc.text("GSTIN  :", addrX, addrY);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0);
-  doc.text("33ABPCS0605LIZ8", addrX + 11, addrY);
+  doc.text("33ABPCS0605LIZ8", addrX + 25, addrY);
+
+  addrY += 4.5;
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(50);
+  doc.text("whatsapp number :", addrX, addrY);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0);
+  doc.text("+91 9566266241", addrX + 25, addrY);
 
   // Right Header - Quotation Title & Info
   doc.setFontSize(11);
@@ -92,20 +102,22 @@ export const exportSingleQuotationToPDF = (quotation: any) => {
   doc.text("QUOTATION", margin + leftColWidth + rightColWidth / 2, margin + 10, { align: "center" });
 
   const quoteInfo = [
-    { label: "Quotation No", value: quotation.quotation_number },
-    { label: "Date", value: format(new Date(quotation.created_at || new Date()), "dd/MM/yyyy") },
-    { label: "Valid Until", value: quotation.valid_until ? format(new Date(quotation.valid_until), "dd/MM/yyyy") : "TBD" },
-    { label: "Currency", value: quotation.currency || "INR" },
-    { label: "Incoterm", value: quotation.incoterms || quotation.incoterm || "EXW" }
+    { label: "Quotation No", value: String(quotation.quotation_number || "---") },
+    { label: "Date", value: new Date(quotation.created_at).toLocaleDateString('en-GB') },
+    { label: "Valid Until", value: quotation.valid_until ? new Date(quotation.valid_until).toLocaleDateString('en-GB') : "TBD" },
+    { label: "Currency", value: quotation.currency || "USD" },
+    { label: "Incoterm", value: quotation.incoterms || quotation.incoterm || "CIF" },
+    { label: "Packing Method", value: quotation.packaging_type || "---" },
+    { label: "Packing Charge", value: `${quotation.currency || "USD"} ${Number(quotation.packaging_cost || 0).toFixed(2)}` },
+    { label: "Net Weight", value: quotation.net_weight || "---" }
   ];
-  drawFields(quoteInfo, margin + leftColWidth + 12, margin + 18, 25);
+  drawFields(quoteInfo, margin + leftColWidth + 8, margin + 18, 28);
 
-  // --- GRID ROW 1 (3 cols, 35 height) ---
+  // --- GRID ROW 1 (2 cols, 35 height) ---
   let currentY = margin + headerHeight;
   const row1Height = 35;
-  const r1Col1W = contentWidth * 0.40;
-  const r1Col2W = contentWidth * 0.35;
-  const r1Col3W = contentWidth * 0.25;
+  const r1Col1W = contentWidth * 0.55;
+  const r1Col2W = contentWidth * 0.45;
 
   // Row 1 background for headers
   doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
@@ -118,11 +130,9 @@ export const exportSingleQuotationToPDF = (quotation: any) => {
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.text("BILL TO :", margin + r1Col1W / 2, currentY + 5, { align: "center" });
   doc.text("TERMS OF PAYMENT", margin + r1Col1W + r1Col2W / 2, currentY + 5, { align: "center" });
-  doc.text("PACKING DETAILS", margin + r1Col1W + r1Col2W + r1Col3W / 2, currentY + 5, { align: "center" });
 
   // Row 1 divider lines
   doc.line(margin + r1Col1W, currentY, margin + r1Col1W, currentY + row1Height);
-  doc.line(margin + r1Col1W + r1Col2W, currentY, margin + r1Col1W + r1Col2W, currentY + row1Height);
   doc.line(margin, currentY + row1Height, pageWidth - margin, currentY + row1Height);
 
   doc.setTextColor(0);
@@ -136,18 +146,15 @@ export const exportSingleQuotationToPDF = (quotation: any) => {
   const custAddress = quotation.customer?.address || "";
   const splitAddress = doc.splitTextToSize(custAddress, r1Col1W - 8);
   doc.text(splitAddress, margin + 4, currentY + 18);
+  if (quotation.customer_phone) {
+    doc.setFont("helvetica", "bold");
+    doc.text(`Phone no : ${quotation.customer_phone}`, margin + 4, currentY + 18 + splitAddress.length * 4 + 4);
+  }
 
   // Col 2: Terms of Payment
   const termsText = quotation.payment_terms || "Standard payment terms apply.";
   const splitTermsText = doc.splitTextToSize(termsText, r1Col2W - 8);
   doc.text(splitTermsText, margin + r1Col1W + 4, currentY + 13);
-
-  // Col 3: Packing Details
-  const pkgFields = [
-    { label: "Packing Method", value: quotation.packaging_type || "Bag" },
-    { label: "Packing Charge", value: `${quotation.currency || "INR"} ${Number(quotation.packaging_cost || 0).toFixed(2)}` }
-  ];
-  drawFields(pkgFields, margin + r1Col1W + r1Col2W + 4, currentY + 13, 22);
 
   // --- GRID ROW 2 (2 cols, 40 height) ---
   currentY += row1Height;
@@ -172,8 +179,8 @@ export const exportSingleQuotationToPDF = (quotation: any) => {
 
   // Col 1: Shipment & Trade
   const tradeFields = [
-    { label: "Country of Origin", value: "India" },
-    { label: "Mode of Transport", value: quotation.mode_of_transport || "Truck" },
+    { label: "Country of Origin", value: quotation.country_of_origin || "India" },
+    { label: "Mode of Transport", value: quotation.mode_of_transport || quotation.shipment_type || "Truck" },
     { label: "Incoterms", value: quotation.incoterms || quotation.incoterm || "EXW" },
     { label: "Port of Loading", value: quotation.port_of_loading || "Nhava Sheva Port, India" },
     { label: "Port of Discharge", value: quotation.port_of_discharge || "---" }

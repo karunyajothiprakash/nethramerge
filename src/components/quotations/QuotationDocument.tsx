@@ -94,44 +94,48 @@ export function QuotationDocument({ quotation, onClose }: QuotationDocumentProps
                 <div className="flex gap-2"><span>Address:</span> <span className="font-bold">41/1, ST-5, Sathy Athani Main Road,</span></div>
                 <div className="flex gap-2 ml-12"><span className="font-bold">Thuckanayakanpalayam</span></div>
                 <div className="flex gap-2 ml-12"><span className="font-bold">Erode - 638506, Tamil Nadu, India.</span></div>
-                <div className="flex gap-2 mt-2"><span>Phone no:</span> <span className="font-bold text-black">7397612015</span></div>
-                <div className="flex gap-2"><span>GSTIN:</span> <span className="font-bold text-black">33ABPCS0605LIZ8</span></div>
+                <div className="flex gap-2 mt-2"><span>Phone  :</span> <span className="font-bold text-black">+91 7397612015</span></div>
+                <div className="flex gap-2"><span>GSTIN  :</span> <span className="font-bold text-black">33ABPCS0605LIZ8</span></div>
+                <div className="flex gap-2"><span>whatsapp number :</span> <span className="font-bold text-black">+91 9566266241</span></div>
               </div>
             </div>
           </div>
           <div className="p-4 flex flex-col items-center">
-            <h2 className="text-[14px] font-extrabold text-[#1A5276] mb-5 tracking-wider uppercase">QUOTATION</h2>
-            <div className="w-full space-y-3 text-[9.5px] pl-8">
-              <div className="grid grid-cols-[100px_1fr]"><span>Quotation No :</span> <span className="font-bold">{quotation.quotation_number}</span></div>
-              <div className="grid grid-cols-[100px_1fr]"><span>Date :</span> <span className="font-bold">{today}</span></div>
-              <div className="grid grid-cols-[100px_1fr]"><span>Valid Until :</span> <span className="font-bold">{validityDate}</span></div>
-              <div className="grid grid-cols-[100px_1fr]"><span>Currency :</span> <span className="font-bold">{quotation.currency || 'INR'}</span></div>
-              <div className="grid grid-cols-[100px_1fr]"><span>Incoterm :</span> <span className="font-bold">{quotation.incoterms || quotation.incoterm || 'EXW'}</span></div>
+            <h2 className="text-[14px] font-extrabold text-[#1A5276] mb-4 tracking-wider uppercase">QUOTATION</h2>
+            <div className="w-full space-y-2 text-[9.5px] pl-8">
+              <div className="grid grid-cols-[110px_1fr]"><span>Quotation No :</span> <span className="font-bold">{quotation.quotation_number}</span></div>
+              <div className="grid grid-cols-[110px_1fr]"><span>Date :</span> <span className="font-bold">{today}</span></div>
+              <div className="grid grid-cols-[110px_1fr]"><span>Valid Until :</span> <span className="font-bold">{validityDate}</span></div>
+              <div className="grid grid-cols-[110px_1fr]"><span>Currency :</span> <span className="font-bold">{quotation.currency || 'INR'}</span></div>
+              <div className="grid grid-cols-[110px_1fr]"><span>Incoterm :</span> <span className="font-bold">{quotation.incoterms || quotation.incoterm || 'EXW'}</span></div>
+              <div className="grid grid-cols-[110px_1fr]"><span>Packing Method :</span> <span className="font-bold">{quotation.packaging_type || '---'}</span></div>
+              <div className="grid grid-cols-[110px_1fr]"><span>Packing Charge :</span> <span className="font-bold">{currencySym} {Number(quotation.packaging_cost || 0).toFixed(2)}</span></div>
+              <div className="grid grid-cols-[110px_1fr]"><span>Net Weight :</span> <span className="font-bold">{quotation.net_weight || '---'}</span></div>
             </div>
           </div>
         </div>
 
-        {/* Grid Row 1 (3 cols) */}
-        <div className="grid grid-cols-[40%_35%_25%] border-b-[1.5px] border-black text-[9px] font-bold text-[#1A5276] bg-[#f8fafc] uppercase tracking-tighter">
+        {/* Grid Row 1 (2 cols) */}
+        <div className="grid grid-cols-[55%_45%] border-b-[1.5px] border-black text-[9px] font-bold text-[#1A5276] bg-[#f8fafc] uppercase tracking-tighter">
           <div className="border-r-[1.5px] border-black py-1.5 text-center">BILL TO :</div>
-          <div className="border-r-[1.5px] border-black py-1.5 text-center">TERMS OF PAYMENT</div>
-          <div className="py-1.5 text-center">PACKING DETAILS</div>
+          <div className="py-1.5 text-center">TERMS OF PAYMENT</div>
         </div>
-        <div className="grid grid-cols-[40%_35%_25%] border-b-[1.5px] border-black min-h-[100px] text-[10px]">
+        <div className="grid grid-cols-[55%_45%] border-b-[1.5px] border-black min-h-[100px] text-[10px]">
           <div className="p-3 border-r-[1.5px] border-black flex flex-col">
-            <div className="font-extrabold text-[11px] mb-1.5 uppercase">{quotation.customer?.name || quotation.customer_name || 'Customer Name'}</div>
+            <div className="font-bold text-[11px] mb-1.5 uppercase">{quotation.customer?.name || quotation.customer_name || 'Customer Name'}</div>
             <div className="text-gray-800 whitespace-pre-wrap leading-tight text-[9px]">
               {quotation.customer?.address || 'Address not provided'}
             </div>
+            {quotation.customer_phone && (
+              <div className="text-[9px] mt-2">
+                <span className="font-bold">Phone no : </span>{quotation.customer_phone}
+              </div>
+            )}
           </div>
-          <div className="p-3 border-r-[1.5px] border-black">
+          <div className="p-3">
             <p className="text-[9px] leading-tight text-gray-800 whitespace-pre-wrap">
               {quotation.payment_terms || "Standard payment terms apply."}
             </p>
-          </div>
-          <div className="p-3 space-y-2">
-            <div className="grid grid-cols-[75px_1fr] text-[9px]"><span>Packing Method</span> <span>: <span className="font-bold">{quotation.packaging_type || 'Bag'}</span></span></div>
-            <div className="grid grid-cols-[75px_1fr] text-[9px]"><span>Packing Charge</span> <span>: <span className="font-bold">{currencySym} {Number(quotation.packaging_cost || 0).toFixed(2)}</span></span></div>
           </div>
         </div>
 
@@ -142,7 +146,7 @@ export function QuotationDocument({ quotation, onClose }: QuotationDocumentProps
         </div>
         <div className="grid grid-cols-[60%_40%] border-b-[1.5px] border-black min-h-[120px] text-[10px]">
           <div className="p-4 border-r-[1.5px] border-black space-y-2">
-            <div className="grid grid-cols-[130px_1fr]"><span>Country of Origin :</span> <span className="font-bold">India</span></div>
+            <div className="grid grid-cols-[130px_1fr]"><span>Country of Origin :</span> <span className="font-bold">{quotation.country_of_origin || 'India'}</span></div>
             <div className="grid grid-cols-[130px_1fr]"><span>Mode of Transport :</span> <span className="font-bold">{quotation.mode_of_transport || 'Truck'}</span></div>
             <div className="grid grid-cols-[130px_1fr]"><span>Incoterms :</span> <span className="font-bold">{quotation.incoterms || quotation.incoterm || 'EXW'}</span></div>
             <div className="grid grid-cols-[130px_1fr]"><span>Port of Loading :</span> <span className="font-bold">{quotation.port_of_loading || 'Nhava Sheva Port, India'}</span></div>

@@ -10,6 +10,10 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
   const can = useCan();
   const { profile, roleSlugs } = useAuth();
   const isSecretary = roleSlugs.has("secretary");
+  const isBde = roleSlugs.has("bd") || 
+                roleSlugs.has("bde") || 
+                (profile?.requested_role && ["bd", "bde"].includes(profile.requested_role.toLowerCase()));
+
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     const active = navGroups.find((g) => g.items.some((i) => location.pathname.startsWith(i.url)));
     return active ? [active.title] : [navGroups[0].title];
@@ -19,6 +23,7 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
     setOpenGroups((prev) => (prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title]));
 
   const allowedSecretaryGroups = new Set(["dashboards", "quotations", "documents", "finance", "tally", "accounts"]);
+  const allowedBdeGroups = new Set(["dashboards", "crm", "quotations", "documents"]);
 
   // Filter items by permission (if no permission set, always visible)
   const visibleGroups = navGroups
@@ -29,10 +34,20 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
           { title: "Finance & Tally", url: "/dashboards/finance-tally", icon: LayoutDashboard }
         ];
       }
+      if (g.title === "Dashboards" && isBde) {
+        items = [
+          { title: "BDE Dashboard", url: "/dashboards/bde", icon: LayoutDashboard }
+        ];
+      }
       return { ...g, items };
     })
     .filter((g) => g.items.length > 0)
-    .filter((g) => !isSecretary || allowedSecretaryGroups.has(g.title.toLowerCase()));
+    .filter((g) => {
+      const titleLower = g.title.toLowerCase();
+      if (isSecretary) return allowedSecretaryGroups.has(titleLower);
+      if (isBde) return allowedBdeGroups.has(titleLower);
+      return true;
+    });
 
   return (
     <>
