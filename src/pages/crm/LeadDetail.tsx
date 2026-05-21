@@ -83,7 +83,7 @@ export default function LeadDetail() {
       const email = (lead as any).email || (lead.contact_name
         ? `${lead.contact_name.toLowerCase().replace(/\s+/g, ".")}@${lead.company_name.split(" ")[0].toLowerCase()}.com`
         : "");
-      
+
       toast.info("Queuing email...");
 
       const emailBody = `<p>${message.replace(/\n/g, '<br>')}</p>`;
@@ -100,9 +100,9 @@ export default function LeadDetail() {
       }).select('id').single();
 
       if (error) throw error;
-      
+
       const emailId = data?.id;
-      
+
       if (emailId) {
         // Subscribe to real-time status updates for this specific email
         const channel = supabase
@@ -126,7 +126,7 @@ export default function LeadDetail() {
             }
           })
           .subscribe();
-          
+
         toast.loading("Sending...");
       } else {
         // Fallback if no emailId returned
@@ -155,7 +155,7 @@ export default function LeadDetail() {
     } catch (e: any) {
       console.error("Email error:", e);
       let errorMsg = e.message;
-      
+
       if (e.context && typeof e.context.json === 'function') {
         try {
           const body = await e.context.json();
@@ -164,7 +164,7 @@ export default function LeadDetail() {
           console.error("Failed to parse error body", err);
         }
       }
-      
+
       toast.error(errorMsg || "Failed to send email");
     } finally {
       setSending(false);

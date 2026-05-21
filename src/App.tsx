@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,6 +11,8 @@ import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
 import LeadActivities from "./pages/crm/Activities";
 import LeadsList from "./pages/crm/LeadsList";
+// import FollowUps from "./pages/crm/FollowUps";
+// import { FollowUpReminders } from "./components/crm/FollowUpReminders";
 import LeadDetail from "./pages/crm/LeadDetail";
 import LeadPipeline from "./pages/crm/Pipeline";
 import EmailIntegration from "./pages/crm/EmailIntegration";
@@ -20,7 +22,8 @@ import Pending from "./pages/Pending";
 import InvoicePreview from "./pages/documents/InvoicePreview";
 import PackingListPreview from "./pages/documents/PackingListPreview";
 import CertificatePreview from "./pages/documents/CertificatePreview";
-// (Quotations Approvals is imported below as QuotationApprovals to avoid name clash)
+// import CommercialInvoicePreview from "./pages/documents/CommercialInvoicePreview";
+// import CommercialInvoices from "./pages/documents/CommercialInvoices";
 
 // Dashboards
 import Executive from "./pages/dashboards/Executive";
@@ -29,6 +32,7 @@ import ShipmentAnalytics from "./pages/dashboards/ShipmentAnalytics";
 import FinancialOverview from "./pages/dashboards/FinancialOverview";
 import EmployeeProductivity from "./pages/dashboards/EmployeeProductivity";
 import FinanceTally from "./pages/dashboards/FinanceTally";
+import BdeDashboard from "./pages/dashboards/BdeDashboard";
 
 // Farmers
 import FarmersList from "./pages/farmers/FarmersList";
@@ -53,7 +57,7 @@ import GenerateBarcode from "./pages/barcodes/GenerateBarcode";
 import ScanBarcode from "./pages/barcodes/ScanBarcode";
 import BarcodeDetail from "./pages/barcodes/BarcodeDetail";
 
-// Inventory (StockDashboard live; others mock)
+// Inventory
 import ProductCatalog from "./pages/inventory/ProductCatalog";
 import CreateProduct from "./pages/inventory/CreateProduct";
 import StockDashboard from "./pages/inventory/StockDashboard";
@@ -117,9 +121,34 @@ import JournalEntry from "./pages/Tally/JournalEntry";
 const queryClient = new QueryClient();
 
 const DashboardRedirect = () => {
-  const { roleSlugs } = useAuth();
+  const { roleSlugs, profile } = useAuth();
   const isSecretary = roleSlugs.has("secretary");
-  return <Navigate to={isSecretary ? "/dashboards/finance-tally" : "/dashboards/executive"} replace />;
+  const isBde =
+    roleSlugs.has("bd") ||
+    roleSlugs.has("bde") ||
+    (profile?.requested_role &&
+      ["bd", "bde"].includes(profile.requested_role.toLowerCase()));
+  if (isSecretary) return <Navigate to="/dashboards/finance-tally" replace />;
+  if (isBde) return <Navigate to="/dashboards/bde" replace />;
+  return <Navigate to="/dashboards/executive" replace />;
+};
+
+const RootRedirect = () => {
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const code = searchParams.get("code");
+  const hash = location.hash;
+
+  if (code || hash.includes("access_token") || hash.includes("error")) {
+    return (
+      <Navigate
+        to={`/auth/callback${location.search}${location.hash}`}
+        replace
+      />
+    );
+  }
+
+  return <Navigate to="/auth" replace />;
 };
 
 const App = () => (
@@ -129,26 +158,59 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          {/* <FollowUpReminders /> */}
           <Routes>
-            <Route path="/" element={<Navigate to="/auth" replace />} />
+            <Route path="/" element={<RootRedirect />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/pending" element={<Pending />} />
             <Route path="/complete-profile" element={<CompleteProfile />} />
             <Route path="/waiting-approval" element={<WaitingApproval />} />
-            <Route path="/select-profile" element={<Navigate to="/dashboard" replace />} />
+            <Route
+              path="/select-profile"
+              element={<Navigate to="/dashboard" replace />}
+            />
+
+            {/* Public / Standalone Preview Routes (no AppLayout) */}
             <Route path="/invoices/:id/preview" element={<InvoicePreview />} />
-            <Route path="/packing-lists/:id/preview" element={<PackingListPreview />} />
-            <Route path="/certificates/:id/preview" element={<CertificatePreview />} />
-            <Route path="/share/quote/:id" element={<PublicQuotationView />} />
-            
-            <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-              <Route path="/dashboard" element={<DashboardRedirect />} />
-              <Route path="/approvals" element={<Navigate to="/employees/roles" replace />} />
+            <Route
+              path="/packing-lists/:id/preview"
+              element={<PackingListPreview />}
+            />
+            <Route
+              path="/documents/packing-lists/:id/preview"
+              element={<PackingListPreview />}
+            />
+            {/* <Route path="/documents/commercial-invoices/:id/preview" element={<CommercialInvoicePreview />} /> */}
+            <Route
+              path="/certificates/:id/preview"
+              element={<CertificatePreview />}
+            />
+            <Route
+              path="/share/quote/:id"
+              element={<PublicQuotationView />}
+            />
+
+            <Route
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route
+                path="/dashboard"
+                element={<DashboardRedirect />}
+              />
+              <Route
+                path="/approvals"
+                element={<Navigate to="/employees/roles" replace />}
+              />
 
               {/* Dashboards */}
               <Route path="/dashboards/executive" element={<Executive />} />
               <Route path="/dashboards/finance-tally" element={<FinanceTally />} />
+              <Route path="/dashboards/bde" element={<BdeDashboard />} />
               <Route path="/dashboards/sales" element={<SalesAnalytics />} />
               <Route path="/dashboards/shipments" element={<ShipmentAnalytics />} />
               <Route path="/dashboards/financial" element={<FinancialOverview />} />
@@ -160,14 +222,14 @@ const App = () => (
               <Route path="/farmers/convert" element={<ConvertToCustomer />} />
               <Route path="/farmers/:id" element={<FarmerDetail />} />
 
-              {/* Procurement (live) */}
+              {/* Procurement */}
               <Route path="/procurement/orders" element={<PurchaseOrdersListLive />} />
               <Route path="/procurement/orders/create" element={<CreatePOLive />} />
               <Route path="/procurement/suppliers" element={<SuppliersList />} />
               <Route path="/procurement/suppliers/:id" element={<SupplierDetail />} />
               <Route path="/procurement/analytics" element={<SupplierAnalytics />} />
 
-              {/* Quality Control (live) */}
+              {/* Quality Control */}
               <Route path="/qc/inspections" element={<InspectionsList />} />
               <Route path="/qc/inspections/create" element={<CreateInspection />} />
               <Route path="/qc/approvals" element={<QCApprovals />} />
@@ -195,12 +257,14 @@ const App = () => (
               <Route path="/quotations/:id" element={<QuotationPreview />} />
               <Route path="/quotations/:id/report" element={<QuotationReport />} />
 
-                {/* CRM */}
-                <Route path="/crm/activities" element={<LeadActivities />} />
-                <Route path="/crm/leads" element={<LeadsList />} />
-                <Route path="/crm/leads/:id" element={<LeadDetail />} />
-                <Route path="/crm/pipeline" element={<LeadPipeline />} />
-                <Route path="/crm/email" element={<EmailIntegration />} />
+              {/* CRM */}
+              <Route path="/crm/activities" element={<LeadActivities />} />
+              <Route path="/crm/leads" element={<LeadsList />} />
+              {/* <Route path="/crm/follow-ups" element={<FollowUps />} /> */}
+              <Route path="/crm/leads/:id" element={<LeadDetail />} />
+              <Route path="/crm/pipeline" element={<LeadPipeline />} />
+              <Route path="/crm/email" element={<EmailIntegration />} />
+
               {/* Orders */}
               <Route path="/orders" element={<OrdersList />} />
               <Route path="/orders/create" element={<CreateOrder />} />
@@ -216,22 +280,32 @@ const App = () => (
               <Route path="/shipments/delivery" element={<DeliveryStatus />} />
 
               {/* Documents */}
-              <Route path="/documents" element={<Navigate to="/documents/invoices" replace />} />
+              <Route
+                path="/documents"
+                element={<Navigate to="/documents/invoices" replace />}
+              />
               <Route path="/documents/invoices" element={<Invoices />} />
+              <Route path="/documents/invoices/:id" element={<InvoiceReport />} />
               <Route path="/documents/packing-lists" element={<PackingLists />} />
+              {/* ✅ FIX: CommercialInvoices file இல்லாததால் comment போட்டோம் */}
+              {/* <Route path="/documents/commercial-invoices" element={<CommercialInvoices />} /> */}
               <Route path="/documents/certificates" element={<Certificates />} />
               <Route path="/documents/viewer" element={<DocumentViewer />} />
-              <Route path="/documents/invoices/:id" element={<InvoiceReport />} />
 
               {/* Payments */}
               <Route path="/payments" element={<PaymentsRegister />} />
               <Route path="/payments/overdue" element={<OverduePayments />} />
               <Route path="/payments/ledger" element={<Ledger />} />
               <Route path="/payments/reports" element={<FinancialReports />} />
-              {/* Tally Integration */}
+
+              {/* Tally */}
               <Route path="/tally/*" element={<TallyIndex />} />
               <Route path="/journal" element={<JournalEntry />} />
-              <Route path="/gst-reports" element={<Navigate to="/tally/gst-reports" replace />} />
+              <Route
+                path="/gst-reports"
+                element={<Navigate to="/tally/gst-reports" replace />}
+              />
+
               {/* Employees */}
               <Route path="/employees" element={<EmployeeDirectory />} />
               <Route path="/employees/attendance" element={<Attendance />} />
@@ -246,8 +320,6 @@ const App = () => (
               <Route path="/system/integrations/zoho" element={<ZohoIntegration />} />
               <Route path="/system/mailbox" element={<Mailbox />} />
             </Route>
-
-
 
             <Route path="*" element={<NotFound />} />
           </Routes>

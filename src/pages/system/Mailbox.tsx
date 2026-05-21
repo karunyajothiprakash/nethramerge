@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Mail, Send as SendIcon, Paperclip, Loader2, User, History, X, FileText, Plus,
   Inbox, Star, Clock, File as FileIcon, ChevronDown, RefreshCw, MoreVertical,
-  CheckSquare, ArrowLeft, Reply, Forward, Search, SlidersHorizontal
+  CheckSquare, ArrowLeft, Reply, Forward, Search, SlidersHorizontal, Settings as SettingsIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,9 +15,76 @@ import { format } from "date-fns";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+const getDefaultSignature = (profile: any) => {
+  if (!profile) return "";
+  
+  const name = profile.full_name || profile.email?.split("@")[0] || "Employee";
+  
+  // Format role
+  let role = "Business Development Executive";
+  if (profile.requested_role) {
+    const matched = [
+      { slug: "admin", label: "Admin" },
+      { slug: "manager", label: "Manager" },
+      { slug: "bd", label: "Business Development Executive" },
+      { slug: "bde", label: "Business Development Executive" },
+      { slug: "accounts", label: "Accounts Manager" },
+      { slug: "operations", label: "Operations Executive" },
+      { slug: "qc", label: "Quality Control Specialist" },
+      { slug: "procurement", label: "Procurement Specialist" },
+      { slug: "data_analyst", label: "Data Analyst" },
+      { slug: "marketing", label: "Marketing Specialist" },
+      { slug: "hr", label: "HR Manager" },
+    ].find(r => r.slug === profile.requested_role.toLowerCase());
+    
+    if (matched) {
+      role = matched.label;
+    } else {
+      role = profile.requested_role.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+    }
+  }
+
+  const company = profile.company_name || "Shastika Global Impex Private Limited";
+  const email = profile.email || "bde@shastikaglobalimpex.co.in";
+  const phone = profile.phone || "+91 95662 66228";
+  const whatsapp = "+91 95662 66241"; // WhatsApp number from screenshot
+  const logoUrl = window.location.origin + "/logo.webp";
+
+  return `
+    <p>Warm Regards,</p>
+    <p><br></p>
+    <table cellpadding="0" cellspacing="0" style="border: none; font-family: Verdana, sans-serif; font-size: 10pt; line-height: 1.4; border-collapse: collapse; background: transparent;">
+      <tr>
+        <td style="vertical-align: top; padding-right: 15px; border: none;">
+          <img src="${logoUrl}" alt="Logo" style="width: 80px; height: auto; display: block;" width="80" />
+        </td>
+        <td style="vertical-align: top; padding-left: 15px; border-left: 2px solid #38bdf8; border-top: none; border-bottom: none; border-right: none;">
+          <div style="font-weight: bold; font-size: 11pt; color: inherit; margin-bottom: 2px;">${name}</div>
+          <div style="font-size: 9.5pt; margin-bottom: 2px; opacity: 0.8;">${role}</div>
+          <div style="font-weight: bold; font-size: 9.5pt; margin-bottom: 4px;">${company}</div>
+          <div style="font-size: 9pt; opacity: 0.8; margin-top: 6px; line-height: 1.5;">
+            WhatsApp: <a href="https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}" target="_blank" style="color: #38bdf8; text-decoration: underline;">${whatsapp}</a><br>
+            Phone: <span>${phone}</span><br>
+            Email: <a href="mailto:${email}" style="color: #38bdf8; text-decoration: underline;">${email}</a><br>
+            Web: <a href="https://shastikaglobal.co.in" target="_blank" style="color: #38bdf8; text-decoration: underline;">https://shastikaglobal.co.in</a>
+          </div>
+        </td>
+      </tr>
+    </table>
+  `;
+};
 
 export default function Mailbox() {
-  const { profile } = useAuth();
+  const { profile, refresh } = useAuth();
 
   const [accounts, setAccounts] = useState<any[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<string>("");
@@ -37,6 +104,40 @@ export default function Mailbox() {
   const [activeFolder, setActiveFolder] = useState("inbox");
   const [isComposing, setIsComposing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Mail Settings Dialog
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [signatureText, setSignatureText] = useState("");
+  const [savingSignature, setSavingSignature] = useState(false);
+
+  useEffect(() => {
+    if (profile?.email_signature) {
+      setSignatureText(profile.email_signature);
+    } else if (profile) {
+      setSignatureText(getDefaultSignature(profile));
+    }
+  }, [profile?.email_signature, isSettingsOpen]);
+
+  const handleSaveSignature = async () => {
+    if (!profile?.id) return;
+    setSavingSignature(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ email_signature: signatureText })
+        .eq("id", profile.id);
+      
+      if (error) throw error;
+      
+      await refresh();
+      toast.success("Email signature saved successfully!");
+      setIsSettingsOpen(false);
+    } catch (err: any) {
+      toast.error("Failed to save signature: " + err.message);
+    } finally {
+      setSavingSignature(false);
+    }
+  };
 
   // Search Filters
   const [filterHasAttachment, setFilterHasAttachment] = useState(false);
@@ -260,11 +361,13 @@ export default function Mailbox() {
             // Show toast based on status
             if (status === "sent") {
               toast.success(`✓ Delivered: ${subject}`, {
+                id: `sending-${id}`,
                 duration: 4000,
                 icon: "📨",
               });
             } else if (status === "failed") {
               toast.error(`✗ Failed to send: ${subject}`, {
+                id: `sending-${id}`,
                 duration: 6000,
                 icon: "⚠️",
               });
@@ -367,7 +470,7 @@ export default function Mailbox() {
       if (updateError) throw updateError;
 
       // UI feedback — Realtime will update actual status live
-      toast.loading("Sending email...", { id: `sending-${emailRow.id}`, duration: 10000 });
+      toast.info("Sending email...", { id: `sending-${emailRow.id}`, duration: 10000 });
       setTo("");
       setSubject("");
       setContent("");
@@ -584,7 +687,15 @@ export default function Mailbox() {
         <div className="w-64 shrink-0 flex flex-col pr-4 pt-6 pl-6">
           <div className="mb-6">
             <Button 
-              onClick={() => { setIsComposing(true); setSelectedEmail(null); }}
+              onClick={() => { 
+                setIsComposing(true); 
+                setSelectedEmail(null); 
+                setContent(
+                  profile?.email_signature 
+                    ? `<p><br></p><p><br></p><p>--</p>${profile.email_signature}` 
+                    : (profile ? `<p><br></p><p><br></p><p>--</p>${getDefaultSignature(profile)}` : "")
+                );
+              }}
               className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-semibold tracking-wide shadow-[0_4px_20px_-4px_rgba(245,158,11,0.35)] hover:shadow-[0_8px_24px_-4px_rgba(245,158,11,0.55)] hover:scale-[1.01] active:scale-[0.99] h-12 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 text-sm border-t border-white/20"
             >
               <Plus className="h-4 w-4 stroke-[2.5]" />
@@ -645,6 +756,16 @@ export default function Mailbox() {
                     </div>
                   </div>
                </div>
+            </div>
+            
+            <div className="mt-auto pb-6 border-t border-zinc-800/50 pt-6">
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-[#141416]/40 transition-colors"
+              >
+                <SettingsIcon className="h-4 w-4 text-zinc-500" />
+                Mail Settings
+              </button>
             </div>
           </ScrollArea>
         </div>
@@ -937,6 +1058,61 @@ export default function Mailbox() {
           </ScrollArea>
         </div>
       </div>
+
+      {/* Mail Settings Modal */}
+      <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+        <DialogContent className="sm:max-w-[650px] bg-[#161618] border-zinc-800 text-zinc-100">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-100 flex items-center gap-2">
+              <SettingsIcon className="h-5 w-5 text-amber-500" />
+              Mail Settings
+            </DialogTitle>
+            <DialogDescription className="text-zinc-500">
+              Configure your personal mail settings and signature.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-zinc-300">Email Signature</label>
+              <p className="text-xs text-zinc-500 mb-2">
+                This signature will be automatically appended to all outgoing emails.
+              </p>
+              <div className="bg-[#121214] rounded-xl border border-zinc-800 overflow-hidden">
+                <ReactQuill 
+                  theme="snow" 
+                  value={signatureText} 
+                  onChange={setSignatureText} 
+                  className="border-none" 
+                  modules={{ 
+                    toolbar: [ 
+                      ['bold', 'italic', 'underline'], 
+                      [{'list': 'ordered'}, {'list': 'bullet'}], 
+                      ['link', 'clean'] 
+                    ] 
+                  }} 
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsSettingsOpen(false)}
+              className="bg-transparent border-zinc-800 text-zinc-300 hover:bg-zinc-800/40 hover:text-zinc-100"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveSignature} 
+              disabled={savingSignature}
+              className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-semibold"
+            >
+              {savingSignature ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Save Settings
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <style dangerouslySetInnerHTML={{__html: `
         .email-body-content * {

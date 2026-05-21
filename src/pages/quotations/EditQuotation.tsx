@@ -44,12 +44,19 @@ export default function EditQuotation() {
   const [containerTypesList, setContainerTypesList] = useState<MetaData[]>([]);
   const [packagingTypesList, setPackagingTypesList] = useState<MetaData[]>([]);
 
-  // Form State
   const [selectedLeadId, setSelectedLeadId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [currency, setCurrency] = useState("USD");
   const [validUntil, setValidUntil] = useState("");
   const [incoterm, setIncoterm] = useState("CIF");
+  const [quoteNumber, setQuoteNumber] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [netWeight, setNetWeight] = useState("");
+  const [countryOfOrigin, setCountryOfOrigin] = useState("India");
+  const [modeOfTransport, setModeOfTransport] = useState("Sea");
+  const [portOfLoading, setPortOfLoading] = useState("CHENNAI PORT");
+  const [portOfDischarge, setPortOfDischarge] = useState("");
   const [containerType, setContainerType] = useState("");
   const [packagingType, setPackagingType] = useState("");
   const [packagingCost, setPackagingCost] = useState(0);
@@ -58,7 +65,6 @@ export default function EditQuotation() {
   const [taxRate, setTaxRate] = useState(0);
   const [paymentTerms, setPaymentTerms] = useState("");
   const [items, setItems] = useState<Item[]>([]);
-  const [quoteNumber, setQuoteNumber] = useState("");
 
   // New Packaging Type State
   const [isPkgModalOpen, setIsPkgModalOpen] = useState(false);
@@ -86,7 +92,7 @@ export default function EditQuotation() {
           supabase.from('products').select('*').eq('company_id', profile.company_id),
           supabase.from('container_types').select('name').order('name'),
           supabase.from('packaging_types').select('name').order('name'),
-          supabase.from('quotations').select('*, customers(name)').eq('id', id).single(),
+          supabase.from('quotations').select('*, customers(name, address, phone)').eq('id', id).single(),
           supabase.from('quotation_items').select('*').eq('quotation_id', id)
         ]);
 
@@ -102,6 +108,13 @@ export default function EditQuotation() {
           setQuoteNumber(q.quotation_number);
           setSelectedLeadId(q.lead_id || "");
           setCustomerName(q.customers?.name || "");
+          setCustomerAddress(q.customers?.address || "");
+          setCustomerPhone(q.customer_phone || q.customers?.phone || "");
+          setNetWeight(q.net_weight || "");
+          setCountryOfOrigin(q.country_of_origin || "India");
+          setModeOfTransport(q.mode_of_transport || "Sea");
+          setPortOfLoading(q.port_of_loading || "CHENNAI PORT");
+          setPortOfDischarge(q.port_of_discharge || "");
           setCurrency(q.currency || "USD");
           setValidUntil(q.valid_until ? q.valid_until.split('T')[0] : "");
           setIncoterm(q.incoterm || "CIF");
@@ -135,6 +148,16 @@ export default function EditQuotation() {
     };
     loadMetadataAndQuotation();
   }, [profile?.company_id, id]);
+
+  useEffect(() => {
+    if (!selectedLeadId) return;
+    const lead = leadsList.find(l => l.id === selectedLeadId);
+    if (lead) {
+      setCustomerName(lead.company_name || lead.contact_name || "");
+      setCustomerPhone((lead as any).phone || "");
+      setCustomerAddress((lead as any).address || "");
+    }
+  }, [selectedLeadId, leadsList]);
 
   const loadPackagingTypes = async () => {
     const { data } = await supabase.from('packaging_types').select('name').order('name');
@@ -170,8 +193,8 @@ export default function EditQuotation() {
   const totalAmount = taxableAmount + taxAmount;
 
   const handleSave = async () => {
-    if (!customerName || items.length === 0 || !items[0].product_name) {
-      return toast.error("Please provide a customer name and at least one product.");
+    if (!customerName || !customerAddress || !customerPhone || items.length === 0 || !items[0].product_name) {
+      return toast.error("Please provide a customer name, address, phone number, and at least one product.");
     }
 
     setSaving(true);
@@ -180,7 +203,12 @@ export default function EditQuotation() {
       let customerId = null;
       const { data: custData, error: custErr } = await supabase
         .from('customers')
-        .insert({ company_id: profile!.company_id, name: customerName })
+        .insert({ 
+          company_id: profile!.company_id, 
+          name: customerName,
+          address: customerAddress || null,
+          phone: customerPhone || null
+        })
         .select('id').single();
       
       if (!custErr && custData) customerId = custData.id;
@@ -190,6 +218,13 @@ export default function EditQuotation() {
         .from('quotations')
         .update({
           customer_id: customerId,
+          customer_phone: customerPhone || null,
+          net_weight: netWeight || null,
+          country_of_origin: countryOfOrigin || null,
+          mode_of_transport: modeOfTransport || null,
+          port_of_loading: portOfLoading || null,
+          port_of_discharge: portOfDischarge || null,
+          quotation_number: quoteNumber,
           amount: totalAmount,
           subtotal: subtotal,
           tax_rate: taxRate,
@@ -203,7 +238,8 @@ export default function EditQuotation() {
           items_count: items.length,
           valid_until: validUntil || null,
           payment_terms: paymentTerms,
-          lead_id: selectedLeadId || null
+          lead_id: selectedLeadId || null,
+          incoterm: incoterm
         })
         .eq('id', id);
 
@@ -275,7 +311,7 @@ export default function EditQuotation() {
       </Dialog>
 
       <div className="space-y-4">
-        <Section title="Customer & Terms">
+        <Section title="Customer Info">
           <FormGrid cols={3}>
             <FormRow label="Select CRM Lead">
               <Select value={selectedLeadId} onValueChange={setSelectedLeadId}>
@@ -290,6 +326,20 @@ export default function EditQuotation() {
             <FormRow label="Customer Name *" required>
               <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Company or contact name" />
             </FormRow>
+            <FormRow label="Customer Phone *" required>
+              <Input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="e.g. +91 7397612015" />
+            </FormRow>
+            <FormRow label="Customer Address *" className="col-span-3" required>
+              <Input value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} placeholder="Full billing/shipping address" />
+            </FormRow>
+          </FormGrid>
+        </Section>
+
+        <Section title="Quotation Info">
+          <FormGrid cols={3}>
+            <FormRow label="Quotation No. *" required>
+              <Input value={quoteNumber} onChange={e => setQuoteNumber(e.target.value)} placeholder="e.g. QT-2026-015" />
+            </FormRow>
             <FormRow label="Currency">
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -303,16 +353,31 @@ export default function EditQuotation() {
             <FormRow label="Valid until">
               <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} />
             </FormRow>
-            <FormRow label="Incoterm">
-              <Select value={incoterm} onValueChange={setIncoterm}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="FOB">FOB</SelectItem>
-                  <SelectItem value="CIF">CIF</SelectItem>
-                  <SelectItem value="EXW">EXW</SelectItem>
-                </SelectContent>
-              </Select>
+          </FormGrid>
+        </Section>
+
+        <Section title="Shipment & Trade Terms">
+          <FormGrid cols={3}>
+            <FormRow label="Country of Origin">
+              <Input value={countryOfOrigin} onChange={e => setCountryOfOrigin(e.target.value)} placeholder="e.g. India" />
             </FormRow>
+            <FormRow label="Mode of Transport">
+              <Input value={modeOfTransport} onChange={e => setModeOfTransport(e.target.value)} placeholder="e.g. Sea" />
+            </FormRow>
+            <FormRow label="Incoterms">
+              <Input value={incoterm} onChange={e => setIncoterm(e.target.value)} placeholder="e.g. CIF" />
+            </FormRow>
+            <FormRow label="Port of Loading">
+              <Input value={portOfLoading} onChange={e => setPortOfLoading(e.target.value)} placeholder="e.g. CHENNAI PORT" />
+            </FormRow>
+            <FormRow label="Port of Discharge">
+              <Input value={portOfDischarge} onChange={e => setPortOfDischarge(e.target.value)} placeholder="e.g. Jebel Ali Port" />
+            </FormRow>
+          </FormGrid>
+        </Section>
+
+        <Section title="Packaging & Transport">
+          <FormGrid cols={3}>
             <FormRow label="Container Type">
               <Select value={containerType} onValueChange={setContainerType}>
                 <SelectTrigger><SelectValue placeholder="Select container type" /></SelectTrigger>
@@ -339,6 +404,9 @@ export default function EditQuotation() {
                 <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">{getCurrencySymbol(currency)}</span>
                 <Input type="number" min="0" className="pl-7" value={packagingCost || ""} onChange={e => setPackagingCost(Number(e.target.value) || 0)} placeholder="0.00" />
               </div>
+            </FormRow>
+            <FormRow label="Net Weight">
+              <Input value={netWeight} onChange={e => setNetWeight(e.target.value)} placeholder="e.g. 15.00 Kg" />
             </FormRow>
             <FormRow label="Shipment Type">
               <Select value={shipmentType} onValueChange={setShipmentType}>

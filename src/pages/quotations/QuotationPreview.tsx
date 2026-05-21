@@ -21,7 +21,7 @@ export default function QuotationPreview() {
         .from('quotations')
         .select(`
           *,
-          customer:customers(name, email, address),
+          customer:customers(name, email, address, phone),
           items:quotation_items(
             *,
             product:products(name, sku, unit, hs_code)
@@ -94,7 +94,7 @@ export default function QuotationPreview() {
     try {
       const formatted = {
         ...q,
-        customer_name: q.customer?.name || "Unknown"
+        customer_name: q.customer?.name || q.customer_name || "Unknown"
       };
       exportQuotationsToPDF([formatted], false);
       toast.success("PDF file downloaded");
@@ -140,126 +140,197 @@ export default function QuotationPreview() {
           </Button>
         </>}
       />
-      <Section>
-        <div className="max-w-4xl mx-auto space-y-8 bg-card p-10 rounded-2xl border shadow-lg relative overflow-hidden">
-          {/* Watermark/Decorative element */}
-          <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
-            <FileText className="h-64 w-64 rotate-12" />
-          </div>
-
-          <div className="flex items-start justify-between pb-8 border-b border-border">
-            <div>
-              <div className="text-4xl font-black tracking-tighter text-primary mb-1">QUOTATION</div>
-              <div className="text-sm font-mono text-muted-foreground tracking-widest">{q.quotation_number}</div>
-            </div>
-            <div className="text-right">
-              <StatusBadge status={q.status} />
-              <div className="text-xs text-muted-foreground mt-2">Date: {new Date(q.created_at).toLocaleDateString()}</div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-16 py-8">
-            <div>
-              <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-4">Exporter</div>
-              <div className="font-bold text-lg">Shastika Global Exports</div>
-              <div className="text-sm text-muted-foreground mt-3 leading-relaxed">
-                123 Marine Drive<br />
-                Mumbai 400001, India<br />
-                GST: 27ABCDE1234F1Z5
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-4">Consignee / Bill To</div>
-              <div className="font-bold text-lg">{q.customer?.name}</div>
-              <div className="text-sm text-muted-foreground mt-3 space-y-2">
-                <p>{q.customer?.address || 'No address provided'}</p>
-                <div className="pt-2 grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-slate-400 block uppercase tracking-tighter font-bold">Valid until</span>
-                    <span className="font-medium">{q.valid_until ? new Date(q.valid_until).toLocaleDateString() : 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block uppercase tracking-tighter font-bold">Incoterm</span>
-                    <span className="font-medium">{q.incoterm || 'CIF'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block uppercase tracking-tighter font-bold">Packaging Type</span>
-                    <span className="font-medium">{q.packaging_type || 'N/A'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block uppercase tracking-tighter font-bold">Shipment Type</span>
-                    <span className="font-medium">{q.shipment_type || 'N/A'}</span>
-                  </div>
+      <div className="max-w-[210mm] mx-auto space-y-6">
+        {/* Document Frame styled exactly like the official template */}
+        <div className="relative bg-white shadow-2xl border-[1.5px] border-black text-black leading-tight font-sans">
+          
+          {/* Header Section */}
+          <div className="grid grid-cols-[55%_45%] border-b-[1.5px] border-black">
+            <div className="p-4 border-r-[1.5px] border-black flex flex-col items-center">
+              <h1 className="text-[12px] font-extrabold text-[#1A5276] mb-4 tracking-tight uppercase">SHASTIKA GLOBAL IMPEX PRIVATE LIMITED</h1>
+              <div className="flex w-full items-start gap-4">
+                <div className="w-20 h-20 flex-shrink-0">
+                  <img src="/logo.webp" alt="Logo" className="w-full h-auto object-contain" />
+                </div>
+                <div className="flex flex-col text-[9px] space-y-1 text-gray-800">
+                  <div className="flex gap-2"><span>Address:</span> <span className="font-bold">41/1, ST-5, Sathy Athani Main Road,</span></div>
+                  <div className="flex gap-2 ml-12"><span className="font-bold">Thuckanayakanpalayam</span></div>
+                  <div className="flex gap-2 ml-12"><span className="font-bold">Erode - 638506, Tamil Nadu, India.</span></div>
+                  <div className="flex gap-2 mt-2"><span>Phone  :</span> <span className="font-bold text-black">+91 7397612015</span></div>
+                  <div className="flex gap-2"><span>GSTIN  :</span> <span className="font-bold text-black">33ABPCS0605LIZ8</span></div>
+                  <div className="flex gap-2"><span>whatsapp number :</span> <span className="font-bold text-black">+91 9566266241</span></div>
                 </div>
               </div>
             </div>
+            <div className="p-4 flex flex-col items-center">
+              <h2 className="text-[14px] font-extrabold text-[#1A5276] mb-4 tracking-wider uppercase">QUOTATION</h2>
+              <div className="w-full space-y-2 text-[9.5px] pl-8">
+                <div className="grid grid-cols-[100px_1fr]"><span>Quotation No :</span> <span className="font-bold">{q.quotation_number}</span></div>
+                <div className="grid grid-cols-[100px_1fr]"><span>Date :</span> <span className="font-bold">{new Date(q.created_at).toLocaleDateString('en-GB')}</span></div>
+                <div className="grid grid-cols-[100px_1fr]"><span>Valid Until :</span> <span className="font-bold">{q.valid_until ? new Date(q.valid_until).toLocaleDateString('en-GB') : 'TBD'}</span></div>
+                <div className="grid grid-cols-[100px_1fr]"><span>Currency :</span> <span className="font-bold">{q.currency || 'INR'}</span></div>
+                <div className="grid grid-cols-[100px_1fr]"><span>Incoterm :</span> <span className="font-bold">{q.incoterms || q.incoterm || 'CIF'}</span></div>
+                <div className="grid grid-cols-[100px_1fr]"><span>Packing Method :</span> <span className="font-bold">{q.packaging_type || '---'}</span></div>
+                <div className="grid grid-cols-[100px_1fr]"><span>Packing Charge :</span> <span className="font-bold">{q.currency || 'INR'} {Number(q.packaging_cost || 0).toFixed(2)}</span></div>
+                <div className="grid grid-cols-[100px_1fr]"><span>Net Weight :</span> <span className="font-bold">{q.net_weight || '---'}</span></div>
+              </div>
+            </div>
           </div>
 
-          <div className="rounded-xl border border-border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 border-b border-border">
-                <tr>
-                  <th className="text-left px-6 py-4 font-bold text-xs uppercase tracking-wider">Description</th>
-                  <th className="text-right px-6 py-4 font-bold text-xs uppercase tracking-wider w-24">Qty</th>
-                  <th className="text-right px-6 py-4 font-bold text-xs uppercase tracking-wider w-32">Unit Price</th>
-                  <th className="text-right px-6 py-4 font-bold text-xs uppercase tracking-wider w-32">Total</th>
+          {/* Grid Row 1 (2 cols) */}
+          <div className="grid grid-cols-[55%_45%] border-b-[1.5px] border-black text-[9px] font-bold text-[#1A5276] bg-[#f8fafc] uppercase tracking-tighter">
+            <div className="border-r-[1.5px] border-black py-1.5 text-center">BILL TO :</div>
+            <div className="py-1.5 text-center">TERMS OF PAYMENT</div>
+          </div>
+          <div className="grid grid-cols-[55%_45%] border-b-[1.5px] border-black min-h-[100px] text-[10px]">
+            <div className="p-3 border-r-[1.5px] border-black flex flex-col text-gray-800 leading-tight">
+              <div className="text-[10px] uppercase font-normal mb-1">{q.customer?.name || q.customer_name || 'Customer Name'}</div>
+              <div className="text-[9px] whitespace-pre-wrap font-normal mb-2">
+                {q.customer?.address || q.customer_address || 'Address not provided'}
+              </div>
+              {(q.customer_phone || q.customer?.phone) && (
+                <div className="text-[9px] font-normal">
+                  Phone no : {q.customer_phone || q.customer?.phone}
+                </div>
+              )}
+            </div>
+            <div className="p-3">
+              <p className="text-[9px] leading-tight text-gray-800 whitespace-pre-wrap">
+                {q.payment_terms || "Standard payment terms apply."}
+              </p>
+            </div>
+          </div>
+
+          {/* Grid Row 2 (2 cols) */}
+          <div className="grid grid-cols-[60%_40%] border-b-[1.5px] border-black text-[10px] font-bold text-[#1A5276] bg-[#f8fafc]">
+            <div className="border-r-[1.5px] border-black py-1.5 text-center">SHIPMENT &amp; TRADE TERMS</div>
+            <div className="py-1.5 text-center">TRANSPORT DETAILS</div>
+          </div>
+          <div className="grid grid-cols-[60%_40%] border-b-[1.5px] border-black min-h-[120px] text-[10px]">
+            <div className="p-4 border-r-[1.5px] border-black space-y-2">
+              <div className="grid grid-cols-[130px_1fr]"><span>Country of Origin :</span> <span className="font-bold">{q.country_of_origin || '---'}</span></div>
+              <div className="grid grid-cols-[130px_1fr]"><span>Mode of Transport :</span> <span className="font-bold">{q.mode_of_transport || q.shipment_type || '---'}</span></div>
+              <div className="grid grid-cols-[130px_1fr]"><span>Incoterms :</span> <span className="font-bold">{q.incoterms || q.incoterm || '---'}</span></div>
+              <div className="grid grid-cols-[130px_1fr]"><span>Port of Loading :</span> <span className="font-bold">{q.port_of_loading || '---'}</span></div>
+              <div className="grid grid-cols-[130px_1fr]"><span>Port of Discharge :</span> <span className="font-bold">{q.port_of_discharge || '---'}</span></div>
+            </div>
+            <div className="p-4 space-y-2">
+              <div className="grid grid-cols-[110px_1fr]"><span>Transport :</span> <span className="font-bold">{q.shipment_type || q.mode_of_transport || '---'}</span></div>
+              <div className="grid grid-cols-[110px_1fr]"><span>Transport Charges :</span> <span className="font-bold">{q.currency || 'INR'} {Number(q.shipping_cost || 0).toLocaleString()}</span></div>
+            </div>
+          </div>
+
+          {/* Table Section */}
+          <div className="flex-1 min-h-[250px]">
+            <table className="w-full border-collapse table-fixed">
+              <thead>
+                <tr className="border-b-[1.5px] border-black text-[8px] font-bold text-[#1A5276] uppercase bg-[#f8fafc]">
+                  <th className="border-r-[1.5px] border-black w-[5%] py-2 text-center">ID</th>
+                  <th className="border-r-[1.5px] border-black w-[45%] px-4 py-2 text-left">DESCRIPTION</th>
+                  <th className="border-r-[1.5px] border-black w-[12%] py-2 text-center">HSN</th>
+                  <th className="border-r-[1.5px] border-black w-[13%] py-2 text-center">QUANTITY</th>
+                  <th className="border-r-[1.5px] border-black w-[12%] py-2 text-center text-[7px]">UNIT PRICE ({q.currency || 'INR'})</th>
+                  <th className="w-[13%] py-2 text-center text-[7px]">AMOUNT ({q.currency || 'INR'})</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="text-[10px]">
                 {(q.items || []).map((item: any, i: number) => (
-                  <tr key={i} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-5">
-                      <p className="font-bold text-base">{item.product?.name || 'Custom Item'}</p>
-                      <p className="text-[10px] text-muted-foreground font-mono mt-1 uppercase tracking-tight">{item.product?.sku || 'GENERIC-SKU'}</p>
+                  <tr key={i} className="border-b border-black min-h-[40px]">
+                    <td className="border-r border-black text-center py-2">{i + 1}</td>
+                    <td className="border-r border-black px-4 py-2 font-medium leading-tight text-[9px] break-words">
+                      {item.description || item.product?.name || item.product_name || 'Product'}
                     </td>
-                    <td className="text-right px-6 py-5 tabular-nums text-muted-foreground font-medium">{item.quantity.toLocaleString()} {item.product?.unit || 'kg'}</td>
-                    <td className="text-right px-6 py-5 tabular-nums text-muted-foreground">{q.currency} {Number(item.unit_price).toLocaleString()}</td>
-                    <td className="text-right px-6 py-5 tabular-nums font-bold text-primary">{q.currency} {Number(item.total_price).toLocaleString()}</td>
+                    <td className="border-r border-black text-center py-2 font-mono text-[9px]">{item.hsn_code || item.product?.hs_code || '—'}</td>
+                    <td className="border-r border-black text-center py-2 font-bold">{item.quantity}</td>
+                    <td className="border-r border-black text-right pr-4 py-2 font-bold">{Number(item.unit_price).toFixed(2)}</td>
+                    <td className="text-right pr-4 py-2 font-bold">{Number(item.total_price || (item.quantity * item.unit_price)).toFixed(2)}</td>
+                  </tr>
+                ))}
+                {/* Fill remaining space with empty rows to maintain grid alignment */}
+                {[...Array(Math.max(0, 6 - (q.items || []).length))].map((_, i) => (
+                  <tr key={`e-${i}`} className="border-b border-gray-100 h-10">
+                    <td className="border-r border-black"></td>
+                    <td className="border-r border-black"></td>
+                    <td className="border-r border-black"></td>
+                    <td className="border-r border-black"></td>
+                    <td className="border-r border-black"></td>
+                    <td></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <div className="flex flex-col md:flex-row justify-between gap-12 pt-8 border-t border-border">
-            <div className="flex-1 space-y-4">
-              <div>
-                <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Terms of Payment</h4>
-                <p className="text-xs text-muted-foreground leading-relaxed italic whitespace-pre-wrap bg-muted/30 p-4 rounded-lg border border-dashed border-border">
-                  {q.payment_terms || "Standard terms apply. 100% advance or LC at sight."}
+          {/* Footer */}
+          <div className="grid grid-cols-[55%_45%] border-t-[1.5px] border-black min-h-[140px]">
+            <div className="border-r-[1.5px] border-black flex flex-col">
+              <div className="p-3 border-b border-black flex-1">
+                <h4 className="text-[10px] font-bold text-[#1A5276] mb-2 uppercase">NOTE</h4>
+                <p className="text-[9px] leading-relaxed text-gray-800 whitespace-pre-wrap">
+                  {q.notes || "Including packing, loading and Transport."}
                 </p>
               </div>
+              <div className="p-3">
+                <p className="text-[8px] uppercase font-bold text-gray-700 mb-4">DECLARATION</p>
+                <p className="text-[8.5px] italic text-gray-600 leading-tight">We hereby certify that the goods mentioned above are of Indian origin and the price and details stated in this quotation are true and correct.</p>
+              </div>
             </div>
-            <div className="w-full md:w-72 space-y-3">
-              <div className="flex justify-between text-sm px-2">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span className="tabular-nums font-medium">{q.currency} {Number(q.subtotal || 0).toLocaleString()}</span>
+
+            <div className="flex flex-col">
+              <div className="border-b border-black">
+                <div className="grid grid-cols-2 px-4 py-1.5 text-[10px]">
+                  <span className="text-gray-700 font-bold uppercase">SUB TOTAL</span>
+                  <span className="text-right font-bold">{q.currency || 'INR'} {Number(q.subtotal || 0).toLocaleString()}</span>
+                </div>
+                <div className="grid grid-cols-2 px-4 py-1.5 text-[10px]">
+                  <span className="text-gray-700 font-bold uppercase">PACKING CHARGE</span>
+                  <span className="text-right font-bold">{q.currency || 'INR'} {Number(q.packaging_cost || 0).toLocaleString()}</span>
+                </div>
+                <div className="grid grid-cols-2 px-4 py-1.5 text-[10px]">
+                  <span className="text-gray-700 font-bold uppercase">TRANSPORT CHARGES</span>
+                  <span className="text-right font-bold">{q.currency || 'INR'} {Number(q.shipping_cost || 0).toLocaleString()}</span>
+                </div>
+                <div className="grid grid-cols-2 px-4 py-1.5 text-[10px]">
+                  <span className="text-gray-700 font-bold uppercase">TAX</span>
+                  <span className="text-right font-bold">{q.currency || 'INR'} {Number(q.tax_amount || 0).toLocaleString()}</span>
+                </div>
+                <div className="grid grid-cols-2 px-4 py-2 text-[11px] font-black bg-[#BDD7EE] text-[#1A5276] border-t border-black">
+                  <span>TOTAL AMOUNT</span>
+                  <span className="text-right">{q.currency || 'INR'} {Number(q.amount || 0).toLocaleString()}</span>
+                </div>
               </div>
-              <div className="flex justify-between text-sm px-2">
-                <span className="text-muted-foreground">Packaging Cost</span>
-                <span className="tabular-nums font-medium">{q.currency} {Number(q.packaging_cost || 0).toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-sm px-2">
-                <span className="text-muted-foreground">Shipment Cost</span>
-                <span className="tabular-nums font-medium">{q.currency} {Number(q.shipping_cost || 0).toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-sm px-2">
-                <span className="text-muted-foreground">Tax ({q.tax_rate || 0}%)</span>
-                <span className="tabular-nums font-medium">{q.currency} {Number(q.tax_amount || 0).toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between p-4 rounded-xl bg-primary text-primary-foreground font-bold text-xl shadow-lg shadow-primary/20">
-                <span>Total</span>
-                <span className="tabular-nums">{q.currency} {Number(q.amount || 0).toLocaleString()}</span>
+              
+              <div className="p-4 flex flex-col flex-1 justify-between text-[10px]">
+                <div className="font-extrabold text-[9px] uppercase tracking-tighter text-right">FOR SHASTIKA GLOBAL IMPEX PRIVATE LIMITED</div>
+                <div className="space-y-4 mt-6">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-[9.5px]">Authorized Signatory :</span>
+                    <div className="flex-1 border-b border-dotted border-black h-4 px-2 italic text-gray-400 font-normal">__________________________</div>
+                  </div>
+                  <div className="flex items-start gap-4">
+                    <span className="font-bold text-[9.5px] pt-1">Seal &amp; Sign :</span>
+                    <div className="h-16 w-36 border border-black rounded flex items-center justify-center text-gray-300 text-[8px]">STAMP BOX</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-12 pt-8 border-t border-border flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Digital Document Verified · Shastika Secure</div>
-            </div>
-            
+          {/* Watermark Logo */}
+          <div className="absolute top-[35%] left-[20%] right-[20%] z-0 opacity-10 pointer-events-none select-none">
+            <img src="/logo.webp" alt="Watermark" className="w-full h-auto object-contain" />
+          </div>
+
+        </div>
+
+        {/* Bottom Actions Overlay (Awaiting approval / convert) */}
+        <div className="flex items-center justify-between p-6 bg-card border rounded-2xl shadow-lg">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Digital Document Verified · Shastika Secure</div>
+          </div>
+          
+          <div className="flex items-center gap-3">
             {q.status === "Approved" ? (
               <Button className="btn-gold shadow-gold/20" onClick={() => nav("/quotations/convert")}>
                 Convert to Order <ArrowRight className="h-4 w-4 ml-2" />
@@ -276,7 +347,7 @@ export default function QuotationPreview() {
             ) : null}
           </div>
         </div>
-      </Section>
+      </div>
     </div>
   );
 }

@@ -47,9 +47,17 @@ export default function CreateQuotation() {
   // Form State
   const [selectedLeadId, setSelectedLeadId] = useState(leadFromState?.id || "");
   const [customerName, setCustomerName] = useState(leadFromState?.company_name || "");
+  const [customerPhone, setCustomerPhone] = useState(leadFromState?.phone || "");
+  const [customerAddress, setCustomerAddress] = useState(leadFromState?.address || "");
   const [currency, setCurrency] = useState("USD");
   const [validUntil, setValidUntil] = useState("");
   const [incoterm, setIncoterm] = useState("CIF");
+  const [quoteNumber, setQuoteNumber] = useState("");
+  const [netWeight, setNetWeight] = useState("");
+  const [countryOfOrigin, setCountryOfOrigin] = useState("India");
+  const [modeOfTransport, setModeOfTransport] = useState("Sea");
+  const [portOfLoading, setPortOfLoading] = useState("CHENNAI PORT");
+  const [portOfDischarge, setPortOfDischarge] = useState("");
   const [containerType, setContainerType] = useState("");
   const [packagingType, setPackagingType] = useState("");
   const [packagingCost, setPackagingCost] = useState(0);
@@ -121,10 +129,18 @@ export default function CreateQuotation() {
   };
 
   useEffect(() => {
+    const year = new Date().getFullYear();
+    const rand = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    setQuoteNumber(`QT-${year}-${rand}`);
+  }, []);
+
+  useEffect(() => {
     if (!selectedLeadId) return;
     const lead = leadsList.find(l => l.id === selectedLeadId);
     if (lead) {
-      setCustomerName(lead.company_name || lead.contact_name);
+      setCustomerName(lead.company_name || lead.contact_name || "");
+      setCustomerPhone((lead as any).phone || "");
+      setCustomerAddress((lead as any).address || "");
     }
   }, [selectedLeadId, leadsList]);
 
@@ -138,31 +154,59 @@ export default function CreateQuotation() {
   const totalAmount = taxableAmount + taxAmount;
 
   const handleSave = async () => {
-    if (!customerName || items.length === 0 || !items[0].product_name) {
-      return toast.error("Please provide a customer name and at least one product.");
+    if (!customerName || !customerAddress || !customerPhone || items.length === 0 || !items[0].product_name) {
+      return toast.error("Please provide a customer name, address, phone number, and at least one product.");
+    }
+    if (!quoteNumber) {
+      return toast.error("Please provide a quotation number.");
     }
 
     setSaving(true);
     try {
-      // 1. Create Customer record if needed
+      // 1. Find or Create Customer
       let customerId = null;
-      const { data: custData, error: custErr } = await supabase
+      const { data: existingCust } = await supabase
         .from('customers')
-        .insert({ company_id: profile!.company_id, name: customerName })
-        .select('id').single();
-      
-      if (!custErr && custData) customerId = custData.id;
+        .select('id')
+        .eq('company_id', profile!.company_id)
+        .eq('name', customerName)
+        .limit(1);
+
+      if (existingCust && existingCust.length > 0) {
+        customerId = existingCust[0].id;
+        await supabase
+          .from('customers')
+          .update({
+            address: customerAddress || null,
+            phone: customerPhone || null
+          })
+          .eq('id', customerId);
+      } else {
+        const { data: custData, error: custErr } = await supabase
+          .from('customers')
+          .insert({ 
+            company_id: profile!.company_id, 
+            name: customerName,
+            address: customerAddress || null,
+            phone: customerPhone || null
+          })
+          .select('id').single();
+        
+        if (!custErr && custData) customerId = custData.id;
+      }
 
       // 2. Create Quotation
-      const year = new Date().getFullYear();
-      const rand = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-      const quoteNumber = `QT-${year}-${rand}`;
-
       const { data: quoteData, error: quoteErr } = await supabase
         .from('quotations')
         .insert({
           company_id: profile!.company_id,
           customer_id: customerId,
+          customer_phone: customerPhone || null,
+          net_weight: netWeight || null,
+          country_of_origin: countryOfOrigin || null,
+          mode_of_transport: modeOfTransport || null,
+          port_of_loading: portOfLoading || null,
+          port_of_discharge: portOfDischarge || null,
           quotation_number: quoteNumber,
           amount: totalAmount,
           subtotal: subtotal,
@@ -178,7 +222,8 @@ export default function CreateQuotation() {
           items_count: items.length,
           valid_until: validUntil || null,
           payment_terms: paymentTerms,
-          lead_id: selectedLeadId || null
+          lead_id: selectedLeadId || null,
+          incoterm: incoterm
         })
         .select('id').single();
 
@@ -243,7 +288,7 @@ export default function CreateQuotation() {
       </Dialog>
 
       <div className="space-y-4">
-        <Section title="Customer & Terms">
+        <Section title="Customer Info">
           <FormGrid cols={3}>
             <FormRow label="Select CRM Lead">
               <Select value={selectedLeadId} onValueChange={setSelectedLeadId}>
@@ -258,6 +303,20 @@ export default function CreateQuotation() {
             <FormRow label="Customer Name *" required>
               <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Company or contact name" />
             </FormRow>
+            <FormRow label="Customer Phone *" required>
+              <Input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="e.g. +91 7397612015" />
+            </FormRow>
+            <FormRow label="Customer Address *" className="col-span-3" required>
+              <Input value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} placeholder="Full billing/shipping address" />
+            </FormRow>
+          </FormGrid>
+        </Section>
+
+        <Section title="Quotation Info">
+          <FormGrid cols={3}>
+            <FormRow label="Quotation No. *" required>
+              <Input value={quoteNumber} onChange={e => setQuoteNumber(e.target.value)} placeholder="e.g. QT-2026-015" />
+            </FormRow>
             <FormRow label="Currency">
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -271,16 +330,31 @@ export default function CreateQuotation() {
             <FormRow label="Valid until">
               <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} />
             </FormRow>
-            <FormRow label="Incoterm">
-              <Select value={incoterm} onValueChange={setIncoterm}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="FOB">FOB</SelectItem>
-                  <SelectItem value="CIF">CIF</SelectItem>
-                  <SelectItem value="EXW">EXW</SelectItem>
-                </SelectContent>
-              </Select>
+          </FormGrid>
+        </Section>
+
+        <Section title="Shipment & Trade Terms">
+          <FormGrid cols={3}>
+            <FormRow label="Country of Origin">
+              <Input value={countryOfOrigin} onChange={e => setCountryOfOrigin(e.target.value)} placeholder="e.g. India" />
             </FormRow>
+            <FormRow label="Mode of Transport">
+              <Input value={modeOfTransport} onChange={e => setModeOfTransport(e.target.value)} placeholder="e.g. Sea" />
+            </FormRow>
+            <FormRow label="Incoterms">
+              <Input value={incoterm} onChange={e => setIncoterm(e.target.value)} placeholder="e.g. CIF" />
+            </FormRow>
+            <FormRow label="Port of Loading">
+              <Input value={portOfLoading} onChange={e => setPortOfLoading(e.target.value)} placeholder="e.g. CHENNAI PORT" />
+            </FormRow>
+            <FormRow label="Port of Discharge">
+              <Input value={portOfDischarge} onChange={e => setPortOfDischarge(e.target.value)} placeholder="e.g. Port of Discharge" />
+            </FormRow>
+          </FormGrid>
+        </Section>
+
+        <Section title="Packaging & Transport">
+          <FormGrid cols={3}>
             <FormRow label="Container Type">
               <Select value={containerType} onValueChange={setContainerType}>
                 <SelectTrigger><SelectValue placeholder="Select container type" /></SelectTrigger>
@@ -307,6 +381,9 @@ export default function CreateQuotation() {
                 <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">{getCurrencySymbol(currency)}</span>
                 <Input type="number" min="0" className="pl-7" value={packagingCost || ""} onChange={e => setPackagingCost(Number(e.target.value) || 0)} placeholder="0.00" />
               </div>
+            </FormRow>
+            <FormRow label="Net Weight">
+              <Input value={netWeight} onChange={e => setNetWeight(e.target.value)} placeholder="e.g. 15.00 Kg" />
             </FormRow>
             <FormRow label="Shipment Type">
               <Select value={shipmentType} onValueChange={setShipmentType}>
