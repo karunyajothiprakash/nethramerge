@@ -7,7 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Mail, Send as SendIcon, Paperclip, Loader2, User, History, X, FileText, Plus,
   Inbox, Star, Clock, File as FileIcon, ChevronDown, RefreshCw, MoreVertical,
-  CheckSquare, ArrowLeft, Reply, Forward, Search, SlidersHorizontal, Settings as SettingsIcon
+  CheckSquare, ArrowLeft, Reply, Forward, Search, SlidersHorizontal, Settings as SettingsIcon,
+  Download, FileSpreadsheet
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -110,6 +111,36 @@ export default function Mailbox() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [signatureText, setSignatureText] = useState("");
   const [savingSignature, setSavingSignature] = useState(false);
+
+  // Zoho Office Integrator state & handler
+  const [openingZohoIndex, setOpeningZohoIndex] = useState<number | null>(null);
+
+  const handleEditWithZoho = async (att: any, index: number) => {
+    setOpeningZohoIndex(index);
+    try {
+      const { data, error } = await supabase.functions.invoke("zoho-office-integrator", {
+        body: {
+          path: att.path,
+          filename: att.filename,
+          displayName: profile?.full_name || profile?.email || "User",
+          userId: profile?.id || "user-id",
+        }
+      });
+
+      if (error || !data?.success) {
+        throw new Error(error?.message || data?.error || "Failed to create Zoho editor session");
+      }
+
+      if (data?.document_url) {
+        window.open(data.document_url, "_blank");
+        toast.success("Opening Zoho Sheet editor...");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setOpeningZohoIndex(null);
+    }
+  };
 
   useEffect(() => {
     if (profile?.email_signature) {
@@ -927,30 +958,70 @@ export default function Mailbox() {
                       Attachments ({selectedEmail.attachments.length})
                     </h3>
                     <div className="flex flex-wrap gap-3">
-                      {selectedEmail.attachments.map((att: any, i: number) => (
-                        <button
-                          key={i}
-                          onClick={async () => {
-                            const { data } = await supabase.storage
-                              .from("email-attachments")
-                              .createSignedUrl(att.path, 60);
-                            if (data?.signedUrl) {
-                              window.open(data.signedUrl, "_blank");
-                            }
-                          }}
-                          className="flex items-center gap-3 bg-[#18181b]/50 hover:bg-[#1e1e22] px-4 py-3 rounded-xl border border-zinc-800 text-sm transition-all cursor-pointer shadow-sm group hover:scale-[1.01]"
-                        >
-                          <FileText className="h-5 w-5 text-rose-500 group-hover:scale-110 transition-transform" />
-                          <div className="text-left">
-                            <div className="font-semibold text-zinc-300 truncate max-w-[200px]">
-                              {att.filename}
+                      {selectedEmail.attachments.map((att: any, i: number) => {
+                        const isSpreadsheet = att.filename?.toLowerCase().endsWith(".xlsx") || 
+                                              att.filename?.toLowerCase().endsWith(".xls") || 
+                                              att.filename?.toLowerCase().endsWith(".csv");
+                        
+                        return (
+                          <div
+                            key={i}
+                            className="flex items-center justify-between gap-4 bg-[#18181b]/50 px-4 py-3 rounded-xl border border-zinc-800 text-sm shadow-sm group hover:scale-[1.01] transition-all min-w-[280px]"
+                          >
+                            <div className="flex items-center gap-3">
+                              {isSpreadsheet ? (
+                                <FileSpreadsheet className="h-5 w-5 text-emerald-500" />
+                              ) : (
+                                <FileText className="h-5 w-5 text-zinc-400" />
+                              )}
+                              <div className="text-left">
+                                <div className="font-semibold text-zinc-300 truncate max-w-[180px]" title={att.filename}>
+                                  {att.filename}
+                                </div>
+                                <div className="text-[10px] text-zinc-500 font-semibold uppercase mt-0.5">
+                                  {att.contentType || "File"}
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-[10px] text-zinc-500 font-semibold uppercase mt-0.5">
-                              {att.contentType || "File"}
+                            
+                            <div className="flex items-center gap-1.5 border-l border-zinc-800/80 pl-3">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                                onClick={async () => {
+                                  const { data } = await supabase.storage
+                                    .from("email-attachments")
+                                    .createSignedUrl(att.path, 60);
+                                  if (data?.signedUrl) {
+                                    window.open(data.signedUrl, "_blank");
+                                  }
+                                }}
+                                title="Download Attachment"
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+
+                              {isSpreadsheet && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 rounded-lg hover:bg-zinc-800 text-emerald-500 hover:text-emerald-400"
+                                  onClick={() => handleEditWithZoho(att, i)}
+                                  disabled={openingZohoIndex === i}
+                                  title="Edit with Zoho Sheet"
+                                >
+                                  {openingZohoIndex === i ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />
+                                  ) : (
+                                    <FileSpreadsheet className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              )}
                             </div>
                           </div>
-                        </button>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
