@@ -5,15 +5,24 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-async function checkSchema() {
-  // We can't directly query pg_attribute with anon key usually, but let's try a different column name
-  // Maybe it's total_amount?
-  const { data, error } = await supabase.from('quotations').select('*').limit(0);
+async function checkEmails() {
+  console.log("Querying emails with attachments...");
+  const { data, error } = await supabase
+    .from('emails')
+    .select('id, subject, attachments')
+    .not('attachments', 'is', null)
+    .limit(15);
+    
   if (error) {
-    console.error("Schema check error:", error);
-  } else {
-    console.log("Columns:", data);
+    console.error("Error:", error);
+    return;
+  }
+  
+  for (const email of data) {
+    console.log(`Email ID: ${email.id} | Subject: "${email.subject}"`);
+    console.log("Attachments:", JSON.stringify(email.attachments, null, 2));
+    console.log("-----------------------------------------");
   }
 }
 
-checkSchema();
+checkEmails();
