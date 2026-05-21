@@ -94,6 +94,8 @@ export default function Mailbox() {
 
   // Compose
   const [to, setTo] = useState("");
+  const [cc, setCc] = useState("");
+  const [bcc, setBcc] = useState("");
   const [subject, setSubject] = useState("");
   const [content, setContent] = useState("");
   const [sending, setSending] = useState(false);
@@ -117,6 +119,9 @@ export default function Mailbox() {
 
   const handleEditWithZoho = async (att: any, index: number) => {
     setOpeningZohoIndex(index);
+    // Open the window immediately without noopener/noreferrer so we can control its location asynchronously
+    const zohoWindow = window.open("", "_blank");
+
     try {
       const { data, error } = await supabase.functions.invoke("zoho-office-integrator", {
         body: {
@@ -132,11 +137,20 @@ export default function Mailbox() {
       }
 
       if (data?.document_url) {
-        window.open(data.document_url, "_blank");
+        if (zohoWindow) {
+          zohoWindow.location.href = data.document_url;
+        } else {
+          window.open(data.document_url, "_blank");
+        }
         toast.success("Opening Zoho Sheet editor...");
+      } else {
+        throw new Error("Zoho did not return an editor URL.");
       }
     } catch (err: any) {
-      toast.error(err.message);
+      if (zohoWindow && !zohoWindow.closed) {
+        zohoWindow.close();
+      }
+      toast.error(err.message || "Unable to open Zoho Sheet.");
     } finally {
       setOpeningZohoIndex(null);
     }
@@ -453,6 +467,16 @@ export default function Mailbox() {
       return toast.error("Invalid email address");
     }
 
+    // Validate CC if provided
+    if (cc && !cc.split(',').every(email => emailRegex.test(email.trim()))) {
+      return toast.error("Invalid CC email address");
+    }
+
+    // Validate BCC if provided
+    if (bcc && !bcc.split(',').every(email => emailRegex.test(email.trim()))) {
+      return toast.error("Invalid BCC email address");
+    }
+
     try {
       setSending(true);
 
@@ -486,6 +510,8 @@ export default function Mailbox() {
         .from("emails")
         .insert({
           to_address: to,
+          cc_address: cc || null,
+          bcc_address: bcc || null,
           from_address: account.account_email,
           subject: subject,
           body_html: content,
@@ -515,6 +541,8 @@ export default function Mailbox() {
       // UI feedback — Realtime will update actual status live
       toast.info("Sending email...", { id: `sending-${emailRow.id}`, duration: 10000 });
       setTo("");
+      setCc("");
+      setBcc("");
       setSubject("");
       setContent("");
       setAttachments([]);
@@ -599,31 +627,31 @@ export default function Mailbox() {
   });
 
   return (
-    <div className="h-[calc(100vh-6rem)] flex flex-col pt-0 w-full overflow-hidden bg-[#0c0c0e]">
+    <div className="h-[calc(100vh-6rem)] flex flex-col pt-0 w-full overflow-hidden bg-white">
       {/* Top Header / Search */}
-      <div className="flex items-center gap-4 py-4 px-8 shrink-0 bg-[#0c0c0e] border-b border-zinc-800/80">
+      <div className="flex items-center gap-4 py-4 px-8 shrink-0 bg-white border-b border-gray-200">
         <div className="flex items-center gap-3 w-64 shrink-0">
           <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-amber-500/20 to-amber-500/5 flex items-center justify-center border border-amber-500/30">
             <Mail className="h-5 w-5 text-amber-500" />
           </div>
-          <span className="text-xl font-semibold tracking-tight text-zinc-100">Mailbox</span>
+          <span className="text-xl font-semibold tracking-tight text-gray-900">Mailbox</span>
         </div>
         
         <div className="flex-1 max-w-2xl relative">
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-zinc-500 group-focus-within:text-amber-500 transition-colors" />
+              <Search className="h-4 w-4 text-gray-500 group-focus-within:text-amber-600 transition-colors" />
             </div>
             <Input 
               placeholder="Search mail by subject, sender, or content..." 
-              className="pl-11 pr-12 h-11 bg-[#141416] border-zinc-800/80 text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-1 focus-visible:ring-amber-500/50 focus-visible:border-amber-500/50 focus-visible:bg-[#0c0c0e] transition-all rounded-full text-sm w-full shadow-inner"
+              className="pl-11 pr-12 h-11 bg-gray-100 border-gray-300 text-gray-900 placeholder:text-gray-500 focus-visible:ring-1 focus-visible:ring-amber-500/50 focus-visible:border-amber-500/50 focus-visible:bg-white transition-all rounded-full text-sm w-full shadow-inner"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
             <button
               onClick={() => setShowSearchOptions(!showSearchOptions)}
-              className={`absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-500 hover:text-amber-500 transition-colors ${
-                showSearchOptions || filterHasAttachment || filterUnreadOnly || filterDateRange !== 'all' ? 'text-amber-500 font-bold' : ''
+              className={`absolute inset-y-0 right-0 pr-4 flex items-center text-gray-600 hover:text-amber-600 transition-colors ${
+                showSearchOptions || filterHasAttachment || filterUnreadOnly || filterDateRange !== 'all' ? 'text-amber-600 font-bold' : ''
               }`}
             >
               <SlidersHorizontal className="h-4 w-4" />
@@ -632,9 +660,9 @@ export default function Mailbox() {
 
           {/* Search Options Dropdown Popover */}
           {showSearchOptions && (
-            <div className="absolute top-13 left-0 right-0 bg-[#161618] border border-zinc-800 rounded-2xl p-5 shadow-2xl z-50 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="flex items-center justify-between pb-2 border-b border-zinc-800/80">
-                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Search & Filter Options</span>
+            <div className="absolute top-13 left-0 right-0 bg-white border border-gray-300 rounded-2xl p-5 shadow-2xl z-50 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-200">
+                <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Search & Filter Options</span>
                 {(filterHasAttachment || filterUnreadOnly || filterDateRange !== "all") && (
                   <button 
                     onClick={() => {
@@ -642,7 +670,7 @@ export default function Mailbox() {
                       setFilterUnreadOnly(false);
                       setFilterDateRange("all");
                     }}
-                    className="text-[11px] font-bold text-amber-500 hover:underline"
+                    className="text-[11px] font-bold text-amber-600 hover:underline"
                   >
                     Reset Filters
                   </button>
@@ -652,13 +680,13 @@ export default function Mailbox() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Has Attachment Switch */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-semibold text-zinc-400">Attachments</label>
+                  <label className="text-xs font-semibold text-gray-600">Attachments</label>
                   <button
                     onClick={() => setFilterHasAttachment(!filterHasAttachment)}
                     className={`flex items-center justify-center h-10 px-4 rounded-xl text-xs font-medium border transition-all ${
                       filterHasAttachment 
-                        ? 'bg-amber-500/10 border-amber-500 text-amber-500 font-bold' 
-                        : 'border-zinc-800 bg-[#1e1e22]/50 text-zinc-400 hover:text-zinc-200 hover:bg-[#1e1e22]'
+                        ? 'bg-amber-100 border-amber-600 text-amber-700 font-bold' 
+                        : 'border-gray-300 bg-gray-100/50 text-gray-600 hover:text-gray-900 hover:bg-gray-200'
                     }`}
                   >
                     {filterHasAttachment ? "✓ Has Attachment" : "Any Attachment"}
@@ -667,13 +695,13 @@ export default function Mailbox() {
 
                 {/* Read / Unread Status */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-semibold text-zinc-400">Read Status</label>
+                  <label className="text-xs font-semibold text-gray-600">Read Status</label>
                   <button
                     onClick={() => setFilterUnreadOnly(!filterUnreadOnly)}
                     className={`flex items-center justify-center h-10 px-4 rounded-xl text-xs font-medium border transition-all ${
                       filterUnreadOnly 
-                        ? 'bg-amber-500/10 border-amber-500 text-amber-500 font-bold' 
-                        : 'border-zinc-800 bg-[#1e1e22]/50 text-zinc-400 hover:text-zinc-200 hover:bg-[#1e1e22]'
+                        ? 'bg-amber-100 border-amber-600 text-amber-700 font-bold' 
+                        : 'border-gray-300 bg-gray-100/50 text-gray-600 hover:text-gray-900 hover:bg-gray-200'
                     }`}
                   >
                     {filterUnreadOnly ? "✉ Unread Only" : "All Messages"}
@@ -682,16 +710,16 @@ export default function Mailbox() {
 
                 {/* Date range selection */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-semibold text-zinc-400">Received Date</label>
+                  <label className="text-xs font-semibold text-gray-600">Received Date</label>
                   <select
                     value={filterDateRange}
                     onChange={(e) => setFilterDateRange(e.target.value)}
-                    className="h-10 px-3 rounded-xl text-xs font-medium border border-zinc-800 bg-[#1e1e22]/50 text-zinc-300 focus:ring-1 focus:ring-amber-500/50 cursor-pointer outline-none"
+                    className="h-10 px-3 rounded-xl text-xs font-medium border border-gray-300 bg-gray-100/50 text-gray-800 focus:ring-1 focus:ring-amber-500/50 cursor-pointer outline-none"
                   >
-                    <option value="all" className="bg-[#161618]">Any time</option>
-                    <option value="today" className="bg-[#161618]">Last 24 hours</option>
-                    <option value="week" className="bg-[#161618]">Last 7 days</option>
-                    <option value="month" className="bg-[#161618]">Last 30 days</option>
+                    <option value="all" className="bg-white">Any time</option>
+                    <option value="today" className="bg-white">Last 24 hours</option>
+                    <option value="week" className="bg-white">Last 7 days</option>
+                    <option value="month" className="bg-white">Last 30 days</option>
                   </select>
                 </div>
               </div>
@@ -701,14 +729,14 @@ export default function Mailbox() {
         
         <div className="flex items-center gap-4 ml-auto">
           {/* Realtime connection indicator */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#141416] border border-zinc-800/50 text-xs">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 border border-gray-300 text-xs">
             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse' : 'bg-rose-500'}`} />
-            <span className="font-medium text-zinc-400">{isConnected ? 'Live Sync' : 'Connecting...'}</span>
+            <span className="font-medium text-gray-600">{isConnected ? 'Live Sync' : 'Connecting...'}</span>
           </div>
 
           <div className="hidden md:flex items-center gap-2">
             <select 
-              className="bg-[#141416] border border-zinc-800 rounded-full px-4 py-2 text-xs font-semibold focus:ring-1 focus:ring-amber-500/50 focus:border-amber-500/50 cursor-pointer text-zinc-300 hover:bg-[#1c1c1f] transition-all shadow-sm"
+              className="bg-white border border-gray-300 rounded-full px-4 py-2 text-xs font-semibold focus:ring-1 focus:ring-amber-500/50 focus:border-amber-500/50 cursor-pointer text-gray-800 hover:bg-gray-50 transition-all shadow-sm"
               value={selectedAccount}
               onChange={(e) => {
                 setSelectedAccount(e.target.value);
@@ -718,16 +746,16 @@ export default function Mailbox() {
               }}
             >
               {accounts.map(acc => (
-                <option key={acc.id} value={acc.id} className="bg-[#0c0c0e] text-zinc-300">{acc.account_email}</option>
+                <option key={acc.id} value={acc.id} className="bg-white text-gray-800">{acc.account_email}</option>
               ))}
             </select>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden bg-[#0c0c0e]">
+      <div className="flex flex-1 overflow-hidden bg-white">
         {/* Left Sidebar */}
-        <div className="w-64 shrink-0 flex flex-col pr-4 pt-6 pl-6">
+        <div className="w-64 shrink-0 flex flex-col pr-4 pt-6 pl-6 bg-gray-50">
           <div className="mb-6">
             <Button 
               onClick={() => { 
@@ -756,43 +784,43 @@ export default function Mailbox() {
                     onClick={() => { setActiveFolder(folder.id); setIsComposing(false); setSelectedEmail(null); }}
                     className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
                       isActive
-                        ? "bg-amber-500/10 text-amber-500 font-semibold border-l-[3px] border-amber-500 rounded-l-none pl-3.5" 
-                        : "text-zinc-400 hover:text-zinc-200 hover:bg-[#141416]/60"
+                        ? "bg-amber-100 text-amber-700 font-semibold border-l-[3px] border-amber-600 rounded-l-none pl-3.5" 
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
                     }`}
                   >
                     <div className="flex items-center gap-3.5">
-                      <folder.icon className={`h-4 w-4 ${isActive ? 'text-amber-500' : 'text-zinc-500'}`} />
+                      <folder.icon className={`h-4 w-4 ${isActive ? 'text-amber-600' : 'text-gray-500'}`} />
                       {folder.label}
                     </div>
                     {folder.count !== undefined && folder.count > 0 && (
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? 'bg-amber-500/20 text-amber-400' : 'bg-[#141416] text-zinc-500 border border-zinc-800'}`}>{folder.count}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? 'bg-amber-200 text-amber-700' : 'bg-gray-200 text-gray-600 border border-gray-300'}`}>{folder.count}</span>
                     )}
                   </button>
                 );
               })}
               
-              <button className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-500 hover:text-zinc-300 hover:bg-[#141416]/40 transition-colors mt-2">
+              <button className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-200/40 transition-colors mt-2">
                 <ChevronDown className="h-4 w-4" />
                 More Folder
               </button>
             </div>
             
-            <div className="mt-8 pb-6 border-t border-zinc-800/50 pt-6">
-               <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 px-4">System Labels</h3>
+            <div className="mt-8 pb-6 border-t border-gray-300 pt-6">
+               <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-4 px-4">System Labels</h3>
                <div className="space-y-1 text-sm">
-                  <div className="flex items-center justify-between px-4 py-2 rounded-lg cursor-pointer hover:bg-[#141416]/40 text-zinc-400 hover:text-zinc-200 transition-colors">
+                  <div className="flex items-center justify-between px-4 py-2 rounded-lg cursor-pointer hover:bg-gray-200/40 text-gray-600 hover:text-gray-900 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="w-2 h-2 rounded-full bg-blue-500" />
                       <span>Work</span>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between px-4 py-2 rounded-lg cursor-pointer hover:bg-[#141416]/40 text-zinc-400 hover:text-zinc-200 transition-colors">
+                  <div className="flex items-center justify-between px-4 py-2 rounded-lg cursor-pointer hover:bg-gray-200/40 text-gray-600 hover:text-gray-900 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="w-2 h-2 rounded-full bg-emerald-500" />
                       <span>Personal</span>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between px-4 py-2 rounded-lg cursor-pointer hover:bg-[#141416]/40 text-zinc-400 hover:text-zinc-200 transition-colors">
+                  <div className="flex items-center justify-between px-4 py-2 rounded-lg cursor-pointer hover:bg-gray-200/40 text-gray-600 hover:text-gray-900 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="w-2 h-2 rounded-full bg-amber-500" />
                       <span>Clients</span>
@@ -801,12 +829,12 @@ export default function Mailbox() {
                </div>
             </div>
             
-            <div className="mt-auto pb-6 border-t border-zinc-800/50 pt-6">
+            <div className="mt-auto pb-6 border-t border-gray-300 pt-6">
               <button
                 onClick={() => setIsSettingsOpen(true)}
-                className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-[#141416]/40 transition-colors"
+                className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-200/40 transition-colors"
               >
-                <SettingsIcon className="h-4 w-4 text-zinc-500" />
+                <SettingsIcon className="h-4 w-4 text-gray-500" />
                 Mail Settings
               </button>
             </div>
@@ -814,31 +842,31 @@ export default function Mailbox() {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#121214]/90 border border-zinc-800 rounded-t-[2rem] mt-4 mr-4 shadow-2xl overflow-hidden relative">
+        <div className="flex-1 flex flex-col min-w-0 bg-white border border-gray-300 rounded-t-[2rem] mt-4 mr-4 shadow-2xl overflow-hidden relative">
           {/* Action Bar */}
-          <div className="h-14 flex items-center px-6 gap-4 shrink-0 bg-[#161618]/50 backdrop-blur-md sticky top-0 z-10 border-b border-zinc-800/80">
+          <div className="h-14 flex items-center px-6 gap-4 shrink-0 bg-gray-50/50 backdrop-blur-md sticky top-0 z-10 border-b border-gray-300">
             {selectedEmail || isComposing ? (
-               <Button variant="ghost" size="icon" onClick={() => { setSelectedEmail(null); setIsComposing(false); }} className="rounded-full hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-200">
+               <Button variant="ghost" size="icon" onClick={() => { setSelectedEmail(null); setIsComposing(false); }} className="rounded-full hover:bg-gray-200 text-gray-600 hover:text-gray-900">
                   <ArrowLeft className="h-4 w-4" />
                </Button>
             ) : (
               <div className="flex items-center gap-4 w-full">
-                <Button variant="ghost" size="icon" className="rounded-md h-8 w-8 hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-200">
+                <Button variant="ghost" size="icon" className="rounded-md h-8 w-8 hover:bg-gray-200 text-gray-600 hover:text-gray-900">
                   <CheckSquare className="h-4 w-4" />
                 </Button>
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="rounded-full h-8 w-8 hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-200" 
+                  className="rounded-full h-8 w-8 hover:bg-gray-200 text-gray-600 hover:text-gray-900" 
                   onClick={() => syncEmails(selectedAccount, true)} 
                   disabled={isManualSyncing}
                 >
-                  <RefreshCw className={`h-4 w-4 ${isManualSyncing ? 'animate-spin text-amber-500' : ''}`} />
+                  <RefreshCw className={`h-4 w-4 ${isManualSyncing ? 'animate-spin text-amber-600' : ''}`} />
                 </Button>
-                <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-200">
+                <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 hover:bg-gray-200 text-gray-600 hover:text-gray-900">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
-                <div className="ml-auto text-xs text-zinc-500 font-medium">
+                <div className="ml-auto text-xs text-gray-600 font-medium">
                   {filteredEmails.length} messages found
                 </div>
               </div>
@@ -848,14 +876,22 @@ export default function Mailbox() {
           <ScrollArea className="flex-1 bg-transparent">
             {isComposing ? (
               <div className="p-8 max-w-4xl mx-auto w-full">
-                <div className="space-y-5 bg-[#18181b]/30 p-6 rounded-2xl border border-zinc-800/50 backdrop-blur-sm">
-                    <div className="flex items-center border-b border-zinc-800/80 pb-3">
-                      <span className="text-zinc-500 w-16 text-sm font-semibold">To</span>
-                      <Input className="border-0 focus-visible:ring-0 shadow-none text-sm px-0 bg-transparent text-zinc-200" placeholder="recipient@example.com" value={to} onChange={(e) => setTo(e.target.value)} />
+                <div className="space-y-5 bg-gray-100/30 p-6 rounded-2xl border border-gray-300 backdrop-blur-sm">
+                    <div className="flex items-center border-b border-gray-300 pb-3">
+                      <span className="text-gray-600 w-16 text-sm font-semibold">To</span>
+                      <Input className="border-0 focus-visible:ring-0 shadow-none text-sm px-0 bg-transparent text-gray-900" placeholder="recipient@example.com" value={to} onChange={(e) => setTo(e.target.value)} />
                     </div>
-                    <div className="flex items-center border-b border-zinc-800/80 pb-3">
-                      <span className="text-zinc-500 w-16 text-sm font-semibold">Subject</span>
-                      <Input className="border-0 focus-visible:ring-0 shadow-none text-sm px-0 font-medium bg-transparent text-zinc-200" placeholder="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
+                    <div className="flex items-center border-b border-gray-300 pb-3">
+                      <span className="text-gray-600 w-16 text-sm font-semibold">CC</span>
+                      <Input className="border-0 focus-visible:ring-0 shadow-none text-sm px-0 bg-transparent text-gray-900" placeholder="cc@example.com (optional)" value={cc} onChange={(e) => setCc(e.target.value)} />
+                    </div>
+                    <div className="flex items-center border-b border-gray-300 pb-3">
+                      <span className="text-gray-600 w-16 text-sm font-semibold">BCC</span>
+                      <Input className="border-0 focus-visible:ring-0 shadow-none text-sm px-0 bg-transparent text-gray-900" placeholder="bcc@example.com (optional)" value={bcc} onChange={(e) => setBcc(e.target.value)} />
+                    </div>
+                    <div className="flex items-center border-b border-gray-300 pb-3">
+                      <span className="text-gray-600 w-16 text-sm font-semibold">Subject</span>
+                      <Input className="border-0 focus-visible:ring-0 shadow-none text-sm px-0 font-medium bg-transparent text-gray-900" placeholder="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
                     </div>
                     
                     <div className="pt-2">
@@ -865,18 +901,18 @@ export default function Mailbox() {
                     {attachments.length > 0 && (
                       <div className="flex flex-wrap gap-2 pt-4">
                         {attachments.map((file, i) => (
-                          <div key={i} className="flex items-center gap-2 bg-[#1c1c1f] px-3 py-1.5 rounded-full border border-zinc-800 text-xs text-zinc-300">
-                            <FileText className="h-3 w-3 text-zinc-500" />
+                          <div key={i} className="flex items-center gap-2 bg-gray-200 px-3 py-1.5 rounded-full border border-gray-300 text-xs text-gray-700">
+                            <FileText className="h-3 w-3 text-gray-600" />
                             <span className="truncate max-w-[150px]">{file.name}</span>
                             <button onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}>
-                              <X className="h-3 w-3 hover:text-rose-500 transition-colors" />
+                              <X className="h-3 w-3 hover:text-rose-600 transition-colors" />
                             </button>
                           </div>
                         ))}
                       </div>
                     )}
 
-                    <div className="flex justify-between items-center pt-6 border-t border-zinc-800/80">
+                    <div className="flex justify-between items-center pt-6 border-t border-gray-300">
                       <Button 
                         className="rounded-full px-8 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-semibold" 
                         onClick={handleSend} 
@@ -887,7 +923,7 @@ export default function Mailbox() {
                       </Button>
                       <div className="flex items-center gap-2">
                         <input type="file" id="mailbox-attach" className="hidden" multiple onChange={handleAttachmentChange} />
-                        <Button variant="ghost" size="icon" onClick={() => document.getElementById("mailbox-attach")?.click()} className="rounded-full hover:bg-zinc-800/60 text-zinc-400 hover:text-zinc-200">
+                        <Button variant="ghost" size="icon" onClick={() => document.getElementById("mailbox-attach")?.click()} className="rounded-full hover:bg-gray-200 text-gray-600 hover:text-gray-900">
                           <Paperclip className="h-5 w-5" />
                         </Button>
                       </div>
@@ -896,56 +932,56 @@ export default function Mailbox() {
               </div>
             ) : selectedEmail ? (
               <div className="p-8 max-w-5xl mx-auto w-full">
-                <div className="mb-8 flex items-start justify-between bg-[#18181b]/20 p-6 rounded-2xl border border-zinc-850">
+                <div className="mb-8 flex items-start justify-between bg-gray-100/20 p-6 rounded-2xl border border-gray-300">
                   <div className="flex-1">
-                    <h1 className="text-xl font-medium mb-6 text-zinc-100 flex items-center gap-3">
+                    <h1 className="text-xl font-medium mb-6 text-gray-900 flex items-center gap-3">
                       {(() => {
                         const txt = document.createElement("textarea");
                         txt.innerHTML = selectedEmail.subject || "(No Subject)";
                         return txt.value;
                       })()}
-                      <Badge variant="outline" className="font-semibold text-[9px] uppercase border-amber-500/30 text-amber-500 bg-amber-500/5 px-2 py-0.5 rounded-full">{selectedEmail.folder || 'Inbox'}</Badge>
+                      <Badge variant="outline" className="font-semibold text-[9px] uppercase border-amber-600/30 text-amber-700 bg-amber-100/50 px-2 py-0.5 rounded-full">{selectedEmail.folder || 'Inbox'}</Badge>
                     </h1>
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-black font-semibold text-base shadow-md">
                         {(selectedEmail.from_address || "?").charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <div className="font-bold text-sm text-zinc-200">
+                        <div className="font-bold text-sm text-gray-800">
                           {selectedEmail.from_address.split('<')[0].trim() || selectedEmail.from_address}
-                          <span className="text-xs text-zinc-500 font-normal ml-2">
+                          <span className="text-xs text-gray-600 font-normal ml-2">
                             {selectedEmail.from_address.includes('<') ? `<${selectedEmail.from_address.split('<')[1]}` : ''}
                           </span>
                         </div>
-                        <div className="text-xs text-zinc-500 mt-0.5">
+                        <div className="text-xs text-gray-600 mt-0.5">
                           to me
                         </div>
                       </div>
                     </div>
                   </div>
-                  <div className="text-xs text-zinc-500 flex items-center gap-4 pt-2">
+                  <div className="text-xs text-gray-600 flex items-center gap-4 pt-2">
                     {format(new Date(selectedEmail.received_at || selectedEmail.created_at), "MMM d, yyyy, h:mm a")}
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleForceFetchEmail(selectedEmail)} title="Reload Message from Server" className="h-8 w-8 rounded-full text-amber-500 hover:text-amber-400 hover:bg-zinc-800/50"><RefreshCw className={`h-4 w-4 ${loadingBody ? 'animate-spin' : ''}`} /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"><Star className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"><Reply className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"><MoreVertical className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleForceFetchEmail(selectedEmail)} title="Reload Message from Server" className="h-8 w-8 rounded-full text-amber-600 hover:text-amber-700 hover:bg-gray-200/50"><RefreshCw className={`h-4 w-4 ${loadingBody ? 'animate-spin' : ''}`} /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-200/50"><Star className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-200/50"><Reply className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-200/50"><MoreVertical className="h-4 w-4" /></Button>
                     </div>
                   </div>
                 </div>
                 
-                <div className="pt-2 pl-12 text-sm leading-relaxed text-zinc-300 min-h-[300px]">
+                <div className="pt-2 pl-12 text-sm leading-relaxed text-gray-700 min-h-[300px]">
                   {loadingBody ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-zinc-500 space-y-4">
-                      <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
-                      <p className="text-xs font-semibold text-zinc-400">Syncing message body from Zoho secure servers...</p>
+                    <div className="flex flex-col items-center justify-center py-20 text-gray-500 space-y-4">
+                      <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+                      <p className="text-xs font-semibold text-gray-600">Syncing message body from Zoho secure servers...</p>
                     </div>
                   ) : selectedEmail.body_html ? (
-                    <div className="email-body-content bg-[#141416]/40 p-8 rounded-2xl border border-zinc-800/80 shadow-inner" dangerouslySetInnerHTML={{ __html: selectedEmail.body_html }} />
+                    <div className="email-body-content bg-gray-100/40 p-8 rounded-2xl border border-gray-300 shadow-inner" dangerouslySetInnerHTML={{ __html: selectedEmail.body_html }} />
                   ) : selectedEmail.body_text ? (
-                    <div className="font-sans whitespace-pre-wrap bg-[#141416]/40 p-8 rounded-2xl border border-zinc-800/80 shadow-inner text-zinc-300 leading-relaxed">{selectedEmail.body_text}</div>
+                    <div className="font-sans whitespace-pre-wrap bg-gray-100/40 p-8 rounded-2xl border border-gray-300 shadow-inner text-gray-700 leading-relaxed">{selectedEmail.body_text}</div>
                   ) : (
-                    <span className="italic text-zinc-500">No content available</span>
+                    <span className="italic text-gray-500">No content available</span>
                   )}
                 </div>
 
@@ -954,7 +990,7 @@ export default function Mailbox() {
                   Array.isArray(selectedEmail.attachments) &&
                   selectedEmail.attachments.length > 0 && (
                   <div className="mt-8 pl-12">
-                    <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">
+                    <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-4">
                       Attachments ({selectedEmail.attachments.length})
                     </h3>
                     <div className="flex flex-wrap gap-3">
@@ -966,29 +1002,29 @@ export default function Mailbox() {
                         return (
                           <div
                             key={i}
-                            className="flex items-center justify-between gap-4 bg-[#18181b]/50 px-4 py-3 rounded-xl border border-zinc-800 text-sm shadow-sm group hover:scale-[1.01] transition-all min-w-[280px]"
+                            className="flex items-center justify-between gap-4 bg-gray-100/50 px-4 py-3 rounded-xl border border-gray-300 text-sm shadow-sm group hover:scale-[1.01] transition-all min-w-[280px]"
                           >
                             <div className="flex items-center gap-3">
                               {isSpreadsheet ? (
-                                <FileSpreadsheet className="h-5 w-5 text-emerald-500" />
+                                <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
                               ) : (
-                                <FileText className="h-5 w-5 text-zinc-400" />
+                                <FileText className="h-5 w-5 text-gray-600" />
                               )}
                               <div className="text-left">
-                                <div className="font-semibold text-zinc-300 truncate max-w-[180px]" title={att.filename}>
+                                <div className="font-semibold text-gray-800 truncate max-w-[180px]" title={att.filename}>
                                   {att.filename}
                                 </div>
-                                <div className="text-[10px] text-zinc-500 font-semibold uppercase mt-0.5">
+                                <div className="text-[10px] text-gray-600 font-semibold uppercase mt-0.5">
                                   {att.contentType || "File"}
                                 </div>
                               </div>
                             </div>
                             
-                            <div className="flex items-center gap-1.5 border-l border-zinc-800/80 pl-3">
+                            <div className="flex items-center gap-1.5 border-l border-gray-300 pl-3">
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="h-8 w-8 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                                className="h-8 w-8 rounded-lg hover:bg-gray-200 text-gray-600 hover:text-gray-900"
                                 onClick={async () => {
                                   const { data } = await supabase.storage
                                     .from("email-attachments")
@@ -1004,18 +1040,19 @@ export default function Mailbox() {
 
                               {isSpreadsheet && (
                                 <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8 rounded-lg hover:bg-zinc-800 text-emerald-500 hover:text-emerald-400"
+                                  size="sm"
+                                  variant="outline"
+                                  className="rounded-lg border-emerald-500 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-900"
                                   onClick={() => handleEditWithZoho(att, i)}
                                   disabled={openingZohoIndex === i}
                                   title="Edit with Zoho Sheet"
                                 >
                                   {openingZohoIndex === i ? (
-                                    <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />
+                                    <Loader2 className="h-4 w-4 animate-spin text-emerald-600 mr-2" />
                                   ) : (
-                                    <FileSpreadsheet className="h-4 w-4" />
+                                    <FileSpreadsheet className="h-4 w-4 mr-2" />
                                   )}
+                                  <span>Edit with Zoho Sheet</span>
                                 </Button>
                               )}
                             </div>
@@ -1026,26 +1063,26 @@ export default function Mailbox() {
                   </div>
                 )}
 
-                <div className="mt-12 pl-12 flex gap-3 border-t border-zinc-800/50 pt-8 pb-12">
-                   <Button variant="outline" className="rounded-full px-6 bg-transparent border-zinc-850 hover:bg-zinc-800/50 text-zinc-300"><Reply className="h-4 w-4 mr-2" /> Reply</Button>
-                   <Button variant="outline" className="rounded-full px-6 bg-transparent border-zinc-850 hover:bg-zinc-800/50 text-zinc-300"><Forward className="h-4 w-4 mr-2" /> Forward</Button>
-                   <Button variant="outline" onClick={() => handleForceFetchEmail(selectedEmail)} className="rounded-full px-6 bg-transparent border-amber-500/30 text-amber-500 hover:bg-amber-500/10 ml-auto"><RefreshCw className={`h-4 w-4 mr-2 ${loadingBody ? 'animate-spin' : ''}`} /> Load Missing Attachments</Button>
+                <div className="mt-12 pl-12 flex gap-3 border-t border-gray-300 pt-8 pb-12">
+                   <Button variant="outline" className="rounded-full px-6 bg-white border-gray-300 hover:bg-gray-100 text-gray-800"><Reply className="h-4 w-4 mr-2" /> Reply</Button>
+                   <Button variant="outline" className="rounded-full px-6 bg-white border-gray-300 hover:bg-gray-100 text-gray-800"><Forward className="h-4 w-4 mr-2" /> Forward</Button>
+                   <Button variant="outline" onClick={() => handleForceFetchEmail(selectedEmail)} className="rounded-full px-6 bg-white border-amber-300 text-amber-700 hover:bg-amber-100 ml-auto"><RefreshCw className={`h-4 w-4 mr-2 ${loadingBody ? 'animate-spin' : ''}`} /> Load Missing Attachments</Button>
                 </div>
               </div>
             ) : (
-              <div className="divide-y divide-zinc-800/60">
+              <div className="divide-y divide-gray-200">
                 {filteredEmails.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-32 px-4 text-center">
                     <div className="relative mb-6 flex items-center justify-center">
                       <div className="absolute inset-0 bg-amber-500/10 rounded-full blur-2xl w-24 h-24 animate-pulse" />
-                      <div className="relative p-6 rounded-2xl bg-gradient-to-b from-[#27272a] to-[#18181b] border border-zinc-850 shadow-xl">
-                        <Inbox className="h-10 w-10 text-amber-500/80 stroke-[1.5]" />
+                      <div className="relative p-6 rounded-2xl bg-gradient-to-b from-gray-200 to-gray-100 border border-gray-300 shadow-xl">
+                        <Inbox className="h-10 w-10 text-amber-600/80 stroke-[1.5]" />
                       </div>
                     </div>
-                    <h3 className="text-base font-semibold text-zinc-200 tracking-tight">
+                    <h3 className="text-base font-semibold text-gray-900 tracking-tight">
                       {searchQuery ? "No search results" : `Your ${activeFolder} is empty`}
                     </h3>
-                    <p className="text-xs text-zinc-500 mt-2 max-w-[280px] leading-relaxed font-medium">
+                    <p className="text-xs text-gray-600 mt-2 max-w-[280px] leading-relaxed font-medium">
                       {searchQuery 
                         ? "We couldn't find any emails matching your keywords." 
                         : `All synchronized emails in this folder will appear here.`}
@@ -1071,65 +1108,65 @@ export default function Mailbox() {
                     <div
                       key={email.id}
                       onClick={() => handleSelectEmail(email)}
-                      className={`group flex items-center px-6 py-3.5 hover:bg-[#18181b]/30 cursor-pointer transition-all border-b border-zinc-800/40 relative ${
-                        isUnread ? 'bg-[#1c1917]/10' : 'bg-transparent'
+                      className={`group flex items-center px-6 py-3.5 hover:bg-gray-100 cursor-pointer transition-all border-b border-gray-200 relative ${
+                        isUnread ? 'bg-amber-50' : 'bg-white'
                       }`}
                     >
                       {/* Left border indicator for unread */}
                       {isUnread && (
-                        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-amber-600 shadow-[0_0_8px_rgba(180,83,9,0.5)]" />
                       )}
 
-                      <div className="flex items-center gap-2 w-12 shrink-0 text-zinc-500">
+                      <div className="flex items-center gap-2 w-12 shrink-0 text-gray-600">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
                             // Toggle starred
                           }}
-                          className="h-8 w-8 rounded-full hover:bg-zinc-800/40 flex items-center justify-center text-zinc-600 hover:text-amber-500 transition-colors"
+                          className="h-8 w-8 rounded-full hover:bg-gray-200 flex items-center justify-center text-gray-600 hover:text-amber-600 transition-colors"
                         >
-                          <Star className={`h-4 w-4 ${email.is_starred ? 'fill-amber-500 text-amber-500' : ''}`} />
+                          <Star className={`h-4 w-4 ${email.is_starred ? 'fill-amber-600 text-amber-600' : ''}`} />
                         </button>
                       </div>
 
-                      <div className={`w-44 shrink-0 text-sm truncate pr-4 ${isUnread ? 'font-bold text-zinc-100' : 'text-zinc-400 font-medium'}`}>
+                      <div className={`w-44 shrink-0 text-sm truncate pr-4 ${isUnread ? 'font-bold text-gray-900' : 'text-gray-600 font-medium'}`}>
                         {sender}
                       </div>
 
                       <div className="flex-1 min-w-0 flex items-center text-sm">
-                        <span className={`truncate shrink-0 ${isUnread ? 'font-bold text-zinc-100' : 'text-zinc-300 font-medium'}`}>
+                        <span className={`truncate shrink-0 ${isUnread ? 'font-bold text-gray-900' : 'text-gray-700 font-medium'}`}>
                            {subjectText}
                         </span>
                         {/* Attachment indicator */}
                         {email.attachments && Array.isArray(email.attachments) && email.attachments.length > 0 && (
-                          <Paperclip className="h-3 w-3 text-zinc-500 shrink-0 ml-2" />
+                          <Paperclip className="h-3 w-3 text-gray-600 shrink-0 ml-2" />
                         )}
-                        <span className="text-zinc-500 truncate ml-2 text-xs">
+                        <span className="text-gray-500 truncate ml-2 text-xs">
                           — {email.body_text ? email.body_text.substring(0, 80) : "No preview available..."}
                         </span>
                       </div>
 
                       {/* Live status badge + date */}
-                      <div className="w-36 shrink-0 text-right text-xs pl-4 flex items-center justify-end gap-2 text-zinc-500 font-semibold">
+                      <div className="w-36 shrink-0 text-right text-xs pl-4 flex items-center justify-end gap-2 text-gray-600 font-semibold">
                         {liveStatus === "sending" && (
-                          <span className="flex items-center gap-1 text-blue-400 font-bold">
+                          <span className="flex items-center gap-1 text-blue-600 font-bold">
                             <Loader2 className="h-3 w-3 animate-spin" />
                             Sending
                           </span>
                         )}
                         {liveStatus === "pending" && (
-                          <span className="flex items-center gap-1 text-amber-400 font-bold">
+                          <span className="flex items-center gap-1 text-amber-600 font-bold">
                             <Clock className="h-3 w-3 animate-pulse" />
                             Queued
                           </span>
                         )}
                         {liveStatus === "sent" && (
-                          <span className="text-emerald-500 font-bold text-sm">✓</span>
+                          <span className="text-emerald-600 font-bold text-sm">✓</span>
                         )}
                         {liveStatus === "failed" && (
-                          <span className="text-rose-500 font-bold text-sm">✗</span>
+                          <span className="text-rose-600 font-bold text-sm">✗</span>
                         )}
-                        <span className={`text-[11px] font-bold ${isUnread ? 'text-amber-500' : 'text-zinc-500'}`}>
+                        <span className={`text-[11px] font-bold ${isUnread ? 'text-amber-600' : 'text-gray-600'}`}>
                           {format(new Date(email.received_at || email.created_at), "MMM d")}
                         </span>
                       </div>
@@ -1144,23 +1181,23 @@ export default function Mailbox() {
 
       {/* Mail Settings Modal */}
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <DialogContent className="sm:max-w-[650px] bg-[#161618] border-zinc-800 text-zinc-100">
+        <DialogContent className="sm:max-w-[650px] bg-white border-gray-300 text-gray-900">
           <DialogHeader>
-            <DialogTitle className="text-zinc-100 flex items-center gap-2">
-              <SettingsIcon className="h-5 w-5 text-amber-500" />
+            <DialogTitle className="text-gray-900 flex items-center gap-2">
+              <SettingsIcon className="h-5 w-5 text-amber-600" />
               Mail Settings
             </DialogTitle>
-            <DialogDescription className="text-zinc-500">
+            <DialogDescription className="text-gray-600">
               Configure your personal mail settings and signature.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-zinc-300">Email Signature</label>
-              <p className="text-xs text-zinc-500 mb-2">
+              <label className="text-sm font-semibold text-gray-800">Email Signature</label>
+              <p className="text-xs text-gray-600 mb-2">
                 This signature will be automatically appended to all outgoing emails.
               </p>
-              <div className="bg-[#121214] rounded-xl border border-zinc-800 overflow-hidden">
+              <div className="bg-white rounded-xl border border-gray-300 overflow-hidden">
                 <ReactQuill 
                   theme="snow" 
                   value={signatureText} 
@@ -1181,7 +1218,7 @@ export default function Mailbox() {
             <Button 
               variant="outline" 
               onClick={() => setIsSettingsOpen(false)}
-              className="bg-transparent border-zinc-800 text-zinc-300 hover:bg-zinc-800/40 hover:text-zinc-100"
+              className="bg-white border-gray-300 text-gray-800 hover:bg-gray-100 hover:text-gray-900"
             >
               Cancel
             </Button>
@@ -1202,7 +1239,7 @@ export default function Mailbox() {
             max-width: 100%;
         }
         .email-body-content a {
-            color: #f59e0b;
+            color: #d97706;
             text-decoration: underline;
         }
         /* Custom scrollbar styling */
@@ -1214,46 +1251,46 @@ export default function Mailbox() {
             background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-            background: #222225;
+            background: #d1d5db;
             border-radius: 9999px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #f59e0b/30;
+            background: #f59e0b/50;
         }
-        /* Quill editor dark theme overrides */
+        /* Quill editor light theme overrides */
         .ql-toolbar.ql-snow {
-            border: 1px solid #27272a !important;
-            background: #161618 !important;
+            border: 1px solid #e5e7eb !important;
+            background: #f9fafb !important;
             border-top-left-radius: 12px;
             border-top-right-radius: 12px;
         }
         .ql-container.ql-snow {
-            border: 1px solid #27272a !important;
-            background: #161618/30 !important;
+            border: 1px solid #e5e7eb !important;
+            background: #ffffff !important;
             border-bottom-left-radius: 12px;
             border-bottom-right-radius: 12px;
             font-size: 14px;
         }
         .ql-editor {
             min-height: 250px;
-            color: #f4f4f5 !important;
+            color: #1f2937 !important;
         }
         .ql-editor.ql-blank::before {
-            color: #71717a !important;
+            color: #9ca3af !important;
             font-style: normal;
         }
         .ql-snow .ql-stroke {
-            stroke: #a1a1aa !important;
+            stroke: #6b7280 !important;
         }
         .ql-snow .ql-fill {
-            fill: #a1a1aa !important;
+            fill: #6b7280 !important;
         }
         .ql-snow .ql-picker {
-            color: #a1a1aa !important;
+            color: #6b7280 !important;
         }
         .ql-snow .ql-picker-options {
-            background-color: #18181b !important;
-            border: 1px solid #27272a !important;
+            background-color: #f9fafb !important;
+            border: 1px solid #e5e7eb !important;
         }
       `}} />
     </div>
