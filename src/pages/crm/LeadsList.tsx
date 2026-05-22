@@ -35,7 +35,6 @@ type Lead = {
   stage: string;
   assigned_to: string | null;
   remark?: string | null;
-  profiles?: { full_name: string };
 };
 
 const STAGES = ["New", "Contacted", "Negotiation", "Qualified", "Won", "Lost"];
@@ -112,9 +111,7 @@ export default function LeadsList() {
     try {
       const { data, error } = await supabase
         .from("leads")
-        .select(`
-          id, date, business_category, company_name, contact_name, product_type, country, mobile, email, website, stage, assigned_to, remark
-        `)
+        .select(`*`)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -197,9 +194,8 @@ export default function LeadsList() {
         email: email,
         website: website,
         stage: "New",
-        assigned_to: assignedTo,
-        created_by: userId
-      });
+        assigned_to: String(assignedTo || "")
+      } as any);
 
       if (error) throw error;
 
