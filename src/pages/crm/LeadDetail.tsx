@@ -60,7 +60,7 @@ export default function LeadDetail() {
       try {
         const { data: leadData, error: leadError } = await supabase
           .from("leads")
-          .select(`*, product_type, business_category, mobile, email, website, date, remark, assigned_to`)
+          .select(`*`)
           .eq("id", id)
           .single();
 

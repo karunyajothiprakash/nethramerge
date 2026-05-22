@@ -504,7 +504,7 @@ export default function FollowUps() {
         </DialogContent>
       </Dialog>
       <Sheet open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <SheetContent className="bg-slate-900 border-l border-slate-800 text-white sm:max-w-md overflow-y-auto">
+        <SheetContent className="bg-gray-900 border-l border-gray-700 text-white w-full sm:max-w-[384px] overflow-y-auto shadow-2xl">
           <SheetHeader className="mb-6 border-b border-white/10 pb-4">
             <SheetTitle className="text-white text-xl">Follow-Up Details</SheetTitle>
           </SheetHeader>
@@ -567,7 +567,7 @@ export default function FollowUps() {
 function DetailItem({ label, value }: { label: string, value?: string | null }) {
   return (
     <div className="space-y-1">
-      <div className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">{label}</div>
+      <div className="text-[10px] uppercase tracking-wider text-gray-500 font-medium">{label}</div>
       <div className="text-sm font-medium text-slate-200">{value || "—"}</div>
     </div>
   );
