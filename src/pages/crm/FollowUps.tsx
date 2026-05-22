@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Check, Bell, Trash2 } from "lucide-react";
+import { Loader2, Plus, Check, Bell, Trash2, Edit2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -67,6 +67,8 @@ export default function FollowUps() {
   const [filter, setFilter] = useState<"all" | "mine" | "pending">("all");
   const [selectedFollowUp, setSelectedFollowUp] = useState<FollowUp | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const isBde = roleSlugs.has("bd") || roleSlugs.has("bde");
 
@@ -141,10 +143,10 @@ export default function FollowUps() {
       : contactMethod;
 
     try {
-      const { error } = await supabase.from("follow_ups").insert({
+      const payload = {
         lead_id: selectedLeadId,
         company_name: lead.company_name,
-        contact_name: lead.contact_name,
+        contact_name: lead.contact_name || "",
         follow_up_date: followUpDate,
         reminder_time: finalTime,
         note: combinedNote,
@@ -156,21 +158,71 @@ export default function FollowUps() {
         mobile: lead.mobile,
         email: lead.email,
         website: lead.website,
-      });
+      };
 
-      if (error) throw error;
-      toast.success("Follow-up created successfully");
+      if (isEditing && selectedFollowUp) {
+        const { error } = await supabase
+          .from("follow_ups")
+          .update(payload)
+          .eq("id", selectedFollowUp.id);
+        if (error) throw error;
+        toast.success("Follow-up updated successfully");
+      } else {
+        const { error } = await supabase.from("follow_ups").insert(payload);
+        if (error) throw error;
+        toast.success("Follow-up created successfully");
+      }
+
       setIsDialogOpen(false);
-      setSelectedLeadId("");
-      setFollowUpDate("");
-      setReminderTime("09:00");
-      setContactMethod("WhatsApp");
-      setNote("");
-      setAssignedTo(bdTeam[0]);
+      resetForm();
       fetchFollowUps();
     } catch (error: any) {
       toast.error(error.message || "Failed to save follow-up");
     }
+  };
+
+  const resetForm = () => {
+    setSelectedLeadId("");
+    setFollowUpDate("");
+    setReminderTime("09:00");
+    setTimePeriod("AM");
+    setContactMethod("WhatsApp");
+    setNote("");
+    setAssignedTo(bdTeam[0]);
+    setIsEditing(false);
+    setSelectedFollowUp(null);
+  };
+
+  const handleEditOpen = (followUp: FollowUp) => {
+    setSelectedFollowUp(followUp);
+    setSelectedLeadId(followUp.lead_id);
+    setFollowUpDate(followUp.follow_up_date || "");
+    setAssignedTo(followUp.assigned_to || bdTeam[0]);
+    
+    // Parse note: "Method: Note"
+    const noteParts = followUp.note?.split(": ");
+    if (noteParts && noteParts.length > 1) {
+      setContactMethod(noteParts[0]);
+      setNote(noteParts.slice(1).join(": "));
+    } else {
+      setContactMethod(followUp.note || "WhatsApp");
+      setNote("");
+    }
+
+    // Parse time
+    const timeStr = followUp.reminder_time || "09:00:00";
+    let [h, m] = timeStr.split(":").map(Number);
+    if (h >= 12) {
+      setTimePeriod("PM");
+      if (h > 12) h -= 12;
+    } else {
+      setTimePeriod("AM");
+      if (h === 0) h = 12;
+    }
+    setReminderTime(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
+    
+    setIsEditing(true);
+    setIsDialogOpen(true);
   };
 
   const handleAcknowledge = async (id: string) => {
@@ -196,6 +248,17 @@ export default function FollowUps() {
   };
 
   const filteredFollowUps = followUps.filter((item) => {
+    // Search filter
+    const query = searchQuery.toLowerCase();
+    const matchesSearch = !searchQuery || [
+      item.company_name,
+      item.contact_name,
+      item.assigned_to,
+      item.note
+    ].some(field => field?.toLowerCase().includes(query));
+
+    if (!matchesSearch) return false;
+
     if (filter === "mine") {
       return item.assigned_to === assignedTo;
     }
@@ -217,7 +280,13 @@ export default function FollowUps() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button className="bg-primary hover:bg-primary/90" onClick={() => setIsDialogOpen(true)}>
+          <Button 
+            className="bg-primary hover:bg-primary/90" 
+            onClick={() => {
+              resetForm();
+              setIsDialogOpen(true);
+            }}
+          >
             <Plus className="mr-2 h-4 w-4" /> New Follow-Up
           </Button>
           <Button variant={filter === "all" ? "default" : "outline"} onClick={() => setFilter("all")}>
@@ -245,6 +314,16 @@ export default function FollowUps() {
           <div className="text-sm uppercase tracking-wide text-muted-foreground">Team members</div>
           <div className="mt-2 text-3xl font-semibold text-foreground">{bdTeam.length}</div>
         </div>
+      </div>
+
+      <div className="relative w-full max-w-2xl">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search by lead, contact, assigned to, note..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10 bg-card border-border focus-visible:ring-primary h-11"
+        />
       </div>
 
       <div className="border border-border rounded-lg bg-card overflow-hidden shadow-sm">
@@ -329,6 +408,17 @@ export default function FollowUps() {
                     )}
                     <Button 
                       size="sm" 
+                      variant="outline" 
+                      className="h-8 text-[10px] uppercase tracking-wider" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditOpen(followUp);
+                      }}
+                    >
+                      <Edit2 className="mr-1 h-3.5 w-3.5" /> Edit
+                    </Button>
+                    <Button 
+                      size="sm" 
                       variant="ghost" 
                       className="h-8 text-[10px] uppercase tracking-wider" 
                       onClick={(e) => {
@@ -346,12 +436,12 @@ export default function FollowUps() {
         </Table>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="bg-card border-border max-w-lg">
+      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if(!open) resetForm(); }}>
+        <DialogContent className="bg-card border-border max-w-lg text-foreground">
           <DialogHeader>
-            <DialogTitle className="text-foreground">Create Follow-Up</DialogTitle>
+            <DialogTitle>{isEditing ? "Edit Follow-Up" : "Create Follow-Up"}</DialogTitle>
             <DialogDescription className="text-muted-foreground/60 text-xs">
-              Fill in the details below to schedule a follow-up for a lead.
+              {isEditing ? "Update details for this follow-up interaction." : "Fill in the details below to schedule a follow-up for a lead."}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -388,6 +478,11 @@ export default function FollowUps() {
                   <div className="col-span-full">
                     <div className="text-[10px] text-muted-foreground/60 uppercase font-medium">Company Name</div>
                     <div className="text-sm font-semibold text-foreground">{leads.find(l => l.id === selectedLeadId)?.company_name}</div>
+                  </div>
+
+                  <div className="col-span-full">
+                    <div className="text-[10px] text-muted-foreground/60 uppercase font-medium">Contact Name</div>
+                    <div className="text-sm font-semibold text-foreground">{leads.find(l => l.id === selectedLeadId)?.contact_name || "—"}</div>
                   </div>
 
                   <div>

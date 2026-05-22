@@ -82,45 +82,48 @@ export default function PackingListPreview() {
     );
   }
 
-  const plNumber = data.order_number?.replace("EXP", "PL") || `PL-${id?.slice(0, 8)}`;
   const shipment = data.export_shipments?.[0] || {};
-  const today = new Date().toLocaleDateString("en-GB").replace(/\//g, " / ");
+  const today = new Date().toLocaleDateString("en-GB", { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const plNumber = data.order_number?.replace("EXP", "PL") || `PL-${id?.slice(0, 8)}`;
+  
+  const totalAmount = Number(data.total_amount || 0);
+  const currencySym = data.currency || 'USD';
 
-  // ── colours (matching docx)
+  // Constants for design
   const NAVY = "#1B3A6B";
   const MID_BLUE = "#2E5FA3";
   const LIGHT_BLUE = "#D6E4F7";
   const LIGHT_GRAY = "#F5F7FA";
 
-  const sectionHeader = (label: string) => (
+  const SectionHeader = ({ label }: { label: string }) => (
     <div style={{
       background: MID_BLUE,
       color: "#fff",
       fontWeight: 700,
       fontSize: "10px",
-      padding: "5px 10px",
+      padding: "5px 12px",
       letterSpacing: "0.5px",
     }}>
       ▌ {label}
     </div>
   );
 
-  const labelVal = (label: string, value: string | undefined) => (
-    <tr>
-      <td style={{ color: "#555", paddingRight: "8px", whiteSpace: "nowrap", fontSize: "10px", lineHeight: "1.9" }}>{label}</td>
-      <td style={{ fontSize: "10px", lineHeight: "1.9" }}>: <strong>{value || "—"}</strong></td>
-    </tr>
+  const LabelVal = ({ label, value }: { label: string, value: any }) => (
+    <div className="grid grid-cols-[130px_1fr] text-[10px] leading-relaxed">
+      <span className="text-gray-600">{label}</span>
+      <span className="font-bold">: {value || "—"}</span>
+    </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-200 print:bg-white">
+    <div className="min-h-screen bg-gray-200 py-10 flex flex-col items-center print:bg-white print:py-0 font-sans">
 
       {/* ── Top Action Bar */}
-      <div className="print:hidden sticky top-0 z-10 bg-gray-900 border-b border-gray-700 px-6 py-3 flex items-center justify-between">
+      <div className="print:hidden sticky top-0 z-10 bg-gray-900 border-b border-gray-700 px-6 py-3 flex items-center justify-between w-full max-w-[210mm] rounded-t-lg">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="text-gray-300 hover:text-white gap-2">
           <ArrowLeft className="h-4 w-4" /> Back
         </Button>
-        <span className="text-white font-mono font-bold text-sm">{plNumber}</span>
+        <span className="text-white font-mono font-bold text-sm tracking-wider">{plNumber}</span>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 border-gray-600 text-gray-300 hover:text-white">
             <Printer className="h-4 w-4" /> Print
@@ -131,261 +134,209 @@ export default function PackingListPreview() {
         </div>
       </div>
 
-      {/* ── A4 Preview */}
-      <div className="flex justify-center py-8 print:py-0">
-        <div
-          ref={printRef}
-          className="bg-white shadow-2xl print:shadow-none"
-          style={{ width: "794px", minHeight: "1123px", padding: "36px", fontFamily: "Arial, sans-serif", fontSize: "12px", color: "#222" }}
-        >
-
-          {/* ── HEADER BANNER ── */}
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "10px" }}>
-            <tbody>
-              <tr>
-                {/* Company block */}
-                <td style={{ width: "58%", background: NAVY, padding: "16px 18px", verticalAlign: "top" }}>
-                  <div style={{ fontWeight: 900, fontSize: "15px", color: "#fff", marginBottom: "8px" }}>
-                    SHASTIKA GLOBAL IMPEX PRIVATE LIMITED
-                  </div>
-                  <div style={{ fontSize: "10px", color: "#C8DAEF", lineHeight: "1.7" }}>
-                    41/1, ST-5, Sathy Athani Main Road,<br />
-                    Thuckanayakanpalayam, Erode – 638506,<br />
-                    Tamil Nadu, India
-                  </div>
-                  <div style={{ fontSize: "10px", color: "#A0C0E8", marginTop: "8px" }}>
-                    <strong style={{ color: "#A0C0E8" }}>Phone:</strong>&nbsp;
-                    <span style={{ color: "#fff" }}>+91 7397612015</span>
-                    &emsp;
-                    <strong style={{ color: "#A0C0E8" }}>GSTIN:</strong>&nbsp;
-                    <span style={{ color: "#fff" }}>33ABPCS0605LIZ8</span>
-                  </div>
-                </td>
-                {/* Invoice meta block */}
-                <td style={{ width: "42%", background: "#EBF2FD", padding: "16px 18px", verticalAlign: "top" }}>
-                  <div style={{ fontWeight: 900, fontSize: "20px", color: NAVY, letterSpacing: "1px", marginBottom: "4px" }}>
-                    PACKING LIST
-                  </div>
-                  <div style={{ fontSize: "9px", color: "#555", fontStyle: "italic", marginBottom: "10px" }}>
-                    For Customs Clearance
-                  </div>
-                  <table style={{ background: "#fff", borderRadius: "4px", padding: "6px 10px", fontSize: "10px", lineHeight: "2" }}>
-                    <tbody>
-                      <tr>
-                        <td style={{ color: NAVY, fontWeight: 700, paddingRight: "10px" }}>PL No:</td>
-                        <td><strong>{plNumber}</strong></td>
-                      </tr>
-                      <tr>
-                        <td style={{ color: NAVY, fontWeight: 700, paddingRight: "10px" }}>Date:</td>
-                        <td>{today}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ color: NAVY, fontWeight: 700, paddingRight: "10px" }}>Currency:</td>
-                        <td><strong>{data.currency || "USD"}</strong></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          {/* ── EXPORTER / CONSIGNEE ── */}
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "8px" }}>
-            <tbody>
-              <tr>
-                <td style={{ width: "50%", verticalAlign: "top", border: "1px solid #BBCCE4" }}>
-                  {sectionHeader("EXPORTER / SELLER")}
-                  <div style={{ padding: "10px", background: LIGHT_GRAY }}>
-                    <div style={{ fontWeight: 700, color: NAVY, marginBottom: "4px" }}>Shastika Global Impex Private Limited</div>
-                    <div style={{ fontSize: "10px", color: "#444", lineHeight: "1.7" }}>
-                      41/1, ST-5, Sathy Athani Main Road,<br />
-                      Thuckanayakanpalayam, Erode – 638506,<br />
-                      Tamil Nadu, India<br />
-                      <strong>Phone:</strong> +91 7397612015<br />
-                      <strong>GSTIN:</strong> 33ABPCS0605LIZ8
-                    </div>
-                  </div>
-                </td>
-                <td style={{ width: "50%", verticalAlign: "top", border: "1px solid #BBCCE4", borderLeft: "none" }}>
-                  {sectionHeader("IMPORTER / CONSIGNEE")}
-                  <div style={{ padding: "10px" }}>
-                    <div style={{ fontWeight: 700, color: NAVY, marginBottom: "4px" }}>{data.customer_name || "—"}</div>
-                    <div style={{ fontSize: "10px", color: "#444", lineHeight: "1.7" }}>
-                      {data.consignee_address || shipment.consignee_address || "—"}<br />
-                      <strong>Country:</strong> {data.destination_country || "—"}
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          {/* ── SHIPMENT & PAYMENT ── */}
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "8px" }}>
-            <tbody>
-              <tr>
-                <td style={{ width: "50%", verticalAlign: "top", border: "1px solid #BBCCE4" }}>
-                  {sectionHeader("SHIPMENT & TRADE DETAILS")}
-                  <div style={{ padding: "10px", background: LIGHT_GRAY }}>
-                    <table><tbody>
-                      {labelVal("Country of Origin", "India")}
-                      {labelVal("Mode of Transport", shipment.transport_mode || data.transport_mode || "Sea Freight")}
-                      {labelVal("Incoterms", data.incoterms || "FOB")}
-                      {labelVal("Port of Loading", shipment.port_of_loading || data.port_of_loading)}
-                      {labelVal("Port of Discharge", shipment.port_of_discharge || data.port_of_discharge)}
-                      {labelVal("Container Type", shipment.container_type || data.container_type || "20/40 Feet FCL")}
-                      {labelVal("Loading Type", data.loading_type || "1 cubic meter")}
-                    </tbody></table>
-                  </div>
-                </td>
-                <td style={{ width: "50%", verticalAlign: "top", border: "1px solid #BBCCE4", borderLeft: "none" }}>
-                  {sectionHeader("PAYMENT & BANKING DETAILS")}
-                  <div style={{ padding: "10px" }}>
-                    <table><tbody>
-                      {labelVal("Payment Terms", data.payment_terms || "90% Advance + 10% on Loading")}
-                      {labelVal("Invoice Currency", data.currency || "USD")}
-                      {labelVal("Bank Name", "State Bank of India")}
-                      {labelVal("Branch", "Erode, Tamil Nadu")}
-                      {labelVal("Account No.", "43841179923")}
-                      {labelVal("IFSC Code", "SBIN02278")}
-                      {labelVal("Swift Code", "SBININBB")}
-                    </tbody></table>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          {/* ── GOODS TABLE ── */}
-          <div style={{ border: "1px solid #BBCCE4", marginBottom: "8px" }}>
-            {sectionHeader("GOODS DESCRIPTION")}
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
-              <thead>
-                <tr style={{ background: NAVY }}>
-                  {["S.No", "Description", "HS Code", "No. of Pkgs", "Qty (Nos)", "Unit", "Unit Price", "Total Value"].map(h => (
-                    <th key={h} style={{ border: "1px solid #3A5A8A", padding: "6px 8px", textAlign: "left", fontWeight: 700, color: "#fff" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr style={{ background: LIGHT_GRAY }}>
-                  <td style={{ border: "1px solid #BBCCE4", padding: "8px" }}>1</td>
-                  <td style={{ border: "1px solid #BBCCE4", padding: "8px" }}>
-                    <strong>{data.product}</strong>
-                    <div style={{ color: "#666", fontSize: "9px", fontStyle: "italic" }}>Naturally grown, India origin</div>
-                  </td>
-                  <td style={{ border: "1px solid #BBCCE4", padding: "8px" }}>{data.hs_code || "—"}</td>
-                  <td style={{ border: "1px solid #BBCCE4", padding: "8px" }}>{data.no_of_packages || "—"}</td>
-                  <td style={{ border: "1px solid #BBCCE4", padding: "8px" }}>{data.quantity}</td>
-                  <td style={{ border: "1px solid #BBCCE4", padding: "8px" }}>{data.unit}</td>
-                  <td style={{ border: "1px solid #BBCCE4", padding: "8px" }}>{data.currency || "USD"} {data.unit_price || "—"}</td>
-                  <td style={{ border: "1px solid #BBCCE4", padding: "8px" }}><strong>{data.currency || "USD"} {data.total_value || data.total_amount || "—"}</strong></td>
-                </tr>
-                {/* Sub Total */}
-                <tr>
-                  <td colSpan={6} style={{ border: "1px solid #BBCCE4", padding: "6px 8px" }} />
-                  <td style={{ border: "1px solid #BBCCE4", padding: "6px 8px", fontWeight: 700, background: LIGHT_BLUE, color: NAVY }}>Sub Total</td>
-                  <td style={{ border: "1px solid #BBCCE4", padding: "6px 8px", fontWeight: 700, background: LIGHT_BLUE, color: NAVY }}>{data.currency || "USD"} {data.total_value || data.total_amount || "—"}</td>
-                </tr>
-                {/* Tax */}
-                <tr>
-                  <td colSpan={6} style={{ border: "1px solid #BBCCE4", padding: "6px 8px" }} />
-                  <td style={{ border: "1px solid #BBCCE4", padding: "6px 8px", color: "#666" }}>Tax / GST (Export 0%)</td>
-                  <td style={{ border: "1px solid #BBCCE4", padding: "6px 8px", color: "#666" }}>{data.currency || "USD"} 0.00</td>
-                </tr>
-                {/* Total FOB */}
-                <tr>
-                  <td colSpan={6} style={{ border: "1px solid #BBCCE4", padding: "6px 8px" }} />
-                  <td style={{ border: "none", padding: "6px 8px", fontWeight: 900, background: NAVY, color: "#fff" }}>TOTAL FOB VALUE</td>
-                  <td style={{ border: "none", padding: "6px 8px", fontWeight: 900, background: NAVY, color: "#fff" }}>{data.currency || "USD"} {data.total_value || data.total_amount || "—"}</td>
-                </tr>
-                {/* Amount in words */}
-                <tr style={{ background: LIGHT_BLUE }}>
-                  <td colSpan={8} style={{ border: "1px solid #BBCCE4", padding: "8px", fontSize: "10px" }}>
-                    <strong style={{ color: NAVY }}>Amount in Words : </strong>
-                    <em>{data.amount_in_words || "—"}</em>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+      <div
+        ref={printRef}
+        className="bg-white shadow-2xl print:shadow-none border-[1.5px] border-black text-black leading-tight overflow-hidden p-[36px] print:p-0 w-[210mm] min-h-[297mm]"
+      >
+        
+        {/* Header Section */}
+        <div className="flex border-[1.5px] border-black mb-4">
+          <div className="w-[60%] p-5 bg-white border-r-[1.5px] border-black">
+            <div className="flex flex-col items-center mb-4">
+              <img src="/logo.webp" alt="SGI Logo" className="w-20 h-auto mb-2" />
+              <h1 className="text-[13px] font-extrabold text-[#1A5276] tracking-tight text-center">SHASTIKA GLOBAL IMPEX PRIVATE LIMITED</h1>
+            </div>
+            <div className="text-[9.5px] space-y-1 text-gray-800 text-center">
+              <p>41/1, ST-5, Sathy Athani Main Road, Thuckanayakanpalayam, Erode – 638506, Tamil Nadu, India</p>
+              <p><span className="font-bold">Phone:</span> +91 7397612015 &emsp; <span className="font-bold">GSTIN:</span> 33ABPCS0605LIZ8</p>
+            </div>
           </div>
-
-          {/* ── PACKING & WEIGHT ── */}
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "8px" }}>
-            <tbody>
-              <tr>
-                <td style={{ width: "50%", verticalAlign: "top", border: "1px solid #BBCCE4" }}>
-                  {sectionHeader("PACKING DETAILS")}
-                  <div style={{ padding: "10px", background: LIGHT_GRAY }}>
-                    <table><tbody>
-                      {labelVal("Packing Type", data.packing_type || "Carton Box")}
-                      {labelVal("No. of Cartons", data.no_of_packages)}
-                      {labelVal("Qty per Carton", data.qty_per_carton)}
-                      {labelVal("Total Quantity", `${data.quantity} ${data.unit}`)}
-                      {labelVal("Container Type", data.container_type || shipment.container_type || "20/40 Feet FCL")}
-                    </tbody></table>
-                  </div>
-                </td>
-                <td style={{ width: "50%", verticalAlign: "top", border: "1px solid #BBCCE4", borderLeft: "none" }}>
-                  {sectionHeader("WEIGHT DETAILS")}
-                  <div style={{ padding: "10px" }}>
-                    <table><tbody>
-                      {labelVal("Net Wt / Unit", data.net_weight_per_unit)}
-                      {labelVal("Net Wt / Carton", data.net_weight_per_carton)}
-                      {labelVal("Gross Wt / Carton", data.gross_weight_per_carton)}
-                      {labelVal("Total Net Weight", data.total_net_weight)}
-                      {labelVal("Total Gross Weight", data.total_gross_weight)}
-                    </tbody></table>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          {/* ── DECLARATION & SIGNATORY ── */}
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <tbody>
-              <tr>
-                <td style={{ width: "60%", verticalAlign: "top", border: "1px solid #BBCCE4" }}>
-                  {sectionHeader("DECLARATION")}
-                  <div style={{ padding: "10px", background: LIGHT_GRAY, fontSize: "10px", lineHeight: "1.7", color: "#333" }}>
-                    <strong>We hereby declare and certify that:</strong><br />
-                    1. The goods described in this packing list are of Indian origin.<br />
-                    2. The details stated herein are true, correct and are the actual packing details.<br />
-                    3. This document is issued solely for customs clearance and export purposes.<br />
-                    4. All details comply with the laws and regulations of India and the destination country.<br />
-                    <em style={{ fontSize: "9px", color: "#666" }}>This is a legally binding export document.</em>
-                  </div>
-                </td>
-                <td style={{ width: "40%", verticalAlign: "top", border: "1px solid #BBCCE4", borderLeft: "none" }}>
-                  {sectionHeader("AUTHORISED SIGNATORY")}
-                  <div style={{ padding: "10px", fontSize: "10px" }}>
-                    <strong style={{ color: NAVY }}>For SHASTIKA GLOBAL IMPEX PVT LTD</strong>
-                    <div style={{ marginTop: "50px", borderTop: `1px solid ${NAVY}`, paddingTop: "6px", color: "#666" }}>
-                      Authorised Signatory
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          {/* Footer */}
-          <div style={{ marginTop: "14px", textAlign: "center", fontSize: "9px", color: "#999", borderTop: "1px solid #EEE", paddingTop: "8px" }}>
-            SHASTIKA GLOBAL IMPEX PRIVATE LIMITED &nbsp;|&nbsp; GSTIN: 33ABPCS0605LIZ8 &nbsp;|&nbsp; Phone: +91 7397612015
+          <div className="w-[40%] p-5 bg-[#EBF2FD] flex flex-col justify-center items-center">
+            <h2 className="text-[20px] font-black text-[#1B3A6B] tracking-widest leading-none text-center">PACKING LIST</h2>
+            <p className="text-[9px] text-gray-500 italic mb-4">For Customs Clearance</p>
+            <div className="w-full bg-white p-3 rounded space-y-1 text-[10px]">
+              <div className="flex justify-between font-bold"><span>PL No:</span> <span>{plNumber}</span></div>
+              <div className="flex justify-between"><span>Date:</span> <span>{today}</span></div>
+              <div className="flex justify-between font-bold text-[#1B3A6B]"><span>Currency:</span> <span>{data.currency || 'USD'}</span></div>
+            </div>
           </div>
-
         </div>
+
+        {/* Exporter / Importer Section */}
+        <div className="grid grid-cols-2 border-x-[1.5px] border-t-[1.5px] border-black">
+          <div className="border-r-[1.5px] border-black">
+            <SectionHeader label="EXPORTER / SELLER" />
+            <div className="p-4 text-[10px] space-y-1 bg-[#F5F7FA]">
+              <p className="font-bold text-[#1B3A6B]">SHASTIKA GLOBAL IMPEX PRIVATE LIMITED</p>
+              <p>41/1, ST-5, Sathy Athani Main Road,</p>
+              <p>Thuckanayakanpalayam, Erode - 638506,</p>
+              <p>Tamil Nadu, India.</p>
+              <p>GSTIN: 33ABPCS0605LIZ8</p>
+            </div>
+          </div>
+          <div>
+            <SectionHeader label="IMPORTER / CONSIGNEE" />
+            <div className="p-4 text-[10px] space-y-1">
+              <p className="font-bold text-[#1B3A6B] uppercase">{data.customer_name || 'Customer Name'}</p>
+              <p className="whitespace-pre-wrap">{data.shipping_address || shipment.consignee_address || 'Address not provided'}</p>
+              <p><span className="font-medium text-gray-500">Country:</span> {data.customer_country || '—'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Shipment & Banking Section */}
+        <div className="grid grid-cols-2 border-x-[1.5px] border-y-[1.5px] border-black">
+          <div className="border-r-[1.5px] border-black">
+            <SectionHeader label="SHIPMENT & TRADE DETAILS" />
+            <div className="p-4 space-y-1 bg-[#F5F7FA]">
+              <LabelVal label="Country of Origin" value={data.country_of_origin} />
+              <LabelVal label="Mode of Transport" value={data.mode_of_transport || shipment.transport_mode} />
+              <LabelVal label="Incoterms" value={data.incoterms} />
+              <LabelVal label="Port of Loading" value={data.port_of_loading || shipment.port_of_loading} />
+              <LabelVal label="Port of Discharge" value={data.port_of_discharge || shipment.port_of_discharge} />
+              <LabelVal label="Container Type" value={data.container_type || shipment.container_type} />
+              <LabelVal label="Loading Type" value={data.loading_type} />
+            </div>
+          </div>
+          <div>
+            <SectionHeader label="PAYMENT & BANKING DETAILS" />
+            <div className="p-4 space-y-1">
+              <LabelVal label="Payment Terms" value={data.payment_terms} />
+              <LabelVal label="Invoice Currency" value={data.currency} />
+              <LabelVal label="Bank Name" value={data.bank_name || 'State Bank of India'} />
+              <LabelVal label="Branch" value={data.bank_branch || 'Erode, Tamil Nadu'} />
+              <LabelVal label="Account No" value={data.account_no || '43841179923'} />
+              <LabelVal label="IFSC Code" value={data.ifsc_code || 'SBIN02278'} />
+              <LabelVal label="Swift Code" value={data.swift_code || 'SBININBB'} />
+            </div>
+          </div>
+        </div>
+
+        {/* Goods Table */}
+        <div className="border-x-[1.5px] border-black">
+          <table className="w-full border-collapse text-[10px]">
+            <thead>
+              <tr className="bg-[#1B3A6B] text-white">
+                <th className="border border-white/20 p-2 w-10">S.No</th>
+                <th className="border border-white/20 p-2 text-left">Description</th>
+                <th className="border border-white/20 p-2 text-center w-24">HS Code</th>
+                <th className="border border-white/20 p-2 text-center w-20">No. of Pkgs</th>
+                <th className="border border-white/20 p-2 text-center w-20">Qty (Nos)</th>
+                <th className="border border-white/20 p-2 text-center w-14">Unit</th>
+                <th className="border border-white/20 p-2 text-center w-24">Unit Price</th>
+                <th className="border border-white/20 p-2 text-right w-28">Total Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="bg-[#F5F7FA]">
+                <td className="border border-black/10 p-2 text-center">1</td>
+                <td className="border border-black/10 p-2 font-bold">{data.product}</td>
+                <td className="border border-black/10 p-2 text-center">{data.hsn_code}</td>
+                <td className="border border-black/10 p-2 text-center font-bold">{data.total_cartons}</td>
+                <td className="border border-black/10 p-2 text-center font-bold">{data.quantity}</td>
+                <td className="border border-black/10 p-2 text-center">{data.unit}</td>
+                <td className="border border-black/10 p-2 text-center">{data.unit_price}</td>
+                <td className="border border-black/10 p-2 text-right font-bold text-[#1B3A6B]">{currencySym} {totalAmount.toLocaleString()}</td>
+              </tr>
+              {[...Array(6)].map((_, i) => (
+                <tr key={i}>
+                  <td className="border border-black/10 p-2">&nbsp;</td>
+                  <td className="border border-black/10 p-2"></td>
+                  <td className="border border-black/10 p-2"></td>
+                  <td className="border border-black/10 p-2"></td>
+                  <td className="border border-black/10 p-2"></td>
+                  <td className="border border-black/10 p-2"></td>
+                  <td className="border border-black/10 p-2"></td>
+                  <td className="border border-black/10 p-2"></td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={6} className="border-r border-black/10 py-2"></td>
+                <td className="p-2 font-bold bg-[#D6E4F7] text-[#1B3A6B] border border-black/10">Sub Total</td>
+                <td className="p-2 font-bold bg-[#D6E4F7] text-[#1B3A6B] border border-black/10 text-right">{currencySym} {totalAmount.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td colSpan={6} className="border-r border-black/10 py-1"></td>
+                <td className="p-2 text-gray-500 border border-black/10 text-center">Tax / GST (Export 0%)</td>
+                <td className="p-2 text-right text-gray-500 border border-black/10">0.00</td>
+              </tr>
+              <tr className="bg-[#1B3A6B] text-white">
+                <td colSpan={6}></td>
+                <td className="p-2 font-black text-center">TOTAL FOB VALUE</td>
+                <td className="p-2 font-black text-right">{currencySym} {totalAmount.toLocaleString()}</td>
+              </tr>
+              <tr className="bg-[#D6E4F7]/50">
+                <td colSpan={8} className="p-3 border-t-[1.5px] border-black text-[10px]">
+                  <span className="font-bold text-[#1B3A6B]">Amount in Words:</span> <span className="italic uppercase ml-2 text-[9px]">Zero {data.currency} Only</span>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* Packing & Weight Section */}
+        <div className="grid grid-cols-2 border-x-[1.5px] border-y-[1.5px] border-black">
+          <div className="border-r-[1.5px] border-black">
+            <SectionHeader label="PACKING DETAILS" />
+            <div className="p-4 space-y-1 bg-[#F5F7FA]">
+              <LabelVal label="Packing Type" value={data.packing_details} />
+              <LabelVal label="No. of Cartons" value={data.total_cartons} />
+              <LabelVal label="Qty per Carton" value={data.qty_per_carton} />
+              <LabelVal label="Total Quantity" value={`${data.quantity} ${data.unit}`} />
+              <LabelVal label="Container Type" value={data.container_type || shipment.container_type} />
+            </div>
+          </div>
+          <div>
+            <SectionHeader label="WEIGHT DETAILS" />
+            <div className="p-4 space-y-1">
+              <LabelVal label="Net Wt / Unit" value={data.unit_net_weight} />
+              <LabelVal label="Net Wt / Carton" value={data.unit_net_weight && data.qty_per_carton ? (data.unit_net_weight * data.qty_per_carton).toFixed(2) : null} />
+              <LabelVal label="Gross Wt / Carton" value={data.gross_weight_per_carton} />
+              <LabelVal label="Total Net Weight" value={data.total_net_weight} />
+              <LabelVal label="Total Gross Weight" value={data.total_gross_weight} />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Section */}
+        <div className="grid grid-cols-[60%_40%] border-x-[1.5px] border-b-[1.5px] border-black">
+          <div className="border-r-[1.5px] border-black">
+            <SectionHeader label="DECLARATION" />
+            <div className="p-5 text-[9px] leading-relaxed space-y-2 bg-[#F5F7FA] text-gray-700">
+              <p>1. The goods described in this packing list are of Indian origin.</p>
+              <p>2. The details stated herein are true, correct and are the actual packing details.</p>
+              <p>3. This document is issued solely for customs clearance and export purposes.</p>
+            </div>
+          </div>
+          <div>
+            <SectionHeader label="AUTHORISED SIGNATORY" />
+            <div className="p-5 flex flex-col justify-between h-56 bg-white">
+              <p className="font-extrabold text-[9px] text-[#1B3A6B]">For SHASTIKA GLOBAL IMPEX PVT LTD</p>
+              <div className="mt-8 border-t border-black pt-2 flex flex-col items-center">
+                <p className="text-[10px] font-bold">Authorised Signatory</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 text-center text-[8px] text-gray-400">
+          Generated via ERP System | Shastika Global Impex Pvt Ltd
+        </div>
+
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           .print\\:hidden { display: none !important; }
-          body { background: white !important; }
+          body { background: white !important; -webkit-print-color-adjust: exact; }
           @page { margin: 0; size: A4; }
+          .w-\\[210mm\\] { width: 100% !important; border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; }
         }
-      `}</style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap');
+        .font-sans { font-family: 'Roboto', sans-serif !important; }
+      `}} />
     </div>
   );
 }

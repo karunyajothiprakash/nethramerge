@@ -79,6 +79,7 @@ export default function LeadsList() {
   const [date, setDate] = useState("");
   const [businessCategory, setBusinessCategory] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [contactName, setContactName] = useState("");
   const [productType, setProductType] = useState("");
   const [country, setCountry] = useState("");
   const [mobile, setMobile] = useState("");
@@ -160,6 +161,7 @@ export default function LeadsList() {
     setDate("");
     setBusinessCategory("");
     setCompanyName("");
+    setContactName("");
     setProductType("");
     setCountry("");
     setMobile("");
@@ -188,6 +190,7 @@ export default function LeadsList() {
         date: date || null,
         business_category: businessCategory,
         company_name: companyName,
+        contact_name: contactName,
         product_type: productType,
         country: country,
         mobile: mobile,
@@ -376,6 +379,17 @@ export default function LeadsList() {
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Enter Company Name"
                   required
+                  className="bg-background border-input"
+                />
+              </div>
+              
+              {/* Contact Name */}
+              <div className="space-y-2">
+                <Label className="text-foreground">Contact Name</Label>
+                <Input
+                  value={contactName}
+                  onChange={(e) => setContactName(e.target.value)}
+                  placeholder="Enter contact person name"
                   className="bg-background border-input"
                 />
               </div>

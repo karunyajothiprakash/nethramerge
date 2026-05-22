@@ -10,6 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function CreateOrder() {
   const navigate = useNavigate();
@@ -68,6 +72,163 @@ export default function CreateOrder() {
   
   const [unitPrice, setUnitPrice] = useState<number | "">("");
   const [currency, setCurrency] = useState("USD");
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+
+  const currencies = [
+    { code: "AED", name: "UAE Dirham" },
+    { code: "AFN", name: "Afghan Afghani" },
+    { code: "ALL", name: "Albanian Lek" },
+    { code: "AMD", name: "Armenian Dram" },
+    { code: "ANG", name: "Netherlands Antillean Guilder" },
+    { code: "AOA", name: "Angolan Kwanza" },
+    { code: "ARS", name: "Argentine Peso" },
+    { code: "AUD", name: "Australian Dollar" },
+    { code: "AWG", name: "Aruban Florin" },
+    { code: "AZN", name: "Azerbaijani Manat" },
+    { code: "BAM", name: "Bosnia-Herzegovina Convertible Mark" },
+    { code: "BBD", name: "Barbadian Dollar" },
+    { code: "BDT", name: "Bangladeshi Taka" },
+    { code: "BGN", name: "Bulgarian Lev" },
+    { code: "BHD", name: "Bahraini Dinar" },
+    { code: "BIF", name: "Burundian Franc" },
+    { code: "BMD", name: "Bermudan Dollar" },
+    { code: "BND", name: "Brunei Dollar" },
+    { code: "BOB", name: "Bolivian Boliviano" },
+    { code: "BRL", name: "Brazilian Real" },
+    { code: "BSD", name: "Bahamian Dollar" },
+    { code: "BTN", name: "Bhutanese Ngultrum" },
+    { code: "BWP", name: "Botswanan Pula" },
+    { code: "BYN", name: "Belarusian Ruble" },
+    { code: "BZD", name: "Belize Dollar" },
+    { code: "CAD", name: "Canadian Dollar" },
+    { code: "CDF", name: "Congolese Franc" },
+    { code: "CHF", name: "Swiss Franc" },
+    { code: "CLP", name: "Chilean Peso" },
+    { code: "CNY", name: "Chinese Yuan" },
+    { code: "COP", name: "Colombian Peso" },
+    { code: "CRC", name: "Costa Rican Colon" },
+    { code: "CUP", name: "Cuban Peso" },
+    { code: "CVE", name: "Cape Verdean Escudo" },
+    { code: "CZK", name: "Czech Koruna" },
+    { code: "DJF", name: "Djiboutian Franc" },
+    { code: "DKK", name: "Danish Krone" },
+    { code: "DOP", name: "Dominican Peso" },
+    { code: "DZD", name: "Algerian Dinar" },
+    { code: "EGP", name: "Egyptian Pound" },
+    { code: "ERN", name: "Eritrean Nakfa" },
+    { code: "ETB", name: "Ethiopian Birr" },
+    { code: "EUR", name: "Euro" },
+    { code: "FJD", name: "Fijian Dollar" },
+    { code: "GBP", name: "British Pound" },
+    { code: "GEL", name: "Georgian Lari" },
+    { code: "GHS", name: "Ghanaian Cedi" },
+    { code: "GMD", name: "Gambian Dalasi" },
+    { code: "GNF", name: "Guinean Franc" },
+    { code: "GTQ", name: "Guatemalan Quetzal" },
+    { code: "GYD", name: "Guyanaese Dollar" },
+    { code: "HKD", name: "Hong Kong Dollar" },
+    { code: "HNL", name: "Honduran Lempira" },
+    { code: "HRK", name: "Croatian Kuna" },
+    { code: "HTG", name: "Haitian Gourde" },
+    { code: "HUF", name: "Hungarian Forint" },
+    { code: "IDR", name: "Indonesian Rupiah" },
+    { code: "ILS", name: "Israeli Shekel" },
+    { code: "INR", name: "Indian Rupee" },
+    { code: "IQD", name: "Iraqi Dinar" },
+    { code: "IRR", name: "Iranian Rial" },
+    { code: "ISK", name: "Icelandic Krona" },
+    { code: "JMD", name: "Jamaican Dollar" },
+    { code: "JOD", name: "Jordanian Dinar" },
+    { code: "JPY", name: "Japanese Yen" },
+    { code: "KES", name: "Kenyan Shilling" },
+    { code: "KGS", name: "Kyrgystani Som" },
+    { code: "KHR", name: "Cambodian Riel" },
+    { code: "KMF", name: "Comorian Franc" },
+    { code: "KPW", name: "North Korean Won" },
+    { code: "KRW", name: "South Korean Won" },
+    { code: "KWD", name: "Kuwaiti Dinar" },
+    { code: "KYD", name: "Cayman Islands Dollar" },
+    { code: "KZT", name: "Kazakhstani Tenge" },
+    { code: "LAK", name: "Laotian Kip" },
+    { code: "LBP", name: "Lebanese Pound" },
+    { code: "LKR", name: "Sri Lankan Rupee" },
+    { code: "LRD", name: "Liberian Dollar" },
+    { code: "LSL", name: "Lesotho Loti" },
+    { code: "LYD", name: "Libyan Dinar" },
+    { code: "MAD", name: "Moroccan Dirham" },
+    { code: "MDL", name: "Moldovan Leu" },
+    { code: "MGA", name: "Malagasy Ariary" },
+    { code: "MKD", name: "Macedonian Denar" },
+    { code: "MMK", name: "Myanmar Kyat" },
+    { code: "MNT", name: "Mongolian Tugrik" },
+    { code: "MOP", name: "Macanese Pataca" },
+    { code: "MRU", name: "Mauritanian Ouguiya" },
+    { code: "MUR", name: "Mauritian Rupee" },
+    { code: "MVR", name: "Maldivian Rufiyaa" },
+    { code: "MWK", name: "Malawian Kwacha" },
+    { code: "MXN", name: "Mexican Peso" },
+    { code: "MYR", name: "Malaysian Ringgit" },
+    { code: "MZN", name: "Mozambican Metical" },
+    { code: "NAD", name: "Namibian Dollar" },
+    { code: "NGN", name: "Nigerian Naira" },
+    { code: "NIO", name: "Nicaraguan Cordoba" },
+    { code: "NOK", name: "Norwegian Krone" },
+    { code: "NPR", name: "Nepalese Rupee" },
+    { code: "NZD", name: "New Zealand Dollar" },
+    { code: "OMR", name: "Omani Rial" },
+    { code: "PAB", name: "Panamanian Balboa" },
+    { code: "PEN", name: "Peruvian Sol" },
+    { code: "PGK", name: "Papua New Guinean Kina" },
+    { code: "PHP", name: "Philippine Peso" },
+    { code: "PKR", name: "Pakistani Rupee" },
+    { code: "PLN", name: "Polish Zloty" },
+    { code: "PYG", name: "Paraguayan Guarani" },
+    { code: "QAR", name: "Qatari Riyal" },
+    { code: "RON", name: "Romanian Leu" },
+    { code: "RSD", name: "Serbian Dinar" },
+    { code: "RUB", name: "Russian Ruble" },
+    { code: "RWF", name: "Rwandan Franc" },
+    { code: "SAR", name: "Saudi Riyal" },
+    { code: "SBD", name: "Solomon Islands Dollar" },
+    { code: "SCR", name: "Seychellois Rupee" },
+    { code: "SDG", name: "Sudanese Pound" },
+    { code: "SEK", name: "Swedish Krona" },
+    { code: "SGD", name: "Singapore Dollar" },
+    { code: "SLL", name: "Sierra Leonean Leone" },
+    { code: "SOS", name: "Somali Shilling" },
+    { code: "SRD", name: "Surinamese Dollar" },
+    { code: "STN", name: "São Tomé and Príncipe Dobra" },
+    { code: "SVC", name: "Salvadoran Colon" },
+    { code: "SYP", name: "Syrian Pound" },
+    { code: "SZL", name: "Swazi Lilangeni" },
+    { code: "THB", name: "Thai Baht" },
+    { code: "TJS", name: "Tajikistani Somoni" },
+    { code: "TMT", name: "Turkmenistani Manat" },
+    { code: "TND", name: "Tunisian Dinar" },
+    { code: "TOP", name: "Tongan Paʻanga" },
+    { code: "TRY", name: "Turkish Lira" },
+    { code: "TTD", name: "Trinidad and Tobago Dollar" },
+    { code: "TWD", name: "New Taiwan Dollar" },
+    { code: "TZS", name: "Tanzanian Shilling" },
+    { code: "UAH", name: "Ukrainian Hryvnia" },
+    { code: "UGX", name: "Ugandan Shilling" },
+    { code: "USD", name: "US Dollar" },
+    { code: "UYU", name: "Uruguayan Peso" },
+    { code: "UZS", name: "Uzbekistan Som" },
+    { code: "VES", name: "Venezuelan Bolívar" },
+    { code: "VND", name: "Vietnamese Dong" },
+    { code: "VUV", name: "Vanuatu Vatu" },
+    { code: "WST", name: "Samoan Tala" },
+    { code: "XAF", name: "Central African CFA Franc" },
+    { code: "XCD", name: "East Caribbean Dollar" },
+    { code: "XOF", name: "West African CFA Franc" },
+    { code: "XPF", name: "CFP Franc" },
+    { code: "YER", name: "Yemeni Rial" },
+    { code: "ZAR", name: "South African Rand" },
+    { code: "ZMW", name: "Zambian Kwacha" },
+    { code: "ZWL", name: "Zimbabwean Dollar" },
+  ];
+
   const [expectedDelivery, setExpectedDelivery] = useState("");
   const [shippingAddress, setShippingAddress] = useState("");
   const [hsnCode, setHsnCode] = useState("");
@@ -77,20 +238,6 @@ export default function CreateOrder() {
   const [notes, setNotes] = useState("");
   const [totalCartons, setTotalCartons] = useState<number | "">("");
   const [unitNetWeight, setUnitNetWeight] = useState<number | "">("");
-  const [containerType, setContainerType] = useState("20 Feet FCL");
-  const [loadingType, setLoadingType] = useState("");
-  const [qtyPerCarton, setQtyPerCarton] = useState<number | "">("");
-  const [grossWeightPerCarton, setGrossWeightPerCarton] = useState<number | "">("");
-  const [totalNetWeight, setTotalNetWeight] = useState<number | "">("");
-  const [totalGrossWeight, setTotalGrossWeight] = useState<number | "">("");
-
-  // Banking Details
-  const [bankName, setBankName] = useState("State Bank of India");
-  const [bankBranch, setBankBranch] = useState("Erode, Tamil Nadu");
-  const [accountNo, setAccountNo] = useState("43841179923");
-  const [ifscCode, setIfscCode] = useState("SBIN02278");
-  const [swiftCode, setSwiftCode] = useState("SBININBB");
-  
   const [countryOfOrigin, setCountryOfOrigin] = useState("India");
   const [portOfLoading, setPortOfLoading] = useState("Nhava Sheva Port, India");
   const [portOfDischarge, setPortOfDischarge] = useState("");
@@ -137,17 +284,6 @@ export default function CreateOrder() {
         notes,
         total_cartons: totalCartons ? Number(totalCartons) : null,
         unit_net_weight: unitNetWeight ? Number(unitNetWeight) : null,
-        container_type: containerType,
-        loading_type: loadingType,
-        qty_per_carton: qtyPerCarton ? Number(qtyPerCarton) : null,
-        gross_weight_per_carton: grossWeightPerCarton ? Number(grossWeightPerCarton) : null,
-        total_net_weight: totalNetWeight ? Number(totalNetWeight) : null,
-        total_gross_weight: totalGrossWeight ? Number(totalGrossWeight) : null,
-        bank_name: bankName,
-        bank_branch: bankBranch,
-        account_no: accountNo,
-        ifsc_code: ifscCode,
-        swift_code: swiftCode,
         country_of_origin: countryOfOrigin || 'India',
         port_of_loading: portOfLoading || null,
         port_of_discharge: portOfDischarge || null,
@@ -274,15 +410,49 @@ export default function CreateOrder() {
               </div>
               <div className="space-y-2">
                 <Label>Currency</Label>
-                <Select value={currency} onValueChange={setCurrency}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD ($)</SelectItem>
-                    <SelectItem value="EUR">EUR (€)</SelectItem>
-                    <SelectItem value="AED">AED (د.إ)</SelectItem>
-                    <SelectItem value="INR">INR (₹)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Popover open={currencyOpen} onOpenChange={setCurrencyOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={currencyOpen}
+                      className="w-full justify-between"
+                    >
+                      {currency
+                        ? `${currency} - ${currencies.find((c) => c.code === currency)?.name}`
+                        : "Select currency..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search currency..." />
+                      <CommandList>
+                        <CommandEmpty>No currency found.</CommandEmpty>
+                        <CommandGroup className="max-h-[300px] overflow-auto">
+                          {currencies.map((c) => (
+                            <CommandItem
+                              key={c.code}
+                              value={`${c.code} ${c.name}`}
+                              onSelect={() => {
+                                setCurrency(c.code);
+                                setCurrencyOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  currency === c.code ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {c.code} - {c.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 
@@ -330,6 +500,14 @@ export default function CreateOrder() {
                 </SelectContent>
               </Select>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg">Packing Details</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label>Country of Origin</Label>
               <Input value={countryOfOrigin} onChange={e => setCountryOfOrigin(e.target.value)} placeholder="e.g. India" />
@@ -343,8 +521,12 @@ export default function CreateOrder() {
               <Input value={portOfDischarge} onChange={e => setPortOfDischarge(e.target.value)} placeholder="e.g. Jebel Ali Port" />
             </div>
             <div className="space-y-2">
-              <Label>Swift Code</Label>
-              <Input value={swiftCode} onChange={e => setSwiftCode(e.target.value)} placeholder="e.g. SBININBB" />
+              <Label>Total Cartons</Label>
+              <Input type="number" value={totalCartons} onChange={e => setTotalCartons(Number(e.target.value) || "")} placeholder="e.g. 100" />
+            </div>
+            <div className="space-y-2">
+              <Label>Net Weight per Carton (Kg)</Label>
+              <Input type="number" step="0.01" value={unitNetWeight} onChange={e => setUnitNetWeight(Number(e.target.value) || "")} placeholder="e.g. 13.50" />
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Terms of Payment</Label>
@@ -353,84 +535,6 @@ export default function CreateOrder() {
             <div className="space-y-2 md:col-span-2">
               <Label>Notes</Label>
               <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Internal notes, etc..." className="h-20" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* New Packing Details Section */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg">Packing Details</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <Label>Container Type</Label>
-              <Select value={containerType} onValueChange={setContainerType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="20 Feet FCL">20 Feet FCL</SelectItem>
-                  <SelectItem value="40 Feet FCL">40 Feet FCL</SelectItem>
-                  <SelectItem value="20 Feet LCL">20 Feet LCL</SelectItem>
-                  <SelectItem value="40 Feet LCL">40 Feet LCL</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Loading Type</Label>
-              <Input value={loadingType} onChange={e => setLoadingType(e.target.value)} placeholder="e.g. Palletized" />
-            </div>
-            <div className="space-y-2">
-              <Label>No. of Cartons</Label>
-              <Input type="number" value={totalCartons} onChange={e => setTotalCartons(Number(e.target.value) || "")} placeholder="e.g. 100" />
-            </div>
-            <div className="space-y-2">
-              <Label>Qty per Carton</Label>
-              <Input type="number" value={qtyPerCarton} onChange={e => setQtyPerCarton(Number(e.target.value) || "")} placeholder="e.g. 10" />
-            </div>
-            <div className="space-y-2">
-              <Label>Gross Weight per Carton (Kg)</Label>
-              <Input type="number" step="0.01" value={grossWeightPerCarton} onChange={e => setGrossWeightPerCarton(Number(e.target.value) || "")} placeholder="e.g. 14.20" />
-            </div>
-            <div className="space-y-2">
-              <Label>Net Weight per Carton (Kg)</Label>
-              <Input type="number" step="0.01" value={unitNetWeight} onChange={e => setUnitNetWeight(Number(e.target.value) || "")} placeholder="e.g. 13.50" />
-            </div>
-            <div className="space-y-2">
-              <Label>Total Net Weight (Kg)</Label>
-              <Input type="number" step="0.01" value={totalNetWeight} onChange={e => setTotalNetWeight(Number(e.target.value) || "")} placeholder="e.g. 1350" />
-            </div>
-            <div className="space-y-2">
-              <Label>Total Gross Weight (Kg)</Label>
-              <Input type="number" step="0.01" value={totalGrossWeight} onChange={e => setTotalGrossWeight(Number(e.target.value) || "")} placeholder="e.g. 1420" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Banking Details Section */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg">Banking Details</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label>Bank Name</Label>
-              <Input value={bankName} onChange={e => setBankName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Branch</Label>
-              <Input value={bankBranch} onChange={e => setBankBranch(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Account No</Label>
-              <Input value={accountNo} onChange={e => setAccountNo(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>IFSC Code</Label>
-              <Input value={ifscCode} onChange={e => setIfscCode(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Swift Code</Label>
-              <Input value={swiftCode} onChange={e => setSwiftCode(e.target.value)} />
             </div>
           </CardContent>
           <CardFooter className="justify-end border-t p-4 mt-2">

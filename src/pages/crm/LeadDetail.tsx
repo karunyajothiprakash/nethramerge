@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Edit, Mail, Phone, Building, Calendar, Package, UserCheck, Loader2, Send, Globe } from "lucide-react";
+import { ArrowLeft, Edit, Mail, Phone, Building, Calendar, Package, UserCheck, Loader2, Globe } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Section } from "@/components/shared/FormShell";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,9 +46,6 @@ export default function LeadDetail() {
   const [lead, setLead] = useState<Lead | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [subject, setSubject] = useState("");
-  const [message, setMessage] = useState("");
-  const [sending, setSending] = useState(false);
   const [editingProduct, setEditingProduct] = useState(false);
   const [newProduct, setNewProduct] = useState("");
   const [savingProduct, setSavingProduct] = useState(false);
@@ -85,103 +81,6 @@ export default function LeadDetail() {
     fetchLeadDetails();
   }, [id]);
 
-  const handleSendEmail = async () => {
-    if (!subject || !message) {
-      return toast.error("Please fill in both subject and message");
-    }
-    if (!lead) return;
-    setSending(true);
-    try {
-      const email = lead.email || (lead.contact_name
-        ? `${lead.contact_name.toLowerCase().replace(/\s+/g, ".")}@${lead.company_name.split(" ")[0].toLowerCase()}.com`
-        : "");
-
-      toast.info("Queuing email...");
-
-      const emailBody = `<p>${message.replace(/\n/g, '<br>')}</p>`;
-
-      // 2. Outbox Pattern: Insert into Database (Webhook triggers backend)
-      const { data, error } = await supabase.from("emails").insert({
-        to_address: email,
-        subject: subject,
-        body_html: emailBody,
-        company_id: profile?.company_id,
-        lead_id: lead.id,
-        status: 'pending',
-        attachments: []
-      }).select('id').single();
-
-      if (error) throw error;
-
-      const emailId = data?.id;
-
-      if (emailId) {
-        // Subscribe to real-time status updates for this specific email
-        const channel = supabase
-          .channel(`email-status-${emailId}`)
-          .on('postgres_changes', {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'emails',
-            filter: `id=eq.${emailId}`
-          }, (payload) => {
-            const { status, error_message } = payload.new;
-            if (status === 'sent') {
-              toast.success(`Email Delivered!`);
-              setSubject("");
-              setMessage("");
-              supabase.removeChannel(channel);
-            }
-            if (status === 'failed') {
-              toast.error(`Delivery Failed: ${error_message}`);
-              supabase.removeChannel(channel);
-            }
-          })
-          .subscribe();
-
-        toast.loading("Sending...");
-      } else {
-        // Fallback if no emailId returned
-        toast.success(`Email queued!`);
-        setSubject("");
-        setMessage("");
-      }
-
-      // Record activity in history
-      await supabase.from("activities").insert({
-        lead_id: lead.id,
-        title: `Sent Email: ${subject}`,
-        type: "email",
-        content: message,
-        completed: true,
-        company_id: profile?.company_id
-      });
-
-      // Refresh activities list
-      const { data: acts } = await supabase
-        .from("activities")
-        .select(`id, title, type, created_at, completed, profiles:created_by(full_name)`)
-        .eq("lead_id", id)
-        .order("created_at", { ascending: false });
-      if (acts) setActivities(acts as unknown as Activity[]);
-    } catch (e: any) {
-      console.error("Email error:", e);
-      let errorMsg = e.message;
-
-      if (e.context && typeof e.context.json === 'function') {
-        try {
-          const body = await e.context.json();
-          if (body.error) errorMsg = body.error;
-        } catch (err) {
-          console.error("Failed to parse error body", err);
-        }
-      }
-
-      toast.error(errorMsg || "Failed to send email");
-    } finally {
-      setSending(false);
-    }
-  };
 
   const handleUpdateProduct = async () => {
     if (!id || !lead) return;
@@ -343,27 +242,6 @@ export default function LeadDetail() {
               </Button>
             </div>
             <div className="text-xs text-muted-foreground mt-1">Primary product interest</div>
-          </Section>
-          <Section title="Send Email">
-            <div className="space-y-3">
-              <Input
-                placeholder="Subject"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                disabled={sending}
-              />
-              <Textarea
-                placeholder="Type your message here..."
-                className="min-h-[120px]"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                disabled={sending}
-              />
-              <Button className="w-full" onClick={handleSendEmail} disabled={sending}>
-                {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                {sending ? "Sending..." : "Send to Lead"}
-              </Button>
-            </div>
           </Section>
         </div>
       </div>
