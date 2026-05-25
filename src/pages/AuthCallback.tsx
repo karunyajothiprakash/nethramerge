@@ -28,7 +28,27 @@ export default function AuthCallback() {
         return;
       }
 
-      // If no session yet, listen for the SIGNED_IN event (code exchange in progress)
+      const code = searchParams.get('code');
+      if (code) {
+        try {
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) {
+            // Ignore 'Auth session missing' which means it might have already been exchanged
+            if (!exchangeError.message.includes("Auth session missing") && !exchangeError.message.includes("code has been used")) {
+              setErrorMsg(`Code exchange failed: ${exchangeError.message}`);
+              return;
+            }
+          } else if (data.session) {
+            navigate("/dashboard", { replace: true });
+            return;
+          }
+        } catch (err: any) {
+          setErrorMsg(`Exception during exchange: ${err.message}`);
+          return;
+        }
+      }
+
+      // If no session yet (or exchange is happening in the background), listen for the SIGNED_IN event
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_IN' && session) {
           navigate("/dashboard", { replace: true });
@@ -38,7 +58,7 @@ export default function AuthCallback() {
       // Timeout just in case it hangs forever (10 seconds)
       const timer = setTimeout(() => {
         if (mounted && !errorMsg) {
-          setErrorMsg("Authentication timed out. Please try again.");
+          setErrorMsg("Authentication timed out. The session could not be established. Please try again.");
         }
       }, 10000);
 
