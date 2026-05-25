@@ -1,76 +1,38 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
   const [errorMsg, setErrorMsg] = useState("");
   const [searchParams] = useSearchParams();
+  const { session } = useAuth();
 
   useEffect(() => {
-    let mounted = true;
+    const error = searchParams.get('error');
+    const error_description = searchParams.get('error_description');
 
-    const handleCallback = async () => {
-      const error = searchParams.get('error');
-      const error_description = searchParams.get('error_description');
+    if (error) {
+      setErrorMsg(error_description || "Authentication failed.");
+      return;
+    }
 
-      if (error) {
-        setErrorMsg(error_description || "Authentication failed.");
-        return;
-      }
+    if (session) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [session, navigate, searchParams]);
 
-      // Check if session already exists
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (session) {
-        navigate("/dashboard", { replace: true });
-        return;
-      }
+  // Timeout just in case it hangs forever (10 seconds)
+  useEffect(() => {
+    if (session || errorMsg) return;
+    
+    const timer = setTimeout(() => {
+      setErrorMsg("Authentication timed out. The session could not be established. Please try again.");
+    }, 10000);
 
-      const code = searchParams.get('code');
-      if (code) {
-        try {
-          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeError) {
-            // Ignore 'Auth session missing' which means it might have already been exchanged
-            if (!exchangeError.message.includes("Auth session missing") && !exchangeError.message.includes("code has been used")) {
-              setErrorMsg(`Code exchange failed: ${exchangeError.message}`);
-              return;
-            }
-          } else if (data.session) {
-            navigate("/dashboard", { replace: true });
-            return;
-          }
-        } catch (err: any) {
-          setErrorMsg(`Exception during exchange: ${err.message}`);
-          return;
-        }
-      }
-
-      // If no session yet (or exchange is happening in the background), listen for the SIGNED_IN event
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-          navigate("/dashboard", { replace: true });
-        }
-      });
-
-      // Timeout just in case it hangs forever (10 seconds)
-      const timer = setTimeout(() => {
-        if (mounted && !errorMsg) {
-          setErrorMsg("Authentication timed out. The session could not be established. Please try again.");
-        }
-      }, 10000);
-
-      return () => {
-        mounted = false;
-        subscription.unsubscribe();
-        clearTimeout(timer);
-      };
-    };
-
-    handleCallback();
-  }, [navigate, searchParams]);
+    return () => clearTimeout(timer);
+  }, [session, errorMsg]);
 
   if (errorMsg) {
     return (
@@ -79,8 +41,8 @@ export default function AuthCallback() {
           <h2 className="text-lg font-semibold text-destructive mb-2">Authentication Error</h2>
           <p className="text-sm text-muted-foreground">{errorMsg}</p>
           <button
-            onClick={() => navigate("/auth")}
-            className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm w-full"
+            onClick={() => navigate("/auth", { replace: true })}
+            className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md w-full hover:bg-primary/90"
           >
             Return to Login
           </button>
@@ -90,10 +52,10 @@ export default function AuthCallback() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background space-y-4">
-      <Loader2 className="h-8 w-8 text-primary animate-spin" />
-      <div className="text-lg font-medium text-foreground">Completing sign in...</div>
-      <div className="text-sm text-muted-foreground">Please wait while we verify your account.</div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 space-y-4">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <h2 className="text-xl font-semibold">Completing sign in...</h2>
+      <p className="text-sm text-muted-foreground">Please wait while we establish your secure session.</p>
     </div>
   );
-}
+}
