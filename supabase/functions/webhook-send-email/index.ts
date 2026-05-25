@@ -1,5 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 const cleanEmail = (emailStr: string): string => {
   if (!emailStr) return emailStr;
   return emailStr.split(',').map(email => {
@@ -9,15 +14,21 @@ const cleanEmail = (emailStr: string): string => {
 };
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   let emailId: string | null = null;
 
   try {
     const payload = await req.json();
 
-    // Webhook payload contains the new row in `record`
-    const record = payload.record;
+    // Support both direct invocation ({ record }) and webhook payload ({ type, record })
+    const record = payload.record || payload;
+    
     if (!record || record.status !== 'pending') {
-      return new Response("Ignored", { status: 200 });
+      return new Response("Ignored", { status: 200, headers: corsHeaders });
     }
 
     const {
@@ -127,7 +138,7 @@ Deno.serve(async (req) => {
 
     if (!zohoId) throw new Error("Could not retrieve Zoho Account ID.");
 
-    // 4. Process attachments — upload to Zoho
+    // 4. Process attachments - upload to Zoho
     const processedAttachments: any[] = [];
     if (Array.isArray(attachments) && attachments.length > 0) {
       for (const att of attachments) {
@@ -224,7 +235,7 @@ Deno.serve(async (req) => {
         .eq("id", emailId);
       return new Response(
         JSON.stringify({ success: false, error: errorMessage }),
-        { status: 500 }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -240,7 +251,7 @@ Deno.serve(async (req) => {
     console.log("Email sent successfully:", emailId);
 
     return new Response(JSON.stringify({ success: true }), {
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (err: any) {
@@ -267,7 +278,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: false, error: err.message }),
-      { status: 500 }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
