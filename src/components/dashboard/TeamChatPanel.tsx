@@ -1,7 +1,33 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Send, MessageCircle, X, Paperclip, Loader2, CheckCheck } from "lucide-react";
+import { Send, MessageCircle, X, Paperclip, Loader2, CheckCheck, Smile } from "lucide-react";
 import { toast } from "sonner";
+import EmojiPicker, { Theme } from 'emoji-picker-react';
+
+const playNotificationSound = () => {
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    const audioCtx = new AudioContext();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.05);
+    
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.2);
+  } catch (e) {
+    // Ignore audio playback errors
+  }
+};
 
 export function TeamChatPanel() {
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -24,6 +50,7 @@ export function TeamChatPanel() {
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [showMentions, setShowMentions] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [activeMenuMessageId, setActiveMenuMessageId] = useState<string | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingMessageText, setEditingMessageText] = useState("");
@@ -154,6 +181,15 @@ export function TeamChatPanel() {
       if (isMounted && data) setTeamMembers(data);
     };
     fetchTeam();
+
+    const profileChannel = supabase
+      .channel('public:profiles_chat')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
+        if (isMounted) {
+          setTeamMembers(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m));
+        }
+      })
+      .subscribe();
     
     const fetchMessages = async () => {
       const { data, error } = await supabase
@@ -244,6 +280,9 @@ export function TeamChatPanel() {
       if (presenceChannel) {
         supabase.removeChannel(presenceChannel);
       }
+      if (profileChannel) {
+        supabase.removeChannel(profileChannel);
+      }
     };
   }, [currentUser?.id]);
 
@@ -265,6 +304,7 @@ export function TeamChatPanel() {
           
           const cUser = currentUserRef.current;
           if (cUser && payload.new.sender_id !== cUser.id) {
+            playNotificationSound();
             const currentUserName = cUser.user_metadata?.full_name?.split(' ')[0] || cUser.email?.split('@')[0] || "";
             if (currentUserName && payload.new.message?.toLowerCase().includes('@' + currentUserName.toLowerCase())) {
               const popupId = Date.now() + Math.random();
@@ -893,6 +933,17 @@ export function TeamChatPanel() {
                 }
               </div>
             )}
+            {showEmojiPicker && (
+              <div className="absolute bottom-full left-0 mb-2 z-50">
+                <EmojiPicker
+                  onEmojiClick={(emojiObject) => {
+                    setInputText(prev => prev + emojiObject.emoji);
+                    setShowEmojiPicker(false);
+                  }}
+                  theme={Theme.DARK}
+                />
+              </div>
+            )}
             <div className="flex items-end gap-2 relative">
               <button 
                 onClick={() => fileInputRef.current?.click()}
@@ -900,6 +951,12 @@ export function TeamChatPanel() {
                 className="absolute left-2 bottom-1.5 h-8 w-8 rounded-full flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
               >
                 <Paperclip className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className="absolute left-10 bottom-1.5 h-8 w-8 rounded-full flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <Smile className="h-4 w-4" />
               </button>
               <input 
                 type="file" 
@@ -930,7 +987,7 @@ export function TeamChatPanel() {
                   }
                 }}
                 placeholder={isUploading ? "Uploading..." : "Type a message..."}
-                className="w-full bg-[#2a2a2a] text-white text-sm rounded-2xl py-2.5 pl-11 pr-12 resize-none focus:outline-none focus:ring-1 focus:ring-[#f0a500] max-h-32 min-h-[44px]"
+                className="w-full bg-[#2a2a2a] text-white text-sm rounded-2xl py-2.5 pl-[72px] pr-12 resize-none focus:outline-none focus:ring-1 focus:ring-[#f0a500] max-h-32 min-h-[44px]"
                 rows={1}
               />
               <button

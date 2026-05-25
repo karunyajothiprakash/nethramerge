@@ -15,14 +15,16 @@ export default function ZohoIntegration() {
   const [syncing, setSyncing] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchAccounts();
-  }, []);
+    if (profile?.id) fetchAccounts();
+  }, [profile?.id]);
 
   async function fetchAccounts() {
+    if (!profile?.id) return;
     setLoading(true);
     const { data, error } = await supabase
       .from("zoho_accounts")
-      .select("*");
+      .select("*")
+      .eq("user_id", profile.id);
     if (data) setAccounts(data);
     setLoading(false);
   }

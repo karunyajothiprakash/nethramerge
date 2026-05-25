@@ -1,22 +1,56 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const { session, loading } = useAuth();
   const [errorMsg, setErrorMsg] = useState("");
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    if (loading) return;
+    let mounted = true;
 
-    if (session) {
-      navigate("/dashboard", { replace: true });
-    } else {
-      setErrorMsg("Authentication failed or session expired. Please sign in again.");
-    }
-  }, [session, loading, navigate]);
+    const handleCallback = async () => {
+      const error = searchParams.get('error');
+      const error_description = searchParams.get('error_description');
+
+      if (error) {
+        setErrorMsg(error_description || "Authentication failed.");
+        return;
+      }
+
+      // Check if session already exists
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (session) {
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      // If no session yet, listen for the SIGNED_IN event (code exchange in progress)
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          navigate("/dashboard", { replace: true });
+        }
+      });
+
+      // Timeout just in case it hangs forever (10 seconds)
+      const timer = setTimeout(() => {
+        if (mounted && !errorMsg) {
+          setErrorMsg("Authentication timed out. Please try again.");
+        }
+      }, 10000);
+
+      return () => {
+        mounted = false;
+        subscription.unsubscribe();
+        clearTimeout(timer);
+      };
+    };
+
+    handleCallback();
+  }, [navigate, searchParams]);
 
   if (errorMsg) {
     return (

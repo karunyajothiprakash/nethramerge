@@ -54,11 +54,10 @@ const getDefaultSignature = (profile: any) => {
     }
   }
 
-  const company = profile.company_name || "Shastika Global Impex Private Limited";
-  const isBde = profile.requested_role && ["bd", "bde"].includes(profile.requested_role.toLowerCase());
-  const email = isBde ? "bde@shastikaglobalimpex.co.in" : (profile.email || "bde@shastikaglobalimpex.co.in");
-  const phone = profile.phone || "+91 95662 66228";
-  const whatsapp = "+91 95662 66241"; // WhatsApp number from screenshot
+  const company = profile.company_name || "Company Name";
+  const email = profile.email || "";
+  const phone = profile.phone || "";
+  const whatsapp = profile.phone || ""; 
   const logoUrl = window.location.origin + "/logo.webp";
 
   return `
@@ -74,9 +73,9 @@ const getDefaultSignature = (profile: any) => {
           <div style="font-size: 9.5pt; margin-bottom: 2px; opacity: 0.8;">${role}</div>
           <div style="font-weight: bold; font-size: 9.5pt; margin-bottom: 4px;">${company}</div>
           <div style="font-size: 9pt; opacity: 0.8; margin-top: 6px; line-height: 1.5;">
-            WhatsApp: <a href="https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}" target="_blank" style="color: #38bdf8; text-decoration: underline;">${whatsapp}</a><br>
-            Phone: <span>${phone}</span><br>
-            Email: <a href="mailto:${email}" style="color: #38bdf8; text-decoration: underline;">${email}</a><br>
+            ${whatsapp ? `WhatsApp: <a href="https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}" target="_blank" style="color: #38bdf8; text-decoration: underline;">${whatsapp}</a><br>` : ''}
+            ${phone ? `Phone: <span>${phone}</span><br>` : ''}
+            ${email ? `Email: <a href="mailto:${email}" style="color: #38bdf8; text-decoration: underline;">${email}</a><br>` : ''}
             Web: <a href="https://shastikaglobal.co.in" target="_blank" style="color: #38bdf8; text-decoration: underline;">https://shastikaglobal.co.in</a>
           </div>
         </td>

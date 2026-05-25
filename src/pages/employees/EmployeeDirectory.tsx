@@ -58,6 +58,23 @@ export default function EmployeeDirectory() {
 
   useEffect(() => {
     fetchEmployees();
+
+    const channel = supabase
+      .channel('public:profiles')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles' },
+        (payload) => {
+          setEmployees(prev => 
+            prev.map(emp => emp.id === payload.new.id ? { ...emp, ...payload.new } : emp)
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleCopyLink = () => {
