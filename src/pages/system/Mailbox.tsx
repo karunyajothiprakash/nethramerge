@@ -270,10 +270,14 @@ export default function Mailbox() {
   const handleSelectEmail = async (email: any) => {
     setSelectedEmail(email);
     if (!email.is_read) {
+      // Optimistically mark email as read in UI for instant unread count / read state updates
+      setSentEmails(prev => prev.map(e => e.id === email.id ? { ...e, is_read: true } : e));
+      setSelectedEmail((prev: any) => prev?.id === email.id ? { ...prev, is_read: true } : prev);
+
+      // Perform update to Supabase in background
       supabase.from("emails").update({ is_read: true }).eq("id", email.id).then(({ error }) => {
-        if (!error) {
-          setSentEmails(prev => prev.map(e => e.id === email.id ? { ...e, is_read: true } : e));
-          setSelectedEmail((prev: any) => prev?.id === email.id ? { ...prev, is_read: true } : prev);
+        if (error) {
+          console.error("Failed to mark email as read in database:", error);
         }
       });
     }
@@ -542,10 +546,19 @@ export default function Mailbox() {
 
       supabase.functions.invoke("webhook-send-email", {
         body: { record: { ...emailRow, status: "pending" } }
-      }).then(({ error: funcError }) => {
+      }).then(({ error: funcError, data: funcData }) => {
         if (funcError) {
           console.error("Function error:", funcError);
           toast.error("Failed to send email: " + funcError.message, { id: `sending-${emailRow.id}` });
+          setSentEmails(prev => prev.map(e => e.id === emailRow.id ? { ...e, status: "failed" } : e));
+        } else if (funcData && !funcData.success) {
+          console.error("Zoho Send Error:", funcData.error);
+          toast.error("Failed to send email: " + (funcData.error || "Unknown error"), { id: `sending-${emailRow.id}` });
+          setSentEmails(prev => prev.map(e => e.id === emailRow.id ? { ...e, status: "failed" } : e));
+        } else {
+          // Zoho successfully accepted and sent the mail!
+          toast.success(`✓ Sent: ${emailRow.subject || "(No Subject)"}`, { id: `sending-${emailRow.id}`, duration: 4000 });
+          setSentEmails(prev => prev.map(e => e.id === emailRow.id ? { ...e, status: "sent" } : e));
         }
       });
 
@@ -569,7 +582,7 @@ export default function Mailbox() {
   };
 
   const folders = [
-    { id: "inbox",   label: "Inbox",  icon: Inbox,    count: sentEmails.filter(e => !e.folder || e.folder.toLowerCase() === "inbox").length },
+    { id: "inbox",   label: "Inbox",  icon: Inbox,    count: sentEmails.filter(e => (!e.folder || e.folder.toLowerCase() === "inbox") && !e.is_read).length },
     { id: "starred", label: "Starred",icon: Star },
     { id: "snoozed", label: "Snoozed",icon: Clock },
     { id: "sent",    label: "Sent",   icon: SendIcon, count: sentEmails.filter(e => e.folder?.toLowerCase() === "sent").length },
