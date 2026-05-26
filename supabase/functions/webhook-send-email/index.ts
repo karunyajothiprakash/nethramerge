@@ -223,7 +223,7 @@ Deno.serve(async (req) => {
 
     const result = await response.json();
 
-    if (!response.ok || result?.status?.code >= 400) {
+    const hasError = !response.ok || (result?.status?.code && result.status.code !== 200) || (result?.data && result.data.errorCode); if (hasError) {
       const errorMessage = JSON.stringify(result);
       console.error("Zoho API Error:", errorMessage);
       await supabaseClient

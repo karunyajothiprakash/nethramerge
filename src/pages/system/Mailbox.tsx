@@ -450,7 +450,7 @@ export default function Mailbox() {
             setEmailStatuses(prev => ({ ...prev, [id]: status }));
             setSentEmails(prev => prev.map(e => e.id === id ? { ...e, ...payload.new } : e));
             if (status === "sent") {
-              toast.success(`✓ Delivered: ${subject}`, { id: `sending-${id}`, duration: 4000, icon: "📨" });
+              toast.success(`✓ Sent: ${subject}`, { id: `sending-${id}`, duration: 4000, icon: "📨" });
             } else if (status === "failed") {
               toast.error(`✗ Failed to send: ${subject}`, { id: `sending-${id}`, duration: 6000, icon: "⚠️" });
             }
