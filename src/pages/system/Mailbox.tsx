@@ -68,7 +68,7 @@ const getDefaultSignature = (profile: any) => {
   }
 
   const company  = profile.company_name || "Shastika Global Impex Private Limited";
-  const email    = "bde@shastikaglobalimpex.co.in";
+  const email    = profile.email || "bde@shastikaglobalimpex.co.in";
   const phone    = "+91 95662 66228";
   const whatsapp = "+91 95662 66241";
 
@@ -372,7 +372,7 @@ export default function Mailbox() {
       if (isAdmin) {
         // Admin sees all mails
       } else if (isBde) {
-        query = query.eq("account_email", "bde@shastikaglobalimpex.co.in");
+        query = query.ilike("account_email", "bde@%");
       } else {
         query = query.eq("user_id", profile?.id || "");
       }
@@ -382,7 +382,7 @@ export default function Mailbox() {
 
       if (data && data.length > 0) {
         setAccounts(data);
-        const bdeAccount    = data.find(acc => acc.account_email === "bde@shastikaglobalimpex.co.in");
+        const bdeAccount    = data.find(acc => acc.account_email.toLowerCase().startsWith("bde@"));
         const defaultId     = bdeAccount ? bdeAccount.id : data[0].id;
         setSelectedAccount(defaultId);
         await fetchHistory(defaultId);
