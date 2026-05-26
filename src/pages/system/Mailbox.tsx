@@ -37,7 +37,7 @@ import {
 //
 // IMPORTANT: The URL must be publicly accessible (no auth required).
 // For best email client support, use an absolute https:// URL.
-const COMPANY_LOGO_URL = "https://shastikaglobal.co.in/static/images/ag_logo.png";
+const COMPANY_LOGO_URL = "https://sxebygxpjzntogzpjnga.supabase.co/storage/v1/object/public/chat-attachments/company-logo-1779776670741.png";
 
 const getDefaultSignature = (profile: any) => {
   if (!profile) return "";
