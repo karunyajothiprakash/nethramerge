@@ -1324,10 +1324,6 @@ export default function Mailbox() {
           color: #d97706;
           text-decoration: underline;
         }
-        ::-webkit-scrollbar       { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 9999px; }
-        ::-webkit-scrollbar-thumb:hover { background: #f59e0b80; }
         .ql-toolbar.ql-snow   { border: 1px solid #e5e7eb !important; background: #f9fafb !important; border-top-left-radius: 12px; border-top-right-radius: 12px; }
         .ql-container.ql-snow { border: 1px solid #e5e7eb !important; background: #ffffff !important; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; font-size: 14px; }
         .ql-editor              { min-height: 250px; color: #1f2937 !important; }
