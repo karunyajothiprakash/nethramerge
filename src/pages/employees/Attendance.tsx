@@ -118,32 +118,104 @@ export default function Attendance() {
         actions={<EsslUploader employees={employees} onUploadComplete={loadData} />}
       />
       
-      {/* My Attendance Widget */}
-      <div className="bg-gradient-to-r from-card to-card/50 p-6 rounded-lg border shadow-sm flex items-center justify-between">
+      
+
+
+      {/* Live Team Presence (Today) Dashboard */}
+      <div className="space-y-3 bg-card p-6 rounded-xl border shadow-sm">
         <div>
-          <h3 className="text-lg font-semibold tracking-tight">Daily Check-In</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            {format(new Date(), 'EEEE, MMMM do, yyyy')}
-          </p>
+          <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            Live Team Presence (Today)
+          </h3>
+          <p className="text-sm text-muted-foreground mt-0.5">Real-time biometric punch status of employees for today</p>
         </div>
-        <div className="flex items-center gap-4">
-          {myTodayStatus?.clock_in && (
-            <div className="text-right text-sm">
-              <div className="text-success font-medium flex items-center justify-end gap-1"><CheckCircle className="h-4 w-4"/> Punched In</div>
-              <div className="text-muted-foreground">{format(new Date(myTodayStatus.clock_in), 'h:mm a')}</div>
-            </div>
-          )}
-          <Button 
-            size="lg" 
-            onClick={handlePunch} 
-            disabled={punching || (myTodayStatus && myTodayStatus.clock_out)}
-            variant={myTodayStatus && !myTodayStatus.clock_out ? "secondary" : "default"}
-            className="w-40 font-semibold"
-          >
-            {punching ? <Loader2 className="h-5 w-5 animate-spin" /> : <Fingerprint className="h-5 w-5 mr-2" />}
-            {!myTodayStatus ? "Punch In" : myTodayStatus.clock_out ? "Completed" : "Punch Out"}
-          </Button>
-        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
+            <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading live status...
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {employees.map((emp) => {
+              const todayStr = format(new Date(), 'yyyy-MM-dd');
+              const log = attendanceData[emp.id]?.[todayStr];
+              
+              let statusBadge = (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground border border-border">
+                  Not Synced
+                </span>
+              );
+              
+              if (log) {
+                if (log.clock_out) {
+                  statusBadge = (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                      Punched Out
+                    </span>
+                  );
+                } else if (log.clock_in) {
+                  statusBadge = (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 animate-pulse">
+                      Punched In
+                    </span>
+                  );
+                }
+              }
+
+              const initials = emp.full_name
+                ?.split(" ")
+                .map((n) => n[0])
+                .join("")
+                .substring(0, 2)
+                .toUpperCase() || "?";
+
+              return (
+                <div key={emp.id} className="bg-background hover:bg-muted/10 transition-all duration-300 p-4 rounded-lg border flex flex-col justify-between space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
+                      {initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-semibold truncate text-foreground">{emp.full_name}</h4>
+                      <p className="text-[10px] text-muted-foreground truncate capitalize">
+                        {emp.requested_role?.replace('_', ' ') || 'Employee'}
+                        {emp.biometric_id && ` • Bio ID: ${emp.biometric_id}`}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-2 border-t border-border/50 flex flex-col space-y-1 text-[11px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Status:</span>
+                      {statusBadge}
+                    </div>
+                    {log?.clock_in && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">In:</span>
+                        <span className="font-medium text-foreground">{format(new Date(log.clock_in), 'hh:mm a')}</span>
+                      </div>
+                    )}
+                    {log?.clock_out && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Out:</span>
+                        <span className="font-medium text-foreground">{format(new Date(log.clock_out), 'hh:mm a')}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {employees.length === 0 && (
+              <div className="col-span-full text-center py-6 text-xs text-muted-foreground border border-dashed rounded-lg">
+                No employees available.
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <Section>
@@ -178,8 +250,14 @@ export default function Attendance() {
                     else if (status === 'half_day') { color = "bg-warning"; presentCount += 0.5; }
                     else if (status === 'on_leave') { color = "bg-info"; }
 
+                    const clockInStr = log?.clock_in ? format(new Date(log.clock_in), 'hh:mm a') : '--:--';
+                    const clockOutStr = log?.clock_out ? format(new Date(log.clock_out), 'hh:mm a') : '--:--';
+                    const tooltip = status 
+                      ? `${format(new Date(dateStr), 'MMM dd')} - ${status.toUpperCase()}\nIn: ${clockInStr}\nOut: ${clockOutStr}`
+                      : `${format(new Date(dateStr), 'MMM dd')}: No Record`;
+
                     return (
-                      <td key={dateStr} className="text-center px-1 py-2" title={`${format(new Date(dateStr), 'MMM dd')}: ${status || 'No Record'}`}>
+                      <td key={dateStr} className="text-center px-1 py-2" title={tooltip}>
                         <span className={`inline-block h-2 w-2 rounded-full ${color}`} />
                       </td>
                     );
