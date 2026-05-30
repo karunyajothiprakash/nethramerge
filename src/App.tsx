@@ -16,6 +16,29 @@ import { FollowUpReminders } from "./components/crm/FollowUpReminders";
 import LeadDetail from "./pages/crm/LeadDetail";
 import LeadPipeline from "./pages/crm/Pipeline";
 import EmailIntegration from "./pages/crm/EmailIntegration";
+
+// CRM (New Modules)
+import CrmDashboard from "./pages/crm/Dashboard";
+import CrmTasks from "./pages/crm/Tasks";
+import CrmSecurity from "./pages/crm/Security";
+import CrmMobileCRM from "./pages/crm/MobileCRM";
+import CrmClientAcquisition from "./pages/crm/ClientAcquisition";
+import CrmAdvancedSecurity from "./pages/crm/AdvancedSecurity";
+import CrmReports from "./pages/crm/Reports";
+import CrmPerformance from "./pages/crm/Performance";
+import CrmCommunication from "./pages/crm/Communication";
+import CrmCustomerDatabase from "./pages/crm/CustomerDatabase";
+import CrmEmployeeActivity from "./pages/crm/EmployeeActivity";
+import CrmScreenMonitor from "./pages/crm/ScreenMonitor";
+
+// Mobile CRM
+import MobileLogin from "./pages/mobile/MobileLogin";
+import PushNotifications from "./pages/mobile/PushNotifications";
+import CallLogging from "./pages/mobile/CallLogging";
+import GPSTracking from "./pages/mobile/GPSTracking";
+import IPTracking from "./pages/mobile/IPTracking";
+import DeviceAuthorization from "./pages/mobile/DeviceAuthorization";
+
 import CompleteProfile from "./pages/CompleteProfile";
 import WaitingApproval from "./pages/WaitingApproval";
 import Pending from "./pages/Pending";
@@ -226,12 +249,32 @@ const App = () => (
               <Route path="/quotations/:id/report" element={<QuotationReport />} />
 
               {/* CRM */}
+              <Route path="/crm/dashboard" element={<CrmDashboard />} />
               <Route path="/crm/activities" element={<LeadActivities />} />
               <Route path="/crm/leads" element={<LeadsList />} />
               <Route path="/crm/follow-ups" element={<FollowUps />} />
               <Route path="/crm/leads/:id" element={<LeadDetail />} />
               <Route path="/crm/pipeline" element={<LeadPipeline />} />
               <Route path="/crm/email" element={<EmailIntegration />} />
+              <Route path="/crm/tasks" element={<CrmTasks />} />
+              <Route path="/crm/security" element={<CrmSecurity />} />
+              <Route path="/crm/mobile-crm" element={<CrmMobileCRM />} />
+              <Route path="/crm/client-acquisition" element={<CrmClientAcquisition />} />
+              <Route path="/crm/advanced-security" element={<CrmAdvancedSecurity />} />
+              <Route path="/crm/reports" element={<CrmReports />} />
+              <Route path="/crm/performance" element={<CrmPerformance />} />
+              <Route path="/crm/communication" element={<CrmCommunication />} />
+              <Route path="/crm/customer-database" element={<CrmCustomerDatabase />} />
+              <Route path="/crm/employee-activity" element={<CrmEmployeeActivity />} />
+              <Route path="/crm/screen-monitor" element={<CrmScreenMonitor />} />
+
+              {/* Mobile pages */}
+              <Route path="/mobile/login" element={<MobileLogin />} />
+              <Route path="/mobile/push-notifications" element={<PushNotifications />} />
+              <Route path="/mobile/call-logging" element={<CallLogging />} />
+              <Route path="/mobile/gps-tracking" element={<GPSTracking />} />
+              <Route path="/mobile/ip-tracking" element={<IPTracking />} />
+              <Route path="/mobile/device-authorization" element={<DeviceAuthorization />} />
 
               {/* Orders */}
               <Route path="/orders" element={<OrdersList />} />

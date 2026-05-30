@@ -76,7 +76,7 @@ export default function EmployeeDirectory() {
   useEffect(() => {
     fetchEmployees();
 
-    const channel = supabase
+    const profileChannel = supabase
       .channel('public:profiles')
       .on(
         'postgres_changes',
@@ -89,8 +89,26 @@ export default function EmployeeDirectory() {
       )
       .subscribe();
 
+    const sessionChannel = supabase
+      .channel('public:user_sessions')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_sessions' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setSessions(prev => [payload.new, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setSessions(prev => 
+              prev.map(sess => sess.id === payload.new.id ? payload.new : sess)
+            );
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(profileChannel);
+      supabase.removeChannel(sessionChannel);
     };
   }, [isAdmin]);
 
@@ -107,35 +125,62 @@ export default function EmployeeDirectory() {
     const date = new Date(isoString);
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
+    const isYesterday = new Date(now.getTime() - 86400000).toDateString() === date.toDateString();
     
     const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    return isToday ? `Today ${timeStr}` : `${date.toLocaleDateString()} ${timeStr}`;
+    if (isToday) return `Today ${timeStr}`;
+    if (isYesterday) return `Yesterday ${timeStr}`;
+    return `${date.toLocaleDateString()} ${timeStr}`;
   };
-
 
   const getSessionStats = (userId: string) => {
     const userSessions = sessions.filter(s => s.user_id === userId);
     if (userSessions.length === 0) return null;
 
-    const lastLogin = userSessions[0].login_time;
+    // Get the latest session to determine current status
+    const latestSession = userSessions[0];
+    const lastLogin = latestSession.login_time;
     const lastLogout = userSessions.find(s => s.logout_time)?.logout_time || null;
+    const lastActivity = latestSession.last_activity;
     
-    const totalMinutes = userSessions.reduce((acc, curr) => {
-      let mins = curr.duration_minutes || 0;
-      // If session is still active (no logout_time) and it's from today, calculate live duration
-      if (!curr.logout_time && curr.login_time) {
-        const start = new Date(curr.login_time);
-        const now = new Date();
-        mins = Math.max(0, Math.floor((now.getTime() - start.getTime()) / 60000));
+    // Aggregation for today
+    const stats = userSessions.reduce((acc, curr) => {
+      acc.active += curr.active_minutes || 0;
+      acc.idle += curr.idle_minutes || 0;
+      return acc;
+    }, { active: 0, idle: 0 });
+
+    const formatMins = (totalMinutes: number) => {
+      const hours = Math.floor(totalMinutes / 60);
+      const mins = totalMinutes % 60;
+      return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+    };
+
+    // Determine status (Active, Idle, Offline)
+    let status: "Active" | "Idle" | "Offline" = "Offline";
+    
+    // An open session has no logout_time
+    const hasOpenSession = !latestSession.logout_time;
+    
+    if (hasOpenSession) {
+      if (lastActivity) {
+        const lastActiveDate = new Date(lastActivity);
+        const diff = (new Date().getTime() - lastActiveDate.getTime()) / 60000;
+        status = diff < 5 ? "Active" : "Idle";
+      } else {
+        // If no activity tracked yet but session is open, assume Active
+        status = "Active";
       }
-      return acc + mins;
-    }, 0);
+    }
 
-    const hours = Math.floor(totalMinutes / 60);
-    const mins = totalMinutes % 60;
-    const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-
-    return { lastLogin, lastLogout, durationStr };
+    return { 
+      lastLogin, 
+      lastLogout,
+      status,
+      activeStr: formatMins(stats.active),
+      idleStr: formatMins(stats.idle),
+      workStr: formatMins(stats.active) // Work Time = active_minutes
+    };
   };
 
 
@@ -228,8 +273,8 @@ export default function EmployeeDirectory() {
               ? e.full_name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()
               : "?";
             const roleName = e.requested_role ? (ROLE_NAMES[e.requested_role] || e.requested_role) : "Employee";
-            const isOnline = onlineUsers.includes(e.id);
             const stats = isAdmin ? getSessionStats(e.id) : null;
+            const currentStatus = stats?.status || (onlineUsers.includes(e.id) ? "Active" : "Offline");
 
             return (
               <Section key={e.id} className="hover:border-primary/50 transition-colors">
@@ -243,7 +288,10 @@ export default function EmployeeDirectory() {
                       )}
                     </div>
                     {isAdminOrManager && (
-                      <span className={`absolute -bottom-1 -right-1 block h-4 w-4 rounded-full border-2 border-[#0a0a0a] shadow-sm ${isOnline ? 'bg-green-500' : 'bg-gray-600'}`} title={isOnline ? "Online" : "Offline"} />
+                      <span className={`absolute -bottom-1 -right-1 block h-4 w-4 rounded-full border-2 border-[#0a0a0a] shadow-sm ${
+                        currentStatus === 'Active' ? 'bg-green-500' : 
+                        currentStatus === 'Idle' ? 'bg-yellow-500' : 'bg-gray-600'
+                      }`} title={currentStatus} />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -270,7 +318,7 @@ export default function EmployeeDirectory() {
 
                     {isAdmin && (
                       <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-3 mb-2">
                           <div className="space-y-1">
                             <label className="text-[9px] uppercase font-black text-gray-500 tracking-tighter">Last Login</label>
                             <p className="text-[11px] font-bold text-gray-200">{stats ? formatSessionTime(stats.lastLogin) : "-"}</p>
@@ -280,15 +328,31 @@ export default function EmployeeDirectory() {
                             <p className="text-[11px] font-bold text-gray-200">{stats ? formatSessionTime(stats.lastLogout) : "-"}</p>
                           </div>
                         </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-black text-gray-500 tracking-tighter">Active Time</label>
+                            <p className="text-[11px] font-bold text-green-500">{stats?.activeStr || "-"}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-black text-gray-500 tracking-tighter">Idle Time</label>
+                            <p className="text-[11px] font-bold text-yellow-500">{stats?.idleStr || "-"}</p>
+                          </div>
+                        </div>
                         
                         <div className="flex items-center justify-between bg-white/5 rounded-xl p-2.5 px-3 border border-white/5">
                           <div className="flex items-center gap-2">
-                             <div className={`h-1.5 w-1.5 rounded-full animate-pulse ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
-                             <span className="text-[10px] font-black uppercase text-gray-400">{isOnline ? "🟢 Online" : "🔴 Offline"}</span>
+                             <div className={`h-1.5 w-1.5 rounded-full ${
+                               currentStatus === 'Active' ? 'bg-green-500 animate-pulse' : 
+                               currentStatus === 'Idle' ? 'bg-yellow-500' : 'bg-red-500'
+                             }`} />
+                             <span className="text-[10px] font-black uppercase text-gray-400">
+                               {currentStatus === 'Active' ? "🟢 Active" : currentStatus === 'Idle' ? "🟡 Idle" : "🔴 Offline"}
+                             </span>
                           </div>
                           <div className="text-right">
-                             <span className="text-[9px] uppercase font-black text-gray-500 block leading-none mb-0.5">Today's Duration</span>
-                             <span className="text-[11px] font-black text-amber-500">{stats?.durationStr || "0m"}</span>
+                             <span className="text-[9px] uppercase font-black text-gray-500 block leading-none mb-0.5">Work Time</span>
+                             <span className="text-[11px] font-black text-amber-500">{stats?.workStr || "0m"}</span>
                           </div>
                         </div>
                       </div>

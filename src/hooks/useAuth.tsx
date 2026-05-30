@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -41,12 +41,102 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const lastActivityRef = useRef<Date>(new Date());
+  const currentSessionIdRef = useRef<string | null>(null);
+  const [isIdle, setIsIdle] = useState(false);
+
+  // Sync ref with state
+  useEffect(() => {
+    currentSessionIdRef.current = currentSessionId;
+  }, [currentSessionId]);
+
+  const handleUserActivity = () => {
+    lastActivityRef.current = new Date();
+    if (isIdle) setIsIdle(false);
+  };
+
+  // Track activity separate from the main auth useEffect
+  useEffect(() => {
+    if (!session?.user) {
+      console.log('Session tracking skipped: No user');
+      return;
+    }
+
+    console.log('Starting session tracking interval...');
+
+    const interval = setInterval(async () => {
+      const now = new Date();
+      const idleThreshold = 5 * 60 * 1000; // 5 minutes
+      const idleTime = now.getTime() - lastActivityRef.current.getTime();
+      const currentlyIdle = idleTime >= idleThreshold;
+      
+      setIsIdle(currentlyIdle);
+
+      try {
+        // Fetch current values to increment
+        const { data: currentSess, error: fetchErr } = await (supabase
+          .from('user_sessions' as any) as any)
+          .select('active_minutes, idle_minutes')
+          .eq('user_id', session.user.id)
+          .is('logout_time', null)
+          .maybeSingle();
+          
+        if (fetchErr) {
+          console.error('Session timer: Error fetching current minutes', fetchErr);
+          return;
+        }
+
+        if (currentSess) {
+          const newActive = currentlyIdle ? (currentSess.active_minutes || 0) : (currentSess.active_minutes || 0) + 1;
+          const newIdle = currentlyIdle ? (currentSess.idle_minutes || 0) + 1 : (currentSess.idle_minutes || 0);
+
+          const updateData: any = {
+            last_activity: now.toISOString(),
+            active_minutes: newActive,
+            idle_minutes: newIdle
+          };
+          
+          console.log('Updating session...', newActive, newIdle);
+
+          const { error: updateErr } = await (supabase
+            .from('user_sessions' as any) as any)
+            .update(updateData)
+            .eq('user_id', session.user.id)
+            .is('logout_time', null);
+
+          if (updateErr) {
+            console.error('Session timer: Error updating minutes', updateErr);
+          }
+        } else {
+          console.log('Session timer pulse: No active session found to update for this user');
+        }
+      } catch (e) {
+        console.error("Error in session tracking interval:", e);
+      }
+    }, 60000); // Every 1 minute
+
+    // Activity listeners
+    window.addEventListener('mousemove', handleUserActivity);
+    window.addEventListener('keydown', handleUserActivity);
+    window.addEventListener('click', handleUserActivity);
+    window.addEventListener('scroll', handleUserActivity);
+
+    return () => {
+      console.log('Cleaning up session tracking interval...');
+      clearInterval(interval);
+      window.removeEventListener('mousemove', handleUserActivity);
+      window.removeEventListener('keydown', handleUserActivity);
+      window.removeEventListener('click', handleUserActivity);
+      window.removeEventListener('scroll', handleUserActivity);
+    };
+  }, [session?.user]);
+
 
   const loadUserData = async (userId: string) => {
     // 1. Fetch Profile
     const { data: prof } = await supabase
       .from("profiles")
-      .select("id, company_id, full_name, email, avatar_url, status, requested_role, rejection_reason, email_signature, phone")
+      .select("id, company_id, full_name, email, avatar_url, status, requested_role, rejection_reason, phone")
       .eq("id", userId)
       .maybeSingle();
 
@@ -165,12 +255,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let profileSub: ReturnType<typeof supabase.channel> | null = null;
     let rolesSub: ReturnType<typeof supabase.channel> | null = null;
     let presenceChannel: ReturnType<typeof supabase.channel> | null = null;
-    let sessionInterval: NodeJS.Timeout | null = null;
-
-    const setupSessionInterval = (sess: Session | null) => {
-      if (sessionInterval) clearInterval(sessionInterval);
-      // Removed active_sessions logic related to profile selector
-    };
 
     const subscribeRealtime = (uid: string) => {
       // Clean up previous channels using removeChannel to bypass the internal cache
@@ -220,7 +304,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((evt, sess) => {
       console.debug("supabase.onAuthStateChange", { evt, sess });
       setSession(sess);
-      setupSessionInterval(sess);
       if (sess?.user) {
         userId = sess.user.id;
         setTimeout(() => loadUserData(sess.user.id), 0);
@@ -250,7 +333,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(({ data: { session: sess } }) => {
         console.debug("supabase.getSession result", { sess });
         setSession(sess);
-        setupSessionInterval(sess);
         if (sess?.user) {
           userId = sess.user.id;
           loadUserData(sess.user.id).finally(() => setLoading(false));
@@ -266,7 +348,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
     return () => {
-      if (sessionInterval) clearInterval(sessionInterval);
       subscription.unsubscribe();
       if (profileSub) supabase.removeChannel(profileSub);
       if (rolesSub) supabase.removeChannel(rolesSub);

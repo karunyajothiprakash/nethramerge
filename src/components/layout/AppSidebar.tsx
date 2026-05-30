@@ -25,7 +25,7 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
     setOpenGroups((prev) => (prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title]));
 
   const allowedSecretaryGroups = new Set(["dashboards", "quotations", "documents", "finance", "tally", "accounts"]);
-  const allowedBdeGroups = new Set(["dashboards", "crm", "quotations", "documents", "system"]);
+  const allowedBdeGroups = new Set(["dashboards", "crm", "mobile crm", "quotations", "documents", "system"]);
 
   // Filter items by permission (if no permission set, always visible)
   const visibleGroups = navGroups

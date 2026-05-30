@@ -12,7 +12,8 @@ import {
   FileSpreadsheet, FileBox, Award, BookOpen, Eye,
   Wallet, Receipt, AlertCircle, BarChart3, Coins,
   UsersRound, CalendarCheck, ShieldCheck,
-  Bell, ScrollText, CreditCard, Settings, Mail, MinusSquare, Trash2, Inbox
+  Bell, ScrollText, CreditCard, Settings, Mail, MinusSquare, Trash2, Inbox,
+  Smartphone, Activity, ShieldAlert, Monitor, PhoneCall, Key, MessageSquare, Database, Globe
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
@@ -56,13 +57,37 @@ export const navGroups: NavGroup[] = [
     title: "CRM",
     icon: Users,
     items: [
-      { title: "Activities", url: "/crm/activities", icon: CalendarCheck, permission: "farmers.view" },
+      { title: "Dashboard", url: "/crm/dashboard", icon: LayoutDashboard, permission: "farmers.view" },
       { title: "Leads", url: "/crm/leads", icon: UserCheck, permission: "farmers.view" },
+      { title: "Activities", url: "/crm/activities", icon: CalendarCheck, permission: "farmers.view" },
       { title: "Follow-Ups", url: "/crm/follow-ups", icon: CalendarCheck, permission: "farmers.view" },
       { title: "Pipeline", url: "/crm/pipeline", icon: GitBranch, permission: "farmers.view" },
       { title: "Email Integration", url: "/crm/email", icon: Mail, permission: "farmers.view" },
+      { title: "Tasks", url: "/crm/tasks", icon: ClipboardCheck, permission: "farmers.view" },
+      { title: "Security", url: "/crm/security", icon: ShieldCheck, permission: "farmers.view" },
+      { title: "Mobile CRM", url: "/crm/mobile-crm", icon: Smartphone, permission: "farmers.view" },
+      { title: "Client Acquisition", url: "/crm/client-acquisition", icon: UserPlus, permission: "farmers.view" },
+      { title: "Advanced Security", url: "/crm/advanced-security", icon: ShieldAlert, permission: "farmers.view" },
+      { title: "Reports", url: "/crm/reports", icon: BarChart3, permission: "farmers.view" },
+      { title: "Performance", url: "/crm/performance", icon: TrendingUp, permission: "farmers.view" },
+      { title: "Communication", url: "/crm/communication", icon: MessageSquare, permission: "farmers.view" },
+      { title: "Customer Database", url: "/crm/customer-database", icon: Database, permission: "farmers.view" },
+      { title: "Employee Activity", url: "/crm/employee-activity", icon: Activity, permission: "farmers.view" },
+      { title: "Screen Monitor", url: "/crm/screen-monitor", icon: Monitor, permission: "farmers.view" },
       { title: "Zoho API Sync", url: "/system/integrations/zoho", icon: Mail, permission: "farmers.view" },
       { title: "Mailbox", url: "/system/mailbox", icon: Inbox, permission: "farmers.view" },
+    ],
+  },
+  {
+    title: "Mobile CRM",
+    icon: Smartphone,
+    items: [
+      { title: "Mobile Login", url: "/mobile/login", icon: Key, permission: "farmers.view" },
+      { title: "Push Notifications", url: "/mobile/push-notifications", icon: Bell, permission: "farmers.view" },
+      { title: "Call Logging", url: "/mobile/call-logging", icon: PhoneCall, permission: "farmers.view" },
+      { title: "GPS Tracking", url: "/mobile/gps-tracking", icon: MapPin, permission: "farmers.view" },
+      { title: "IP Tracking", url: "/mobile/ip-tracking", icon: Globe, permission: "farmers.view" },
+      { title: "Device Authorization", url: "/mobile/device-authorization", icon: ShieldCheck, permission: "farmers.view" },
     ],
   },
 
