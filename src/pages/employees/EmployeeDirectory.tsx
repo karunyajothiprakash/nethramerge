@@ -32,26 +32,43 @@ const ROLE_NAMES: Record<string, string> = {
   secretary: "Secretary",
 };
 
+
 export default function EmployeeDirectory() {
-  const { onlineUsers } = useAuth();
+  const { onlineUsers, roleSlugs } = useAuth();
   const isAdminOrManager = useIsAdminOrManager();
+  const isAdmin = Array.from(roleSlugs).map(s => s.toLowerCase()).includes("admin");
   const [employees, setEmployees] = useState<ProfileRow[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [copied, setCopied] = useState(false);
 
   const fetchEmployees = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data: empls, error: empErr } = await supabase
       .from("profiles")
       .select("id, full_name, email, phone, requested_role, status, is_active, avatar_url, biometric_id")
       .eq("status", "approved")
       .order("full_name");
 
-    if (error) {
-      toast.error(error.message);
+    if (empErr) {
+      toast.error(empErr.message);
     } else {
-      setEmployees((data as ProfileRow[]) || []);
+      setEmployees((empls as ProfileRow[]) || []);
+      
+      // If admin, also fetch today's sessions
+      if (isAdmin) {
+        const todayStartsAt = new Date();
+        todayStartsAt.setHours(0, 0, 0, 0);
+        
+        const { data: sessData } = await (supabase
+          .from("user_sessions" as any) as any)
+          .select("*")
+          .gte("login_time", todayStartsAt.toISOString())
+          .order("login_time", { ascending: false });
+        
+        if (sessData) setSessions(sessData);
+      }
     }
     setLoading(false);
   };
@@ -75,7 +92,7 @@ export default function EmployeeDirectory() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [isAdmin]);
 
   const handleCopyLink = () => {
     const link = `${window.location.origin}/auth`;
@@ -84,6 +101,43 @@ export default function EmployeeDirectory() {
     toast.success("Registration link copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const formatSessionTime = (isoString: string | null) => {
+    if (!isoString) return "-";
+    const date = new Date(isoString);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    
+    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    return isToday ? `Today ${timeStr}` : `${date.toLocaleDateString()} ${timeStr}`;
+  };
+
+
+  const getSessionStats = (userId: string) => {
+    const userSessions = sessions.filter(s => s.user_id === userId);
+    if (userSessions.length === 0) return null;
+
+    const lastLogin = userSessions[0].login_time;
+    const lastLogout = userSessions.find(s => s.logout_time)?.logout_time || null;
+    
+    const totalMinutes = userSessions.reduce((acc, curr) => {
+      let mins = curr.duration_minutes || 0;
+      // If session is still active (no logout_time) and it's from today, calculate live duration
+      if (!curr.logout_time && curr.login_time) {
+        const start = new Date(curr.login_time);
+        const now = new Date();
+        mins = Math.max(0, Math.floor((now.getTime() - start.getTime()) / 60000));
+      }
+      return acc + mins;
+    }, 0);
+
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+    return { lastLogin, lastLogout, durationStr };
+  };
+
 
   const filteredEmployees = employees.filter(
     (e) =>
@@ -175,12 +229,13 @@ export default function EmployeeDirectory() {
               : "?";
             const roleName = e.requested_role ? (ROLE_NAMES[e.requested_role] || e.requested_role) : "Employee";
             const isOnline = onlineUsers.includes(e.id);
+            const stats = isAdmin ? getSessionStats(e.id) : null;
 
             return (
               <Section key={e.id} className="hover:border-primary/50 transition-colors">
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-4">
                   <div className="relative shrink-0">
-                    <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-lg overflow-hidden border border-primary/20">
+                    <div className="h-14 w-14 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-xl overflow-hidden border border-amber-500/20 shadow-lg">
                       {e.avatar_url ? (
                         <img src={e.avatar_url} alt={e.full_name || "Avatar"} className="h-full w-full object-cover" />
                       ) : (
@@ -188,40 +243,67 @@ export default function EmployeeDirectory() {
                       )}
                     </div>
                     {isAdminOrManager && (
-                      isOnline ? (
-                        <span className="absolute bottom-0 right-0 block h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-background shadow-sm" title="Online" />
-                      ) : (
-                        <span className="absolute bottom-0 right-0 block h-3.5 w-3.5 rounded-full bg-muted-foreground border-2 border-background shadow-sm" title="Offline" />
-                      )
+                      <span className={`absolute -bottom-1 -right-1 block h-4 w-4 rounded-full border-2 border-[#0a0a0a] shadow-sm ${isOnline ? 'bg-green-500' : 'bg-gray-600'}`} title={isOnline ? "Online" : "Offline"} />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="font-semibold truncate" title={e.full_name || "Unknown"}>
+                      <div className="font-bold text-[15px] truncate text-gray-100" title={e.full_name || "Unknown"}>
                         {e.full_name || "Unknown"}
                       </div>
                       {isAdminOrManager && !e.is_active && <StatusBadge status="Inactive" />}
                     </div>
-                    <div className="text-xs font-medium text-muted-foreground bg-muted inline-flex px-2 py-0.5 rounded mb-3">
+                    <div className="text-[10px] font-black text-amber-500/80 bg-amber-500/5 inline-flex px-2 py-0.5 rounded border border-amber-500/10 mb-3 uppercase tracking-wider">
                       {roleName}
                     </div>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex items-center gap-2 text-muted-foreground group">
-                        <Mail className="h-3.5 w-3.5 shrink-0 group-hover:text-primary transition-colors" />
+                    
+                    <div className="space-y-2.5 text-xs">
+                      <div className="flex items-center gap-2.5 text-gray-400 group">
+                        <Mail className="h-3.5 w-3.5 shrink-0 group-hover:text-amber-500 transition-colors" />
                         <span className="truncate" title={e.email || "N/A"}>{e.email || "N/A"}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-muted-foreground group">
-                        <Phone className="h-3.5 w-3.5 shrink-0 group-hover:text-primary transition-colors" />
+                      <div className="flex items-center gap-2.5 text-gray-400 group">
+                        <Phone className="h-3.5 w-3.5 shrink-0 group-hover:text-amber-500 transition-colors" />
                         <span>{e.phone || "N/A"}</span>
                       </div>
                     </div>
+
+                    {isAdmin && (
+                      <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-black text-gray-500 tracking-tighter">Last Login</label>
+                            <p className="text-[11px] font-bold text-gray-200">{stats ? formatSessionTime(stats.lastLogin) : "-"}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase font-black text-gray-500 tracking-tighter">Last Logout</label>
+                            <p className="text-[11px] font-bold text-gray-200">{stats ? formatSessionTime(stats.lastLogout) : "-"}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between bg-white/5 rounded-xl p-2.5 px-3 border border-white/5">
+                          <div className="flex items-center gap-2">
+                             <div className={`h-1.5 w-1.5 rounded-full animate-pulse ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
+                             <span className="text-[10px] font-black uppercase text-gray-400">{isOnline ? "🟢 Online" : "🔴 Offline"}</span>
+                          </div>
+                          <div className="text-right">
+                             <span className="text-[9px] uppercase font-black text-gray-500 block leading-none mb-0.5">Today's Duration</span>
+                             <span className="text-[11px] font-black text-amber-500">{stats?.durationStr || "0m"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {isAdminOrManager && (
-                      <div className="mt-3 pt-3 border-t border-border/50">
-                        <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">eSSL Machine ID</div>
+                      <div className="mt-4 pt-4 border-t border-white/5 opacity-50 hover:opacity-100 transition-opacity">
+                        <div className="text-[10px] uppercase font-bold text-gray-500 mb-1.5 flex justify-between items-center px-1">
+                           <span>eSSL ID</span>
+                           <span className="text-[9px] font-normal lowercase opacity-50 italic">biometric reference</span>
+                        </div>
                         <Input
                           size={1}
-                          className="h-7 text-xs bg-muted/50"
-                          placeholder="e.g. 101"
+                          className="h-8 text-xs bg-[#1a1a1a] border-white/5 font-mono text-amber-500"
+                          placeholder="Machine ID..."
                           defaultValue={e.biometric_id || ""}
                           onBlur={async (event) => {
                             const val = event.target.value.trim();
@@ -244,3 +326,4 @@ export default function EmployeeDirectory() {
     </div>
   );
 }
+

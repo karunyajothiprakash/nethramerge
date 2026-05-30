@@ -32,6 +32,7 @@ type AuthCtx = {
 
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -39,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roleSlugs, setRoleSlugs] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   const loadUserData = async (userId: string) => {
     // 1. Fetch Profile
@@ -84,6 +86,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPermissions(codes);
     setRoleSlugs(slugs);
   };
+
+
+
+  const startSession = async (user: User) => {
+    if (typeof window === 'undefined') return;
+    
+    // First check if there's ALREADY a session with null logout_time to avoid duplicates
+    const { data: existing } = await (supabase
+      .from('user_sessions' as any) as any)
+      .select('id')
+      .eq('user_id', user.id)
+      .is('logout_time', null)
+      .maybeSingle();
+
+    if (existing) {
+      setCurrentSessionId(existing.id);
+      return;
+    }
+
+    try {
+      const { data, error } = await (supabase
+        .from('user_sessions' as any) as any)
+        .insert({
+          user_id: user.id,
+          email: user.email,
+          login_time: new Date().toISOString()
+        })
+        .select('id')
+        .single();
+      
+      if (!error && data) {
+        setCurrentSessionId((data as any).id);
+      }
+    } catch (e) {
+      console.error("Error starting session:", e);
+    }
+  };
+
+  const endSession = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: loginRecord } = await (supabase
+        .from('user_sessions' as any) as any)
+        .select('*')
+        .eq('user_id', user.id)
+        .is('logout_time', null)
+        .order('login_time', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (loginRecord) {
+        const logoutTime = new Date();
+        const loginTime = new Date(loginRecord.login_time);
+        const durationMinutes = Math.round((logoutTime.getTime() - loginTime.getTime()) / 60000);
+
+        await (supabase
+          .from('user_sessions' as any) as any)
+          .update({
+            logout_time: logoutTime.toISOString(),
+            duration_minutes: durationMinutes
+          })
+          .eq('id', loginRecord.id);
+          
+        setCurrentSessionId(null);
+      }
+    } catch (e) {
+      console.error("Error ending session:", e);
+    }
+  };
+
+
 
   useEffect(() => {
     let userId: string | null = null;
@@ -143,9 +218,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((evt, sess) => {
-      // Debug: log auth state changes to help diagnose PKCE/token exchange issues
-      // (temporary - remove after debugging)
-      // eslint-disable-next-line no-console
       console.debug("supabase.onAuthStateChange", { evt, sess });
       setSession(sess);
       setupSessionInterval(sess);
@@ -153,6 +225,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userId = sess.user.id;
         setTimeout(() => loadUserData(sess.user.id), 0);
         subscribeRealtime(sess.user.id);
+        
+        // Track session login
+        if (evt === 'SIGNED_IN' || evt === 'INITIAL_SESSION') {
+          startSession(sess.user);
+        }
       } else {
         userId = null;
         if (profileSub) supabase.removeChannel(profileSub);
@@ -162,13 +239,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPermissions(new Set());
         setRoleSlugs(new Set());
         setOnlineUsers([]);
+        
+        if (evt === 'SIGNED_OUT') {
+          endSession();
+        }
       }
     });
 
     supabase.auth.getSession()
       .then(({ data: { session: sess } }) => {
-        // Debug: log initial session fetch
-        // eslint-disable-next-line no-console
         console.debug("supabase.getSession result", { sess });
         setSession(sess);
         setupSessionInterval(sess);
@@ -176,12 +255,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           userId = sess.user.id;
           loadUserData(sess.user.id).finally(() => setLoading(false));
           subscribeRealtime(sess.user.id);
+          startSession(sess.user);
         } else {
           setLoading(false);
         }
       })
       .catch((err) => {
-        // eslint-disable-next-line no-console
         console.error("supabase.getSession error", err);
         setLoading(false);
       });
@@ -200,7 +279,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    // Session tracking via active_sessions is removed
+    await endSession();
     await supabase.auth.signOut();
   };
 
@@ -210,6 +289,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </Ctx.Provider>
   );
 }
+
 
 export function useAuth() {
   const ctx = useContext(Ctx);
