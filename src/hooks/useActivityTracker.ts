@@ -1,63 +1,46 @@
 import { useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
-// Session ID unique to this tab session
 const SESSION_ID = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
 export function useActivityTracker(moduleName: string) {
   const { user, profile } = useAuth();
-  
+
   const lastMouseLogRef = useRef<number>(0);
   const lastKeyLogRef = useRef<number>(0);
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const throttleMs = 30000; // 30 seconds
-  const idleLimitMs = 300000; // 5 minutes
+
+  const throttleMs = 30000;
+  const idleLimitMs = 300000;
 
   useEffect(() => {
     if (!user) return;
 
-    const userName = profile?.full_name || user.email || "Unknown BDE";
+    const userName = profile?.full_name || user.email || "Unknown";
     const userId = user.id;
 
-    // 1. Log page_visit on mount
-    const logPageVisit = async () => {
-      await supabase.from("activity_logs").insert({
-        user_id: userId,
-        user_name: userName,
-        module: moduleName,
-        event_type: "page_visit",
-        session_id: SESSION_ID,
-      });
-    };
-
-    logPageVisit();
-
-    // 2. Throttle Logging Functions
-    const logEvent = async (eventType: "mouse_move" | "keypress" | "idle") => {
-      await supabase.from("activity_logs").insert({
+    const logEvent = async (eventType: string) => {
+      // "as any" — TypeScript type bypass பண்றோம்
+      const { error } = await (supabase.from("activity_logs") as any).insert({
         user_id: userId,
         user_name: userName,
         module: moduleName,
         event_type: eventType,
         session_id: SESSION_ID,
       });
+      if (error) console.error(`[ActivityTracker] ${eventType} error:`, error.message);
     };
 
-    // 3. Reset Idle Timeout helper
+    logEvent("page_visit");
+
     const resetIdleTimer = () => {
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      
-      idleTimerRef.current = setTimeout(() => {
-        logEvent("idle");
-      }, idleLimitMs);
+      idleTimerRef.current = setTimeout(() => logEvent("idle"), idleLimitMs);
     };
 
-    // Initialize first idle timer
     resetIdleTimer();
 
-    // 4. Input Handlers
     const handleMouseMove = () => {
       resetIdleTimer();
       const now = Date.now();
@@ -76,7 +59,6 @@ export function useActivityTracker(moduleName: string) {
       }
     };
 
-    // 5. Attach listeners to window
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("keypress", handleKeyPress);
 
