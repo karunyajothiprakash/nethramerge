@@ -105,6 +105,7 @@ async function runSync() {
     }
 
     // 5. Group punches by EmployeeCode and Date (YYYY-MM-DD)
+    // Now stores Direction alongside each punch time
     const punchesByGroup = {};
     let latestPunchTimeInBatch = sinceDate;
 
@@ -120,6 +121,10 @@ async function runSync() {
       const timezoneOffsetMs = rawDate.getTimezoneOffset() * 60 * 1000;
       const logDateTime = new Date(rawDate.getTime() + timezoneOffsetMs);
       
+      // Normalize direction: 'in' or 'out' (some devices use 0/1, some use strings)
+      const rawDir = (punch.Direction || '').toString().toLowerCase().trim();
+      const direction = (rawDir === 'in' || rawDir === '0') ? 'in' : 'out';
+      
       // Update our high-water mark sync timestamp
       if (logDateTime > latestPunchTimeInBatch) {
         latestPunchTimeInBatch = logDateTime;
@@ -133,10 +138,10 @@ async function runSync() {
         punchesByGroup[key] = {
           empCode,
           dateStr,
-          times: []
+          punches: []  // { time, direction }
         };
       }
-      punchesByGroup[key].times.push(logDateTime);
+      punchesByGroup[key].punches.push({ time: logDateTime, direction });
     }
 
     // 6. Process and sync groups to Supabase
@@ -158,20 +163,33 @@ async function runSync() {
         continue;
       }
 
-      // Sort punch times for this day
-      group.times.sort((a, b) => a - b);
+      // Separate IN and OUT punches
+      const inPunches = group.punches.filter(p => p.direction === 'in').map(p => p.time).sort((a, b) => a - b);
+      const outPunches = group.punches.filter(p => p.direction === 'out').map(p => p.time).sort((a, b) => a - b);
+      const allTimes = group.punches.map(p => p.time).sort((a, b) => a - b);
+
+      // Determine clock_in: earliest IN punch, or earliest punch if no IN punches exist
+      // If this batch ONLY has OUT punches, clockIn is null (don't overwrite existing)
+      let clockIn = inPunches.length > 0 ? inPunches[0] : null;
+      const hasOnlyOutPunches = inPunches.length === 0 && outPunches.length > 0;
       
-      const clockIn = group.times[0];
-      // and at least 15 minutes (900000 ms) after the clock in to prevent double-punch/testing errors
-      let clockOut = null;
-      if (group.times.length > 1) {
-        const lastPunch = group.times[group.times.length - 1];
+      // If no direction info is useful (all same), fall back to first = in, last = out
+      if (!clockIn && !hasOnlyOutPunches && allTimes.length > 0) {
+        clockIn = allTimes[0];
+      }
+      
+      // Determine clock_out: latest OUT punch, or latest punch if > 15 min after clockIn
+      let clockOut = outPunches.length > 0 ? outPunches[outPunches.length - 1] : null;
+      
+      // If no explicit OUT punches, use the last punch if it's 15+ min after clockIn
+      if (!clockOut && clockIn && allTimes.length > 1) {
+        const lastPunch = allTimes[allTimes.length - 1];
         if (lastPunch.getTime() - clockIn.getTime() >= 15 * 60 * 1000) {
           clockOut = lastPunch;
         }
       }
 
-      const clockInIso = clockIn.toISOString();
+      const clockInIso = clockIn ? clockIn.toISOString() : null;
       const clockOutIso = clockOut ? clockOut.toISOString() : null;
 
       // Helper to display time in local timezone in the console logs
@@ -198,19 +216,26 @@ async function runSync() {
 
       if (existing) {
         // CRITICAL FIX: Always keep the EARLIEST clock_in.
-        // When a new sync batch only contains a later punch (e.g. lunch-out),
-        // the new clockIn would wrongly overwrite the real morning clock_in.
-        let finalClockIn = clockInIso;
-        if (existing.clock_in) {
+        // When a new sync batch only contains OUT punches, 
+        // clockIn will be null — preserve the existing morning clock_in.
+        let finalClockIn = existing.clock_in || clockInIso;
+        if (clockInIso && existing.clock_in) {
           const existingClockInMs = new Date(existing.clock_in).getTime();
-          if (existingClockInMs < clockIn.getTime()) {
+          const newClockInMs = new Date(clockInIso).getTime();
+          if (existingClockInMs < newClockInMs) {
             // Existing clock_in is earlier — keep it
             finalClockIn = existing.clock_in;
             console.log(`🔒 Keeping earlier clock_in [${existing.clock_in}] over new [${clockInIso}]`);
+          } else {
+            finalClockIn = clockInIso;
           }
+        } else if (!clockInIso) {
+          // Batch has only OUT punches — keep existing clock_in
+          finalClockIn = existing.clock_in;
+          console.log(`🔒 Batch has only OUT punches — keeping existing clock_in [${existing.clock_in}]`);
         }
 
-        // For clock_out: keep the LATEST punch if it's more than 15 mins after finalClockIn
+        // For clock_out: keep the LATEST punch
         let finalClockOut = clockOutIso;
         if (!finalClockOut && existing.clock_out) {
           // No new clock_out in this batch — preserve the existing one
