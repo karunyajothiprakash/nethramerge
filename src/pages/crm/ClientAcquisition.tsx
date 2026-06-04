@@ -203,6 +203,45 @@ export default function ClientAcquisition() {
         toast.success("New record added");
       }
 
+      // Automation: if moved to final acquisition stage, promote to conversions/customers
+      if (payload.status === "Client Successfully Acquired") {
+        try {
+          // 1) Update the original lead to stage 'Won' if it exists
+          if (payload.lead_id) {
+            await supabase.from('leads' as any).update({ stage: 'Won' }).eq('id', payload.lead_id);
+          }
+
+          // 2) Add to customers directory if not already present
+          const { data: { session } } = await supabase.auth.getSession();
+          const userId = session?.user?.id;
+          let companyId: string | null = null;
+          if (userId) {
+            const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', userId).single();
+            companyId = profile?.company_id || null;
+          }
+
+          // Obtain lead details for email/country fallback
+          const leadInfo = leads.find(l => l.id === payload.lead_id) || null;
+
+          // Only insert if not already existing (by name)
+          const existing = await supabase.from('customers' as any).select('id').eq('name', payload.client_name).maybeSingle();
+          if (!existing.data) {
+            await supabase.from('customers' as any).insert([{ 
+              name: payload.client_name,
+              country: payload.country || leadInfo?.country || null,
+              email: leadInfo?.email || null,
+              phone: null,
+              notes: `Auto-created from Client Acquisition (lead: ${payload.lead_id || 'unknown'})`,
+              company_id: companyId || null,
+              created_by: userId || null
+            }]);
+          }
+        } catch (err: any) {
+          console.error('Automation error:', err);
+          // don't block main flow
+        }
+      }
+
       setIsDialogOpen(false);
       resetForm();
       fetchData();

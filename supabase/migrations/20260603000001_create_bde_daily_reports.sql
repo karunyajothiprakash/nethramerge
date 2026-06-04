@@ -14,10 +14,8 @@ CREATE TABLE IF NOT EXISTS public.bde_daily_reports (
     created_at timestamp with time zone DEFAULT now()
 );
 
--- Enable RLS
 ALTER TABLE public.bde_daily_reports ENABLE ROW LEVEL SECURITY;
 
--- Policies
 CREATE POLICY "Users can insert their own reports" ON public.bde_daily_reports
     FOR INSERT WITH CHECK (auth.uid() = bde_id);
 
