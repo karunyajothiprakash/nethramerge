@@ -63,6 +63,7 @@ export const navGroups: NavGroup[] = [
       { title: "Client Acquisition", url: "/crm/client-acquisition", icon: UserPlus, permission: "farmers.view" },
       { title: "Successful Conversation", url: "/crm/convert", icon: BadgeCheck, permission: "farmers.view" },
       { title: "Client Success", url: "/crm/customers", icon: Award, permission: "farmers.view" },
+      { title: "Follow-Ups", url: "/crm/follow-ups", icon: CalendarCheck, permission: "farmers.view" },
       { title: "Customer Database", url: "/crm/customer-database", icon: Database, permission: "farmers.view" },
       { title: "Task", url: "/crm/tasks", icon: ClipboardCheck, permission: "farmers.view" },
       { title: "Performance", url: "/crm/performance", icon: TrendingUp, permission: "farmers.view" },
@@ -73,6 +74,8 @@ export const navGroups: NavGroup[] = [
       { title: "Security", url: "/crm/security", icon: ShieldCheck, permission: "farmers.view" },
       { title: "Advanced Security", url: "/crm/advanced-security", icon: ShieldAlert, permission: "farmers.view" },
       { title: "Zoho API Sync", url: "/system/integrations/zoho", icon: Mail, permission: "farmers.view" },
+      { title: "Screen Monitor", url: "/crm/screen-monitor", icon: Monitor, permission: "farmers.view" },
+      { title: "Employee Activity", url: "/crm/employee-activity", icon: Activity, permission: "farmers.view" },
     ],
   },
   {
