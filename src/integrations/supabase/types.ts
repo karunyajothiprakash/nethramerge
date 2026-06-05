@@ -69,17 +69,13 @@ export type Database = {
           rejection_reason: string | null
           email_signature: string | null
           phone: string | null
-<<<<<<< HEAD
           biometric_id: string | null
           monthly_salary: number | null
           punch_deadline: string | null
-=======
->>>>>>> 75a1f13 (screen tracking)
           created_at?: string | null
           updated_at?: string | null
         }
         Insert: {
-<<<<<<< HEAD
           id: string
           company_id?: string | null
           full_name?: string | null
@@ -153,30 +149,33 @@ export type Database = {
           is_excused?: boolean
           created_at?: string
           updated_at?: string
-=======
+        }
+        Relationships: []
+      }
+      screen_signals: {
+        Row: {
           id: string
-          company_id?: string | null
-          full_name?: string | null
-          email?: string | null
-          avatar_url?: string | null
-          status?: string | null
-          requested_role?: string | null
-          rejection_reason?: string | null
-          email_signature?: string | null
-          phone?: string | null
+          from_user_id: string
+          to_user_id: string
+          signal_type: string
+          payload: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          from_user_id: string
+          to_user_id: string
+          signal_type: string
+          payload: string
+          created_at?: string
         }
         Update: {
           id?: string
-          company_id?: string | null
-          full_name?: string | null
-          email?: string | null
-          avatar_url?: string | null
-          status?: string | null
-          requested_role?: string | null
-          rejection_reason?: string | null
-          email_signature?: string | null
-          phone?: string | null
->>>>>>> 75a1f13 (screen tracking)
+          from_user_id?: string
+          to_user_id?: string
+          signal_type?: string
+          payload?: string
+          created_at?: string
         }
         Relationships: []
       }

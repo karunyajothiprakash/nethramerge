@@ -26,23 +26,44 @@ interface ActivityLog {
   created_at: string;
 }
 
+const RTC_CONFIG: RTCConfiguration = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    {
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+  ],
+};
+
 // ── WebRTC Live Viewer Modal ──────────────────────────────────────────────────
 function LiveViewerModal({ targetUser, onClose }: { targetUser: BdeStatus; onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
-  const [status, setStatus] = useState<"connecting" | "live" | "failed">("connecting");
+  const [status, setStatus] = useState<"connecting" | "live" | "loading" | "failed">("connecting");
   const adminId = useRef(`admin_${Date.now()}`);
 
   useEffect(() => {
-    const pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-    });
+    const pc = new RTCPeerConnection(RTC_CONFIG);
     pcRef.current = pc;
 
     pc.ontrack = (e) => {
       if (videoRef.current && e.streams[0]) {
         videoRef.current.srcObject = e.streams[0];
-        setStatus("live");
+        setStatus("loading");
+        // Force play
+        videoRef.current.play().catch(() => {});
       }
     };
 
@@ -63,7 +84,6 @@ function LiveViewerModal({ targetUser, onClose }: { targetUser: BdeStatus; onClo
       }
     };
 
-    // Send watch request to BDE
     const requestWatch = async () => {
       await (supabase.from("screen_signals") as any).insert({
         from_user_id: adminId.current,
@@ -75,7 +95,6 @@ function LiveViewerModal({ targetUser, onClose }: { targetUser: BdeStatus; onClo
 
     requestWatch();
 
-    // Listen for answer from BDE
     const channel = supabase
       .channel(`viewer_${adminId.current}`)
       .on("postgres_changes", {
@@ -104,10 +123,9 @@ function LiveViewerModal({ targetUser, onClose }: { targetUser: BdeStatus; onClo
       })
       .subscribe();
 
-    // Timeout — 15s
     const timeout = setTimeout(() => {
-      if (status === "connecting") setStatus("failed");
-    }, 15000);
+      setStatus((prev) => prev === "connecting" ? "failed" : prev);
+    }, 30000);
 
     return () => {
       pc.close();
@@ -116,17 +134,36 @@ function LiveViewerModal({ targetUser, onClose }: { targetUser: BdeStatus; onClo
     };
   }, [targetUser.id]);
 
+  // Video event handlers
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      videoRef.current.play().catch(() => {});
+      setStatus("live");
+    }
+  };
+
+  const handleCanPlay = () => {
+    if (videoRef.current) {
+      videoRef.current.play().catch(() => {});
+      setStatus("live");
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
       <div className="w-full max-w-4xl mx-4 bg-card border border-border rounded-2xl overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-neutral-900/60">
           <div className="flex items-center gap-3">
-            <div className={`w-2 h-2 rounded-full ${status === "live" ? "bg-emerald-500 animate-pulse" : status === "connecting" ? "bg-amber-500 animate-pulse" : "bg-red-500"}`} />
+            <div className={`w-2 h-2 rounded-full ${status === "live" ? "bg-emerald-500 animate-pulse" : status === "connecting" || status === "loading" ? "bg-amber-500 animate-pulse" : "bg-red-500"}`} />
             <span className="text-sm font-semibold text-foreground">{targetUser.name}</span>
             <span className="text-[10px] text-muted-foreground">{targetUser.role}</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${status === "live" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : status === "connecting" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
-              {status === "live" ? "● LIVE" : status === "connecting" ? "Connecting..." : "Failed"}
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+              status === "live" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+              : status === "connecting" || status === "loading" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+              : "bg-red-500/10 text-red-400 border border-red-500/20"
+            }`}>
+              {status === "live" ? "● LIVE" : status === "loading" ? "Buffering..." : status === "connecting" ? "Connecting..." : "Failed"}
             </span>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-neutral-800 transition-colors">
@@ -143,6 +180,12 @@ function LiveViewerModal({ targetUser, onClose }: { targetUser: BdeStatus; onClo
               <p className="text-xs text-muted-foreground opacity-60">The user must have screen sharing active</p>
             </div>
           )}
+          {status === "loading" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <RefreshCw className="h-10 w-10 text-primary animate-spin" />
+              <p className="text-sm text-muted-foreground">Loading {targetUser.name}'s screen...</p>
+            </div>
+          )}
           {status === "failed" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
               <ShieldAlert className="h-10 w-10 text-red-400" />
@@ -155,7 +198,9 @@ function LiveViewerModal({ targetUser, onClose }: { targetUser: BdeStatus; onClo
             autoPlay
             playsInline
             muted
-            className={`w-full h-full object-contain ${status === "live" ? "opacity-100" : "opacity-0"}`}
+            onLoadedMetadata={handleLoadedMetadata}
+            onCanPlay={handleCanPlay}
+            className={`w-full h-full object-contain transition-opacity duration-300 ${status === "live" ? "opacity-100" : "opacity-0"}`}
           />
         </div>
 
@@ -193,12 +238,9 @@ function useScreenBroadcaster(userId: string | undefined, stream: MediaStream | 
         if (sig.signal_type === "watch_request") {
           const adminId = sig.from_user_id;
 
-          const pc = new RTCPeerConnection({
-            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-          });
+          const pc = new RTCPeerConnection(RTC_CONFIG);
           pcsRef.current.set(adminId, pc);
 
-          // Add screen tracks
           stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
           pc.onicecandidate = async (e) => {
@@ -251,17 +293,14 @@ export default function ScreenMonitor() {
   const [loading, setLoading] = useState(true);
   const [watchingUser, setWatchingUser] = useState<BdeStatus | null>(null);
 
-  // Get current user's screen stream from ProtectedRoute (stored globally)
   const [myStream, setMyStream] = useState<MediaStream | null>(null);
   const [myUserId, setMyUserId] = useState<string | undefined>();
 
   useEffect(() => {
-    // Get session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) setMyUserId(session.user.id);
     });
 
-    // Get screen stream if available
     const checkStream = () => {
       const s = (window as any).__screenStream;
       if (s) setMyStream(s);
@@ -271,7 +310,6 @@ export default function ScreenMonitor() {
     return () => clearInterval(interval);
   }, []);
 
-  // Broadcast this user's screen to any admin who requests
   useScreenBroadcaster(myUserId, myStream);
 
   const fetchInitialData = async () => {

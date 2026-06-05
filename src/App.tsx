@@ -127,6 +127,7 @@ import FinancialReports from "./pages/payments/FinancialReports";
 import EmployeeDirectory from "./pages/employees/EmployeeDirectory";
 import Attendance from "./pages/employees/Attendance";
 import RolesPermissions from "./pages/employees/RolesPermissions";
+import FaceAttendance from "./pages/FaceAttendance.tsx";
 
 // System
 import Notifications from "./pages/system/Notifications";
@@ -150,7 +151,7 @@ const DashboardRedirect = () => {
   const isBde = slugs.includes("bd") ||
     slugs.includes("bde") ||
     (profile?.requested_role && ["bd", "bde"].includes(profile.requested_role.toLowerCase()));
-    
+
   if (isAdmin) return <Navigate to="/dashboards/executive" replace />;
   if (isSecretary) return <Navigate to="/dashboards/finance-tally" replace />;
   if (isBde) return <Navigate to="/dashboards/bde" replace />;
@@ -206,7 +207,7 @@ const App = () => (
               <Route path="/dashboards/sales" element={<SalesAnalytics />} />
               <Route path="/dashboards/shipments" element={<ShipmentAnalytics />} />
               <Route path="/dashboards/financial" element={<FinancialOverview />} />
-              <Route path="/dashboards/employees" element={<EmployeeProductivity />} /> 
+              <Route path="/dashboards/employees" element={<EmployeeProductivity />} />
 
               {/* Farmers */}
               <Route path="/farmers" element={<FarmersList />} />
@@ -314,6 +315,7 @@ const App = () => (
               {/* Employees */}
               <Route path="/employees" element={<EmployeeDirectory />} />
               <Route path="/employees/attendance" element={<Attendance />} />
+              <Route path="/employees/face-attendance" element={<FaceAttendance />} />
               <Route path="/employees/roles" element={<RolesPermissions />} />
 
               {/* System */}
