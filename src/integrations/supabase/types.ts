@@ -149,6 +149,36 @@ export type Database = {
           is_excused?: boolean
           created_at?: string
           updated_at?: string
+<<<<<<< HEAD
+=======
+        }
+        Relationships: []
+      }
+      screen_signals: {
+        Row: {
+          id: string
+          from_user_id: string
+          to_user_id: string
+          signal_type: string
+          payload: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          from_user_id: string
+          to_user_id: string
+          signal_type: string
+          payload: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          from_user_id?: string
+          to_user_id?: string
+          signal_type?: string
+          payload?: string
+          created_at?: string
+>>>>>>> de2989d76796cd9763e30f3854d4d61d685113de
         }
         Relationships: []
       }

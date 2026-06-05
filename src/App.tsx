@@ -130,6 +130,7 @@ import FinancialReports from "./pages/payments/FinancialReports";
 import EmployeeDirectory from "./pages/employees/EmployeeDirectory";
 import Attendance from "./pages/employees/Attendance";
 import RolesPermissions from "./pages/employees/RolesPermissions";
+import FaceAttendance from "./pages/FaceAttendance.tsx";
 
 // System
 import Notifications from "./pages/system/Notifications";
@@ -321,6 +322,7 @@ const App = () => (
               {/* Employees */}
               <Route path="/employees" element={<EmployeeDirectory />} />
               <Route path="/employees/attendance" element={<Attendance />} />
+              <Route path="/employees/face-attendance" element={<FaceAttendance />} />
               <Route path="/employees/roles" element={<RolesPermissions />} />
 
               {/* System */}
