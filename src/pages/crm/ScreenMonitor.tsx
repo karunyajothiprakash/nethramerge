@@ -219,9 +219,6 @@ function LiveViewerModal({ targetUser, onClose }: { targetUser: BdeStatus; onClo
   );
 }
 
-<<<<<<< HEAD
-
-=======
 // ── Screen Broadcaster (runs in background for every logged-in user) ──────────
 function useScreenBroadcaster(userId: string | undefined, stream: MediaStream | null) {
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
@@ -229,66 +226,83 @@ function useScreenBroadcaster(userId: string | undefined, stream: MediaStream | 
   useEffect(() => {
     if (!userId || !stream) return;
 
-    const channel = supabase
-      .channel(`broadcaster_${userId}`)
-      .on("postgres_changes", {
-        event: "INSERT",
-        schema: "public",
-        table: "screen_signals",
-      }, async (payload: any) => {
-        const sig = payload.new;
-        if (sig.to_user_id !== userId) return;
+    let channel: any;
+    let isMounted = true;
 
-        if (sig.signal_type === "watch_request") {
-          const adminId = sig.from_user_id;
+    const setupChannel = async () => {
+      try {
+        channel = supabase.channel(`broadcaster_${userId}`);
+        
+        channel.on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "screen_signals",
+          },
+          async (payload: any) => {
+            if (!isMounted) return;
+            
+            const sig = payload.new;
+            if (sig.to_user_id !== userId) return;
 
-          const pc = new RTCPeerConnection(RTC_CONFIG);
-          pcsRef.current.set(adminId, pc);
+            if (sig.signal_type === "watch_request") {
+              const adminId = sig.from_user_id;
+              const pc = new RTCPeerConnection(RTC_CONFIG);
+              pcsRef.current.set(adminId, pc);
 
-          stream.getTracks().forEach(track => pc.addTrack(track, stream));
+              stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
-          pc.onicecandidate = async (e) => {
-            if (e.candidate) {
+              pc.onicecandidate = async (e) => {
+                if (e.candidate) {
+                  await (supabase.from("screen_signals") as any).insert({
+                    from_user_id: userId,
+                    to_user_id: adminId,
+                    signal_type: "candidate",
+                    payload: JSON.stringify(e.candidate),
+                  });
+                }
+              };
+
+              const offer = await pc.createOffer();
+              await pc.setLocalDescription(offer);
+
               await (supabase.from("screen_signals") as any).insert({
                 from_user_id: userId,
                 to_user_id: adminId,
-                signal_type: "candidate",
-                payload: JSON.stringify(e.candidate),
+                signal_type: "offer",
+                payload: JSON.stringify(offer),
               });
+            } else if (sig.signal_type === "answer") {
+              const pc = pcsRef.current.get(sig.from_user_id);
+              if (pc) await pc.setRemoteDescription(JSON.parse(sig.payload));
+            } else if (sig.signal_type === "candidate") {
+              const pc = pcsRef.current.get(sig.from_user_id);
+              if (pc) {
+                try { await pc.addIceCandidate(JSON.parse(sig.payload)); } catch { }
+              }
             }
-          };
-
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-
-          await (supabase.from("screen_signals") as any).insert({
-            from_user_id: userId,
-            to_user_id: adminId,
-            signal_type: "offer",
-            payload: JSON.stringify(offer),
-          });
-
-        } else if (sig.signal_type === "answer") {
-          const pc = pcsRef.current.get(sig.from_user_id);
-          if (pc) await pc.setRemoteDescription(JSON.parse(sig.payload));
-
-        } else if (sig.signal_type === "candidate") {
-          const pc = pcsRef.current.get(sig.from_user_id);
-          if (pc) {
-            try { await pc.addIceCandidate(JSON.parse(sig.payload)); } catch { }
           }
-        }
-      })
-      .subscribe();
+        );
+
+        await channel.subscribe();
+      } catch (error) {
+        console.error("Failed to setup broadcaster channel:", error);
+      }
+    };
+
+    setupChannel();
 
     return () => {
-      supabase.removeChannel(channel);
+      isMounted = false;
+      if (channel) {
+        channel.unsubscribe();
+      }
       pcsRef.current.forEach(pc => pc.close());
       pcsRef.current.clear();
     };
   }, [userId, stream]);
 }
->>>>>>> de2989d76796cd9763e30f3854d4d61d685113de
 // ── Main ScreenMonitor Page ───────────────────────────────────────────────────
 export default function ScreenMonitor() {
   const [bdes, setBdes] = useState<BdeStatus[]>([]);
@@ -297,9 +311,6 @@ export default function ScreenMonitor() {
   const [loading, setLoading] = useState(true);
   const [watchingUser, setWatchingUser] = useState<BdeStatus | null>(null);
 
-<<<<<<< HEAD
-
-=======
   const [myStream, setMyStream] = useState<MediaStream | null>(null);
   const [myUserId, setMyUserId] = useState<string | undefined>();
 
@@ -318,7 +329,6 @@ export default function ScreenMonitor() {
   }, []);
 
   useScreenBroadcaster(myUserId, myStream);
->>>>>>> de2989d76796cd9763e30f3854d4d61d685113de
   const fetchInitialData = async () => {
     try {
       setLoading(true);

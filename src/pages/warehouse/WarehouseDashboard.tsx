@@ -1,55 +1,78 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import Card from "@/components/Card";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import {
     Boxes, PackageCheck, ClipboardList, Send,
-    AlertTriangle, Container, Activity, BarChart3,
-    TrendingDown, TrendingUp, FileText, ArrowRight
+    AlertTriangle, Container, Activity, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function WarehouseDashboard() {
     const [loading, setLoading] = useState(false);
 
-    // Mock data to scaffold the dashboard as strictly requested
-    const metrics = [
-        {
-            title: "Current Inventory Status",
-            value: "42,500 Kg",
-            desc: "Total physical stock across all zones",
-            icon: Boxes,
-            color: "text-blue-500",
-            bg: "bg-blue-500/10",
-            border: "border-blue-500/20"
-        },
-        {
-            title: "Export Ready Stock",
-            value: "14,200 Kg",
-            desc: "Cleared QC and packed for shipping",
-            icon: PackageCheck,
-            color: "text-emerald-500",
-            bg: "bg-emerald-500/10",
-            border: "border-emerald-500/20"
-        },
-        {
-            title: "Pending Packing Orders",
-            value: "5 Orders",
-            desc: "Currently awaiting warehouse processing",
-            icon: ClipboardList,
-            color: "text-amber-500",
-            bg: "bg-amber-500/10",
-            border: "border-amber-500/20"
-        },
-        {
-            title: "Shipment Dispatch Status",
-            value: "2 Dispatched",
-            desc: "Shipments left the warehouse today",
-            icon: Send,
-            color: "text-purple-500",
-            bg: "bg-purple-500/10",
-            border: "border-purple-500/20"
+    // Fetch inventory data
+    const { data: inventoryData, isLoading: inventoryLoading } = useQuery({
+        queryKey: ["warehouse-inventory"],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from("inventory_batches")
+                .select("quantity_kg, is_export_ready");
+            if (error) throw error;
+            return data || [];
         }
-    ];
+    });
+
+    // Fetch low stock alerts
+    const { data: lowStockData, isLoading: lowStockLoading } = useQuery({
+        queryKey: ["low-stock-alerts"],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from("products")
+                .select("id, name, current_stock, minimum_stock")
+                .lt("current_stock", "minimum_stock");
+            if (error) throw error;
+            return data || [];
+        }
+    });
+
+    // Fetch shipments
+    const { data: shipmentsData, isLoading: shipmentsLoading } = useQuery({
+        queryKey: ["shipments-today"],
+        queryFn: async () => {
+            const today = new Date().toISOString().split('T')[0];
+            const { data, error } = await supabase
+                .from("shipments")
+                .select("*")
+                .gte("created_at", today)
+                .eq("status", "dispatched");
+            if (error) throw error;
+            return data || [];
+        }
+    });
+
+    // Fetch activity logs
+    const { data: activityLogs, isLoading: logsLoading } = useQuery({
+        queryKey: ["warehouse-activities"],
+        queryFn: async () => {
+            const today = new Date().toISOString().split('T')[0];
+            const { data, error } = await supabase
+                .from("activity_logs")
+                .select("*")
+                .gte("created_at", today)
+                .limit(5);
+            if (error) throw error;
+            return data || [];
+        }
+    });
+
+    // Calculate metrics from real data
+    const totalInventory = inventoryData?.reduce((sum, item) => sum + (parseFloat(item.quantity_kg) || 0), 0) || 0;
+    const exportReadyStock = inventoryData?.filter(item => item.is_export_ready).reduce((sum, item) => sum + (parseFloat(item.quantity_kg) || 0), 0) || 0;
+    const lowStockCount = lowStockData?.length || 0;
+
+    const metricsLoading = inventoryLoading || lowStockLoading || shipmentsLoading || logsLoading;
 
     return (
         <div className="p-6 space-y-6 animate-fade-in max-w-[1600px] mx-auto">
@@ -65,25 +88,87 @@ export default function WarehouseDashboard() {
                 </Button>
             </div>
 
-            {/* Top Value Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                {metrics.map((m, idx) => (
-                    <Card key={idx} className="p-6 bg-card/60 backdrop-blur-md border-border hover:border-white/10 transition-all group">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{m.title}</p>
-                                <h3 className="text-2xl font-black text-foreground mt-2 tracking-tight">{m.value}</h3>
+            {/* Dashboard Overview Section */}
+            {metricsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            ) : (
+                <div className="bg-card/40 backdrop-blur-md border border-border rounded-xl p-6">
+                    <h2 className="text-lg font-bold text-foreground mb-6">Dashboard Overview</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* Current Inventory Status */}
+                        <div className="p-4 rounded-lg border border-blue-500/20 bg-blue-500/5 hover:border-blue-500/40 transition-all">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-sm font-semibold text-blue-200">Current Inventory Status</h3>
+                                <Boxes className="h-5 w-5 text-blue-400" />
                             </div>
-                            <div className={`p-3 rounded-xl ${m.bg} ${m.border} border group-hover:scale-110 transition-transform`}>
-                                <m.icon className={`h-5 w-5 ${m.color}`} />
+                            <p className="text-2xl font-bold text-blue-300">{(totalInventory || 0).toLocaleString()} Kg</p>
+                            <p className="text-xs text-blue-300/60 mt-2">Total across all zones</p>
+                        </div>
+
+                        {/* Export Ready Stock */}
+                        <div className="p-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/40 transition-all">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-sm font-semibold text-emerald-200">Export Ready Stock</h3>
+                                <PackageCheck className="h-5 w-5 text-emerald-400" />
                             </div>
+                            <p className="text-2xl font-bold text-emerald-300">{(exportReadyStock || 0).toLocaleString()} Kg</p>
+                            <p className="text-xs text-emerald-300/60 mt-2">QC cleared & packed</p>
                         </div>
-                        <div className="mt-4 pt-4 border-t border-border/50">
-                            <p className="text-xs text-muted-foreground">{m.desc}</p>
+
+                        {/* Pending Packing Orders */}
+                        <div className="p-4 rounded-lg border border-amber-500/20 bg-amber-500/5 hover:border-amber-500/40 transition-all">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-sm font-semibold text-amber-200">Pending Packing Orders</h3>
+                                <ClipboardList className="h-5 w-5 text-amber-400" />
+                            </div>
+                            <p className="text-2xl font-bold text-amber-300">{inventoryData?.filter(item => !item.is_export_ready).length || 0} Orders</p>
+                            <p className="text-xs text-amber-300/60 mt-2">Awaiting processing</p>
                         </div>
-                    </Card>
-                ))}
-            </div>
+
+                        {/* Shipment Dispatch Status */}
+                        <div className="p-4 rounded-lg border border-purple-500/20 bg-purple-500/5 hover:border-purple-500/40 transition-all">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-sm font-semibold text-purple-200">Shipment Dispatch Status</h3>
+                                <Send className="h-5 w-5 text-purple-400" />
+                            </div>
+                            <p className="text-2xl font-bold text-purple-300">{shipmentsData?.length || 0} Dispatched</p>
+                            <p className="text-xs text-purple-300/60 mt-2">Left warehouse today</p>
+                        </div>
+
+                        {/* Low Stock Alerts */}
+                        <div className="p-4 rounded-lg border border-red-500/20 bg-red-500/5 hover:border-red-500/40 transition-all">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-sm font-semibold text-red-200">Low Stock Alerts</h3>
+                                <AlertTriangle className="h-5 w-5 text-red-400" />
+                            </div>
+                            <p className="text-2xl font-bold text-red-300">{lowStockCount} Critical</p>
+                            <p className="text-xs text-red-300/60 mt-2">Needs replenishment</p>
+                        </div>
+
+                        {/* Container Loading Updates */}
+                        <div className="p-4 rounded-lg border border-[#c8a84b]/20 bg-[#c8a84b]/5 hover:border-[#c8a84b]/40 transition-all">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-sm font-semibold text-[#c8a84b]">Container Loading Updates</h3>
+                                <Container className="h-5 w-5 text-[#c8a84b]" />
+                            </div>
+                            <p className="text-2xl font-bold text-[#d4b959]">{shipmentsData?.filter(s => s.status === 'loading').length || 0} Active</p>
+                            <p className="text-xs text-[#c8a84b]/60 mt-2">Live loading in progress</p>
+                        </div>
+
+                        {/* Daily Warehouse Activities */}
+                        <div className="p-4 rounded-lg border border-indigo-500/20 bg-indigo-500/5 hover:border-indigo-500/40 transition-all">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-sm font-semibold text-indigo-200">Daily Warehouse Activities</h3>
+                                <Activity className="h-5 w-5 text-indigo-400" />
+                            </div>
+                            <p className="text-2xl font-bold text-indigo-300">{activityLogs?.length || 0} Logs</p>
+                            <p className="text-xs text-indigo-300/60 mt-2">Today's transactions</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -100,27 +185,29 @@ export default function WarehouseDashboard() {
                             <span className="text-[10px] font-black uppercase text-muted-foreground bg-white/5 px-2 py-1 rounded">Live Feed</span>
                         </div>
                         <div className="p-5 flex-1">
-                            <div className="space-y-4">
-                                {[
-                                    { truck: "TRK-9844", dest: "Nhava Sheva Port", status: "Loading (65%)", progress: 65, color: "bg-blue-500" },
-                                    { truck: "TRK-2211", dest: "Chennai Port", status: "Completed", progress: 100, color: "bg-emerald-500" },
-                                    { truck: "TRK-5502", dest: "Cochin Port", status: "Waiting at Dock", progress: 0, color: "bg-amber-500" }
-                                ].map((item, i) => (
-                                    <div key={i} className="flex flex-col gap-2 p-4 rounded-xl border border-white/5 bg-white/5">
-                                        <div className="flex justify-between items-center">
-                                            <div>
-                                                <span className="font-bold text-sm text-foreground">{item.truck}</span>
-                                                <span className="text-xs text-muted-foreground ml-2">to {item.dest}</span>
+                            {shipmentsLoading ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : shipmentsData && shipmentsData.length > 0 ? (
+                                <div className="space-y-4">
+                                    {shipmentsData.slice(0, 3).map((shipment: any, i: number) => (
+                                        <div key={i} className="flex flex-col gap-2 p-4 rounded-xl border border-white/5 bg-white/5">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <span className="font-bold text-sm text-foreground">{shipment.id || `SHP-${i + 1}`}</span>
+                                                    <span className="text-xs text-muted-foreground ml-2">to {shipment.destination_port || 'Pending'}</span>
+                                                </div>
+                                                <span className="text-xs font-semibold text-white/80 capitalize">{shipment.status || 'Processing'}</span>
                                             </div>
-                                            <span className="text-xs font-semibold text-white/80">{item.status}</span>
                                         </div>
-                                        <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden">
-                                            <div className={`h-full ${item.color}`} style={{ width: `${item.progress}%` }} />
-                                        </div>
-                                    </div>
-                                ))}
-                                <Button variant="ghost" className="w-full text-xs text-muted-foreground hover:text-white mt-2">View All Loading Docks <ArrowRight className="h-3 w-3 ml-1" /></Button>
-                            </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-center py-8">
+                                    <p className="text-xs text-muted-foreground">No shipments today</p>
+                                </div>
+                            )}
                         </div>
                     </Card>
 
@@ -131,21 +218,27 @@ export default function WarehouseDashboard() {
                             <h3 className="font-bold text-foreground tracking-wide">Daily Warehouse Activities</h3>
                         </div>
                         <div className="p-0">
-                            <div className="divide-y divide-white/5">
-                                {[
-                                    { time: "10:45 AM", user: "Vikram S.", action: "Moved 500Kg Banana from Zone A to Zone C (QC Pending)" },
-                                    { time: "09:30 AM", user: "John Doe", action: "Forklift maintenance completed in Dock 2" },
-                                    { time: "08:15 AM", user: "Admin", action: "Approved Dispatch for EXP-2026-082" }
-                                ].map((log, i) => (
-                                    <div key={i} className="p-4 flex gap-4 hover:bg-white/5 transition-colors items-start">
-                                        <div className="text-[10px] font-mono text-muted-foreground whitespace-nowrap pt-0.5">{log.time}</div>
-                                        <div>
-                                            <span className="text-xs font-bold text-white mb-0.5 block">{log.user}</span>
-                                            <span className="text-sm text-muted-foreground">{log.action}</span>
+                            {logsLoading ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : activityLogs && activityLogs.length > 0 ? (
+                                <div className="divide-y divide-white/5">
+                                    {activityLogs.map((log: any, i: number) => (
+                                        <div key={i} className="p-4 flex gap-4 hover:bg-white/5 transition-colors items-start">
+                                            <div className="text-[10px] font-mono text-muted-foreground whitespace-nowrap pt-0.5">
+                                                {log.created_at ? new Date(log.created_at).toLocaleTimeString() : '—'}
+                                            </div>
+                                            <div>
+                                                <span className="text-xs font-bold text-white mb-0.5 block">{log.user_id || 'System'}</span>
+                                                <span className="text-sm text-muted-foreground">{log.description || log.action || '—'}</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="p-4 text-center text-xs text-muted-foreground">No activities today</div>
+                            )}
                         </div>
                     </Card>
                 </div>
@@ -159,50 +252,35 @@ export default function WarehouseDashboard() {
                                 <AlertTriangle className="h-5 w-5 text-red-400 animate-pulse" />
                                 <h3 className="font-bold text-red-500 tracking-wide">Low Stock Alerts</h3>
                             </div>
-                            <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">2 Critical</span>
+                            <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{lowStockCount} Critical</span>
                         </div>
                         <div className="p-4 space-y-3">
-                            {[
-                                { product: "Premium Cardamom", current: "25 Kg", min: "50 Kg" },
-                                { product: "Onion Large", current: "120 Kg", min: "500 Kg" }
-                            ].map((alert, i) => (
-                                <div key={i} className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                                    <div className="font-bold text-sm text-red-200">{alert.product}</div>
-                                    <div className="flex justify-between mt-2 text-xs">
-                                        <span className="text-red-400">Current: {alert.current}</span>
-                                        <span className="text-red-400/60 font-mono">Min: {alert.min}</span>
-                                    </div>
+                            {lowStockLoading ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="h-6 w-6 animate-spin text-red-400" />
                                 </div>
-                            ))}
-                            <Button className="w-full bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 mt-2">
-                                View Replenishment Plan
-                            </Button>
+                            ) : lowStockData && lowStockData.length > 0 ? (
+                                <>
+                                    {lowStockData.slice(0, 5).map((alert: any, i: number) => (
+                                        <div key={i} className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                                            <div className="font-bold text-sm text-red-200">{alert.name}</div>
+                                            <div className="flex justify-between mt-2 text-xs">
+                                                <span className="text-red-400">Current: {(alert.current_stock || 0).toLocaleString()} units</span>
+                                                <span className="text-red-400/60 font-mono">Min: {(alert.minimum_stock || 0).toLocaleString()}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {lowStockData.length > 5 && (
+                                        <div className="p-2 text-center text-xs text-red-300">
+                                            +{lowStockData.length - 5} more
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="p-4 text-center text-xs text-muted-foreground">No low stock alerts</div>
+                            )}
                         </div>
                     </Card>
-
-                    {/* Quick Actions */}
-                    <Card className="bg-card/60 backdrop-blur-md border-border p-5">
-                        <h3 className="font-bold text-foreground tracking-wide mb-4 text-sm uppercase text-center text-muted-foreground border-b border-border/50 pb-2">Quick Warehouse Tools</h3>
-                        <div className="grid grid-cols-2 gap-3 mt-4">
-                            <Button variant="outline" className="h-20 flex-col gap-2 border-white/10 hover:border-[#c8a84b] hover:text-[#c8a84b]">
-                                <Boxes className="h-5 w-5" />
-                                <span className="text-xs">Adjust Stock</span>
-                            </Button>
-                            <Button variant="outline" className="h-20 flex-col gap-2 border-white/10 hover:border-emerald-500 hover:text-emerald-500">
-                                <PackageCheck className="h-5 w-5" />
-                                <span className="text-xs">Verify QC</span>
-                            </Button>
-                            <Button variant="outline" className="h-20 flex-col gap-2 border-white/10 hover:border-blue-500 hover:text-blue-500">
-                                <Container className="h-5 w-5" />
-                                <span className="text-xs">Dock Mgmt</span>
-                            </Button>
-                            <Button variant="outline" className="h-20 flex-col gap-2 border-white/10 hover:border-purple-500 hover:text-purple-500">
-                                <FileText className="h-5 w-5" />
-                                <span className="text-xs">Print Labels</span>
-                            </Button>
-                        </div>
-                    </Card>
-
                 </div>
             </div>
         </div>
