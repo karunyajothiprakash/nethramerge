@@ -244,6 +244,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Clean up from active_sessions first
+      await supabase
+        .from("active_sessions" as any)
+        .delete()
+        .eq("user_id", user.id);
+
       const { data: loginRecord } = await (supabase
         .from('user_sessions' as any) as any)
         .select('*')

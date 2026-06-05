@@ -1,0 +1,103 @@
+==> /root/.pm2/logs/adms-error.log <==
+122.183.50.114 - - [05/Jun/2026 10:42:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:43:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:43:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:44:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:44:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:45:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:45:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:46:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:46:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:47:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:47:48] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:48:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:48:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:49:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:49:48] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:50:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:50:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:51:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:51:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:52:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:52:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:53:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:53:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:54:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:54:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:55:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:55:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:56:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:56:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:57:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:57:48] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:58:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:58:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:59:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 10:59:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 11:00:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 11:00:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 11:01:18] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 11:01:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 11:02:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 11:02:48] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 11:03:18] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 11:03:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 11:04:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 11:04:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 11:05:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 11:05:48] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 11:06:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 11:06:47] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+122.183.50.114 - - [05/Jun/2026 11:07:17] "GET /iclock/getrequest.aspx?SN=NFZ8250603096 HTTP/1.1" 200 -
+
+==> /root/.pm2/logs/adms-sync-error.log <==
+    at createClient (/var/www/adms-sync/node_modules/@supabase/supabase-js/src/index.ts:65:10)
+    at Object.<anonymous> (/var/www/adms-sync/server.js:17:18)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+Error: Node.js 20 detected without native WebSocket support.
+
+Suggested solution: For Node.js < 22, install "ws" package and provide it via the transport option:
+import ws from "ws"
+new RealtimeClient(url, { transport: ws })
+    at Function.getWebSocketConstructor (/var/www/adms-sync/node_modules/@supabase/realtime-js/src/lib/websocket-factory.ts:178:11)
+    at RealtimeClient._initializeOptions (/var/www/adms-sync/node_modules/@supabase/realtime-js/src/RealtimeClient.ts:805:63)
+    at new RealtimeClient (/var/www/adms-sync/node_modules/@supabase/realtime-js/src/RealtimeClient.ts:284:39)
+    at SupabaseClient._initRealtimeClient (/var/www/adms-sync/node_modules/@supabase/supabase-js/src/SupabaseClient.ts:629:12)
+    at new SupabaseClient (/var/www/adms-sync/node_modules/@supabase/supabase-js/src/SupabaseClient.ts:366:26)
+    at createClient (/var/www/adms-sync/node_modules/@supabase/supabase-js/src/index.ts:65:10)
+    at Object.<anonymous> (/var/www/adms-sync/server.js:17:18)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+Error: Node.js 20 detected without native WebSocket support.
+
+Suggested solution: For Node.js < 22, install "ws" package and provide it via the transport option:
+import ws from "ws"
+new RealtimeClient(url, { transport: ws })
+    at Function.getWebSocketConstructor (/var/www/adms-sync/node_modules/@supabase/realtime-js/src/lib/websocket-factory.ts:178:11)
+    at RealtimeClient._initializeOptions (/var/www/adms-sync/node_modules/@supabase/realtime-js/src/RealtimeClient.ts:805:63)
+    at new RealtimeClient (/var/www/adms-sync/node_modules/@supabase/realtime-js/src/RealtimeClient.ts:284:39)
+    at SupabaseClient._initRealtimeClient (/var/www/adms-sync/node_modules/@supabase/supabase-js/src/SupabaseClient.ts:629:12)
+    at new SupabaseClient (/var/www/adms-sync/node_modules/@supabase/supabase-js/src/SupabaseClient.ts:366:26)
+    at createClient (/var/www/adms-sync/node_modules/@supabase/supabase-js/src/index.ts:65:10)
+    at Object.<anonymous> (/var/www/adms-sync/server.js:17:18)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+Error: Node.js 20 detected without native WebSocket support.
+
+Suggested solution: For Node.js < 22, install "ws" package and provide it via the transport option:
+import ws from "ws"
+new RealtimeClient(url, { transport: ws })
+    at Function.getWebSocketConstructor (/var/www/adms-sync/node_modules/@supabase/realtime-js/src/lib/websocket-factory.ts:178:11)
+    at RealtimeClient._initializeOptions (/var/www/adms-sync/node_modules/@supabase/realtime-js/src/RealtimeClient.ts:805:63)
+    at new RealtimeClient (/var/www/adms-sync/node_modules/@supabase/realtime-js/src/RealtimeClient.ts:284:39)
+    at SupabaseClient._initRealtimeClient (/var/www/adms-sync/node_modules/@supabase/supabase-js/src/SupabaseClient.ts:629:12)
+    at new SupabaseClient (/var/www/adms-sync/node_modules/@supabase/supabase-js/src/SupabaseClient.ts:366:26)
+    at createClient (/var/www/adms-sync/node_modules/@supabase/supabase-js/src/index.ts:65:10)
+    at Object.<anonymous> (/var/www/adms-sync/server.js:17:18)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)

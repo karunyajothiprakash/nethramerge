@@ -195,11 +195,11 @@ export function TeamChatPanel() {
       const { data, error } = await supabase
         .from('team_chat')
         .select('*')
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
         .limit(50);
       
       if (error) console.error('Fetch error:', error);
-      else if (isMounted && data) setMessages(data);
+      else if (isMounted && data) setMessages([...data].reverse());
     };
 
     fetchMessages();
@@ -531,19 +531,33 @@ export function TeamChatPanel() {
       .filter((msg) => msg.file_url)
       .map((msg) => msg.file_url)
       .filter((path) => typeof path === 'string' && !path.startsWith('http'))
-    ));
+    )) as string[];
 
     const fetchUrls = async () => {
-      const urlMap: Record<string, string> = {};
-      for (const filePath of uniquePaths) {
-        if (freshFileUrls[filePath]) continue;
-        const url = await getFreshUrl(filePath);
-        if (url) {
-          urlMap[filePath] = url;
+      const pathsToFetch = uniquePaths.filter(path => !freshFileUrls[path]);
+      if (pathsToFetch.length === 0) return;
+
+      try {
+        const { data, error } = await supabase.storage
+          .from('chat-attachments')
+          .createSignedUrls(pathsToFetch, 3600);
+
+        if (error) {
+          console.error('Failed to create signed urls:', error);
+          return;
         }
-      }
-      if (Object.keys(urlMap).length > 0) {
-        setFreshFileUrls((prev) => ({ ...prev, ...urlMap }));
+
+        if (data) {
+          const newUrls: Record<string, string> = {};
+          data.forEach(item => {
+            if (item.signedUrl) {
+              newUrls[item.path] = item.signedUrl;
+            }
+          });
+          setFreshFileUrls(prev => ({ ...prev, ...newUrls }));
+        }
+      } catch (err) {
+        console.error('Error in batch fetchUrls:', err);
       }
     };
 

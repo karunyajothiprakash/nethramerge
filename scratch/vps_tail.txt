@@ -1,0 +1,200 @@
+◇ injected env (4) from .env // tip: ⌘ enable debugging { debug: true }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ override existing { override: true }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ suppress logs { quiet: true }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ suppress logs { quiet: true }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ suppress logs { quiet: true }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ override existing { override: true }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ override existing { override: true }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ suppress logs { quiet: true }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ suppress logs { quiet: true }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ override existing { override: true }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ enable debugging { debug: true }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ override existing { override: true }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ override existing { override: true }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082
+◇ injected env (4) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+🚀 Starting ADMS Sync Server...
+🔗 Supabase Target URL: https://sxebygxpjzntogzpjnga.supabase.co
+
+🟢 ADMS Sync Server is listening on http://0.0.0.0:8082

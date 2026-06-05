@@ -177,10 +177,34 @@ export default function EmployeeDirectory() {
       lastLogin, 
       lastLogout,
       status,
+      hasOpenSession,
       activeStr: formatMins(stats.active),
       idleStr: formatMins(stats.idle),
       workStr: formatMins(stats.active) // Work Time = active_minutes
     };
+  };
+
+  const handleForceLogout = async (userId: string, employeeName: string) => {
+    const openSession = sessions.find(s => s.user_id === userId && !s.logout_time);
+    
+    try {
+      const response = await fetch('http://localhost:8082/force-logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, sessionId: openSession?.id })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && (data.updatedSession || data.updatedAttendance)) {
+        toast.success(`Force logged out ${employeeName || 'user'}`);
+      } else {
+        toast.error("No active session or attendance found to punch out");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to connect to sync server for force logout");
+    }
   };
 
 
@@ -359,9 +383,19 @@ export default function EmployeeDirectory() {
                                currentStatus === 'Active' ? 'bg-green-500 animate-pulse' : 
                                currentStatus === 'Idle' ? 'bg-yellow-500' : 'bg-red-500'
                              }`} />
-                             <span className="text-[10px] font-black uppercase text-gray-400">
-                               {currentStatus}
-                             </span>
+                             <div className="flex flex-col">
+                               <span className="text-[10px] font-black uppercase text-gray-400">
+                                 {currentStatus}
+                               </span>
+                               {stats?.hasOpenSession && (
+                                 <button
+                                   onClick={() => handleForceLogout(e.id, e.full_name || 'User')}
+                                   className="text-[8px] uppercase font-bold text-rose-500 hover:text-rose-400 hover:underline text-left transition-colors mt-0.5"
+                                 >
+                                   Force Log Out
+                                 </button>
+                               )}
+                             </div>
                           </div>
                           <div className="text-right">
                              <span className="text-[9px] uppercase font-black text-gray-500 block leading-none mb-0.5">Work Time</span>
