@@ -58,6 +58,7 @@
     "emoji-picker-react": "^4.19.1",
     "esbuild": "^0.28.0",
     "express": "^5.2.1",
+    "face-api.js": "^0.22.2",
     "html2canvas": "^1.4.1",
     "html5-qrcode": "^2.3.8",
     "input-otp": "^1.4.2",
