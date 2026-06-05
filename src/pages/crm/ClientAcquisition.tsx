@@ -52,7 +52,7 @@ export default function ClientAcquisition() {
 
   const fetchData = async () => {
     setLoading(true);
-    
+
     const { data: channels } = await supabase
       .from('acquisition_channels')
       .select('*')
@@ -60,7 +60,7 @@ export default function ClientAcquisition() {
 
     const { data: leads } = await supabase
       .from('leads')
-      .select('id, source_id, stage'); 
+      .select('id, source_id, stage');
 
     if (channels && leads) {
       let tLeads = 0;
@@ -70,13 +70,13 @@ export default function ClientAcquisition() {
       const processed = channels.map(ch => {
         const chLeads = leads.filter(l => l.source_id === ch.id);
         const chClients = chLeads.filter(l => l.stage && ['Won', 'Closed Won', 'Deal Won', 'Client', 'Converted'].some(s => l.stage.toLowerCase().includes(s.toLowerCase())));
-        
+
         const leadsCount = chLeads.length;
         const clientsCount = chClients.length;
         const rate = leadsCount > 0 ? ((clientsCount / leadsCount) * 100).toFixed(1) + "%" : "0.0%";
-        
-        const revenue = clientsCount * 12000; 
-        
+
+        const revenue = clientsCount * 12000;
+
         tLeads += leadsCount;
         tClients += clientsCount;
         tRevenue += revenue;
@@ -95,65 +95,17 @@ export default function ClientAcquisition() {
       setSources(processed);
       setTotalLeads(tLeads);
       setConvertedClients(tClients);
-      
+
       const overallRate = tLeads > 0 ? ((tClients / tLeads) * 100).toFixed(1) + "%" : "0.0%";
       setAvgAcquisitionRate(overallRate);
-      
+
       let formattedRev = `$${tRevenue.toLocaleString()}`;
       if (tRevenue >= 1000000) {
         formattedRev = `$${(tRevenue / 1000000).toFixed(2)}M`;
       } else if (tRevenue >= 1000) {
         formattedRev = `$${(tRevenue / 1000).toFixed(1)}K`;
       }
-<<<<<<< HEAD
       setTotalPipeValue(formattedRev);
-=======
-
-      // Automation: if moved to final acquisition stage, promote to conversions/customers
-      if (payload.status === "Client Successfully Acquired") {
-        try {
-          // 1) Update the original lead to stage 'Won' if it exists
-          if (payload.lead_id) {
-            await supabase.from('leads' as any).update({ stage: 'Won' }).eq('id', payload.lead_id);
-          }
-
-          // 2) Add to customers directory if not already present
-          const { data: { session } } = await supabase.auth.getSession();
-          const userId = session?.user?.id;
-          let companyId: string | null = null;
-          if (userId) {
-            const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', userId).single();
-            companyId = profile?.company_id || null;
-          }
-
-          // Obtain lead details for email/country fallback
-          const leadInfo = leads.find(l => l.id === payload.lead_id) || null;
-
-          // Only insert if not already existing (by name)
-          const existing = await supabase.from('customers' as any).select('id').eq('name', payload.client_name).maybeSingle();
-          if (!existing.data) {
-            await supabase.from('customers' as any).insert([{ 
-              name: payload.client_name,
-              country: payload.country || leadInfo?.country || null,
-              email: leadInfo?.email || null,
-              phone: null,
-              notes: `Auto-created from Client Acquisition (lead: ${payload.lead_id || 'unknown'})`,
-              company_id: companyId || null,
-              created_by: userId || null
-            }]);
-          }
-        } catch (err: any) {
-          console.error('Automation error:', err);
-          // don't block main flow
-        }
-      }
-
-      setIsDialogOpen(false);
-      resetForm();
-      fetchData();
-    } catch (error: any) {
-      toast.error(error.message);
->>>>>>> 34f36497af536b6d4d1adf816ab2ac609bf7f490
     }
     setLoading(false);
   };
@@ -165,7 +117,7 @@ export default function ClientAcquisition() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const companyId = (await supabase.from("profiles").select("company_id").eq("id", session?.user?.id).single()).data?.company_id;
-      
+
       if (!companyId) throw new Error("Could not find company ID");
 
       const { error } = await supabase.from('acquisition_channels').insert({

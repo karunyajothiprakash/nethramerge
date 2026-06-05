@@ -41,14 +41,14 @@ import {
 import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
-import { 
-  startOfMonth, 
-  endOfMonth, 
-  startOfYear, 
-  endOfYear, 
-  endOfDay, 
-  isWithinInterval, 
-  parseISO 
+import {
+  startOfMonth,
+  endOfMonth,
+  startOfYear,
+  endOfYear,
+  endOfDay,
+  isWithinInterval,
+  parseISO
 } from "date-fns";
 
 export default function Performance() {
@@ -497,25 +497,25 @@ export default function Performance() {
       {/* Unified Filters */}
       <div className="space-y-4 mb-8">
         <div className="flex items-center gap-2 bg-neutral-900/60 p-1 w-fit rounded-xl border border-white/5">
-          <Button 
-            variant={timeframe === "daily" ? "default" : "ghost"} 
-            size="sm" 
+          <Button
+            variant={timeframe === "daily" ? "default" : "ghost"}
+            size="sm"
             className={cn("text-[10px] uppercase font-black px-4 h-9 rounded-lg transition-all", timeframe === "daily" ? "bg-[#c8a84b] text-black hover:bg-[#b0933d]" : "text-muted-foreground")}
             onClick={() => handleTimeframeChange("daily")}
           >
             Daily
           </Button>
-          <Button 
-            variant={timeframe === "monthly" ? "default" : "ghost"} 
-            size="sm" 
+          <Button
+            variant={timeframe === "monthly" ? "default" : "ghost"}
+            size="sm"
             className={cn("text-[10px] uppercase font-black px-4 h-9 rounded-lg transition-all", timeframe === "monthly" ? "bg-[#c8a84b] text-black hover:bg-[#b0933d]" : "text-muted-foreground")}
             onClick={() => handleTimeframeChange("monthly")}
           >
             Monthly
           </Button>
-          <Button 
-            variant={timeframe === "yearly" ? "default" : "ghost"} 
-            size="sm" 
+          <Button
+            variant={timeframe === "yearly" ? "default" : "ghost"}
+            size="sm"
             className={cn("text-[10px] uppercase font-black px-4 h-9 rounded-lg transition-all", timeframe === "yearly" ? "bg-[#c8a84b] text-black hover:bg-[#b0933d]" : "text-muted-foreground")}
             onClick={() => handleTimeframeChange("yearly")}
           >
@@ -524,67 +524,63 @@ export default function Performance() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 bg-neutral-900/60 p-6 rounded-3xl border border-white/5 backdrop-blur-xl">
-        <div className="space-y-2">
-          <label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Timeframe From</label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start bg-black/40 border-white/10 text-white font-mono h-11 rounded-xl">
-                {format(startDate, "MMM dd, yyyy")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-neutral-900 border-white/10">
-              <Calendar mode="single" selected={startDate} onSelect={(d) => d && setStartDate(d)} initialFocus />
-            </PopoverContent>
-          </Popover>
+          <div className="space-y-2">
+            <label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Timeframe From</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-start bg-black/40 border-white/10 text-white font-mono h-11 rounded-xl">
+                  {format(startDate, "MMM dd, yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 bg-neutral-900 border-white/10">
+                <Calendar mode="single" selected={startDate} onSelect={(d) => d && setStartDate(d)} initialFocus />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Timeframe To</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-start bg-black/40 border-white/10 text-white font-mono h-11 rounded-xl">
+                  {format(endDate, "MMM dd, yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 bg-neutral-900 border-white/10">
+                <Calendar mode="single" selected={endDate} onSelect={(d) => d && setEndDate(d)} initialFocus />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] uppercase font-black text-muted-foreground ml-1">BDE Associate</label>
+            <Select value={selectedBDE} onValueChange={setSelectedBDE}>
+              <SelectTrigger className="w-full bg-black/40 border-white/10 text-white h-11 rounded-xl">
+                <SelectValue placeholder="All Associates" />
+              </SelectTrigger>
+              <SelectContent className="bg-neutral-900 border-white/10">
+                <SelectItem value="all">Every BDE Associate</SelectItem>
+                {data?.profiles
+                  .filter(p => (p.role_name || "").toLowerCase().trim() === "bde")
+                  .map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-end">
+            <Button
+              variant="ghost"
+              className="w-full h-11 text-[10px] uppercase font-black text-muted-foreground hover:bg-white/5 rounded-xl underline"
+              onClick={() => {
+                setTimeframe("custom");
+                setStartDate(new Date(2020, 0, 1));
+                setEndDate(new Date());
+                setSelectedBDE('all');
+              }}
+            >
+              Clear Filters
+            </Button>
+          </div>
         </div>
-        <div className="space-y-2">
-          <label className="text-[10px] uppercase font-black text-muted-foreground ml-1">Timeframe To</label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start bg-black/40 border-white/10 text-white font-mono h-11 rounded-xl">
-                {format(endDate, "MMM dd, yyyy")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-neutral-900 border-white/10">
-              <Calendar mode="single" selected={endDate} onSelect={(d) => d && setEndDate(d)} initialFocus />
-            </PopoverContent>
-          </Popover>
-        </div>
-        <div className="space-y-2">
-          <label className="text-[10px] uppercase font-black text-muted-foreground ml-1">BDE Associate</label>
-          <Select value={selectedBDE} onValueChange={setSelectedBDE}>
-            <SelectTrigger className="w-full bg-black/40 border-white/10 text-white h-11 rounded-xl">
-              <SelectValue placeholder="All Associates" />
-            </SelectTrigger>
-            <SelectContent className="bg-neutral-900 border-white/10">
-              <SelectItem value="all">Every BDE Associate</SelectItem>
-              {data?.profiles
-                .filter(p => (p.role_name || "").toLowerCase().trim() === "bde")
-                .map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-end">
-          <Button
-            variant="ghost"
-            className="w-full h-11 text-[10px] uppercase font-black text-muted-foreground hover:bg-white/5 rounded-xl underline"
-<<<<<<< HEAD
-            onClick={() => { setStartDate(new Date(2020, 0, 1)); setEndDate(new Date()); setSelectedBDE('all'); }}
-=======
-            onClick={() => { 
-              setTimeframe("monthly");
-              setStartDate(startOfMonth(new Date())); 
-              setEndDate(new Date()); 
-              setSelectedBDE('all'); 
-            }}
->>>>>>> 34f36497af536b6d4d1adf816ab2ac609bf7f490
-          >
-            Clear Filters
-          </Button>
-        </div>
-      </div>
       </div>
 
       <div className="space-y-4">

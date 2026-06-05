@@ -139,6 +139,15 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    title: "Warehouse",
+    icon: Warehouse,
+    items: [
+      { title: "Dashboard", url: "/warehouse/dashboard", icon: LayoutDashboard },
+      { title: "Racks & Bins", url: "/warehouse/racks", icon: Container },
+      { title: "Storage Zones", url: "/warehouse/zones", icon: MapPin },
+    ],
+  },
+  {
     title: "Quotations",
     icon: FileText,
     items: [
