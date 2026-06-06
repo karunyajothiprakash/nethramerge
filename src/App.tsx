@@ -91,6 +91,15 @@ import DamagedStock from "./pages/inventory/DamagedStock";
 import WarehouseDashboard from "./pages/warehouse/WarehouseDashboard";
 import ReceivingGoods from "./pages/warehouse/ReceivingGoods";
 import PackingManagement from "./pages/warehouse/PackingManagement";
+// Warehouse Reports
+import WarehouseReports from "./pages/warehouse/Reports";
+import StockSummary from "./pages/warehouse/reports/StockSummary";
+import BatchTracking from "./pages/warehouse/reports/BatchTracking";
+import Dispatch from "./pages/warehouse/reports/Dispatch";
+import ContainerLoading from "./pages/warehouse/reports/ContainerLoading";
+import DamageWastage from "./pages/warehouse/reports/DamageWastage";
+import InventoryAging from "./pages/warehouse/reports/InventoryAging";
+import ExportReady from "./pages/warehouse/reports/ExportReady";
 
 // Quotations
 import QuotationsList from "./pages/quotations/QuotationsList";
@@ -254,6 +263,15 @@ const App = () => (
               <Route path="/warehouse/dashboard" element={<WarehouseDashboard />} />
               <Route path="/warehouse/receiving" element={<ReceivingGoods />} />
               <Route path="/warehouse/packing" element={<PackingManagement />} />
+              {/* Warehouse Reports */}
+              <Route path="/warehouse/reports" element={<WarehouseReports />} />
+              <Route path="/warehouse/reports/stock-summary" element={<StockSummary />} />
+              <Route path="/warehouse/reports/batch-tracking" element={<BatchTracking />} />
+              <Route path="/warehouse/reports/dispatch" element={<Dispatch />} />
+              <Route path="/warehouse/reports/container-loading" element={<ContainerLoading />} />
+              <Route path="/warehouse/reports/damage-wastage" element={<DamageWastage />} />
+              <Route path="/warehouse/reports/inventory-aging" element={<InventoryAging />} />
+              <Route path="/warehouse/reports/export-ready" element={<ExportReady />} />
 
               {/* Quotations */}
               <Route path="/quotations" element={<QuotationsList />} />
