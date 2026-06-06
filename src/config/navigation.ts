@@ -149,6 +149,20 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    title: "Reports & Analytics",
+    icon: BarChart3,
+    items: [
+      { title: "Dashboard", url: "/reports", icon: LayoutDashboard },
+      { title: "Stock Summary", url: "/reports/stock-summary", icon: Package },
+      { title: "Batch Tracking", url: "/reports/batch-tracking", icon: BarChart3 },
+      { title: "Dispatch Report", url: "/reports/dispatch", icon: Truck },
+      { title: "Container Loading", url: "/reports/container-loading", icon: Container },
+      { title: "Damage/Wastage", url: "/reports/damage-wastage", icon: AlertTriangle },
+      { title: "Inventory Aging", url: "/reports/inventory-aging", icon: CalendarCheck },
+      { title: "Export Ready Stock", url: "/reports/export-ready", icon: BadgeCheck },
+    ],
+  },
+  {
     title: "Quotations",
     icon: FileText,
     items: [

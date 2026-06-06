@@ -103,6 +103,16 @@ import WarehouseZones from "./pages/warehouse/WarehouseZones";
 import ReceivingGoods from "./pages/warehouse/ReceivingGoods";
 import PackingManagement from "./pages/warehouse/PackingManagement";
 
+// Reports
+import ReportsHub from "./pages/reports/ReportsHub";
+import StockSummaryReport from "./pages/reports/StockSummaryReport";
+import BatchTrackingReport from "./pages/reports/BatchTrackingReport";
+import DispatchReport from "./pages/reports/DispatchReport";
+import ContainerLoadingReport from "./pages/reports/ContainerLoadingReport";
+import DamageWastageReport from "./pages/reports/DamageWastageReport";
+import InventoryAgingReport from "./pages/reports/InventoryAgingReport";
+import ExportReadyStockReport from "./pages/reports/ExportReadyStockReport";
+
 // Quotations
 import QuotationsList from "./pages/quotations/QuotationsList";
 import CreateQuotation from "./pages/quotations/CreateQuotation";
@@ -275,6 +285,16 @@ const App = () => (
               <Route path="/warehouse/receiving" element={<ReceivingGoods />} />
               <Route path="/warehouse/packing" element={<PackingManagement />} />
               <Route path="/warehouse" element={<Navigate to="/warehouse/dashboard" replace />} />
+
+              {/* Reports */}
+              <Route path="/reports" element={<ReportsHub />} />
+              <Route path="/reports/stock-summary" element={<StockSummaryReport />} />
+              <Route path="/reports/batch-tracking" element={<BatchTrackingReport />} />
+              <Route path="/reports/dispatch" element={<DispatchReport />} />
+              <Route path="/reports/container-loading" element={<ContainerLoadingReport />} />
+              <Route path="/reports/damage-wastage" element={<DamageWastageReport />} />
+              <Route path="/reports/inventory-aging" element={<InventoryAgingReport />} />
+              <Route path="/reports/export-ready" element={<ExportReadyStockReport />} />
 
               {/* Quotations */}
               <Route path="/quotations" element={<QuotationsList />} />
