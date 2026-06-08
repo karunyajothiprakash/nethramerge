@@ -151,15 +151,6 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
-    title: "Procurement",
-    icon: ShoppingCart,
-    items: [
-      { title: "Dashboard", url: "/procurement/dashboard", icon: LayoutDashboard },
-      { title: "Purchase Orders", url: "/procurement/orders", icon: ShoppingCart },
-      { title: "Suppliers", url: "/procurement/suppliers", icon: Building2 },
-    ],
-  },
-  {
     title: "Reports & Analytics",
     icon: BarChart3,
     items: [
