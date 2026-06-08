@@ -282,7 +282,7 @@ export default function AccountSettings() {
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 text-sm ${
                   activeTab === tab.id 
                     ? 'bg-[#2563eb] text-white font-medium shadow-md shadow-blue-900/20' 
-                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                    : 'text-slate-300 dark:text-slate-400 hover:bg-slate-800/80 dark:hover:bg-slate-800 hover:text-white'
                 }`}
               >
                 <tab.icon className={`h-4 w-4 ${activeTab === tab.id ? 'opacity-100' : 'opacity-70'}`} />
@@ -293,13 +293,13 @@ export default function AccountSettings() {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm min-h-[500px] overflow-hidden">
+        <div className="flex-1 bg-card rounded-xl border border-border shadow-sm min-h-[500px] overflow-hidden">
           {activeTab === 'profile' && (
             <div className="p-6 md:p-8 animate-in fade-in duration-300">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-900">My Profile</h2>
-                  <p className="text-sm text-slate-500">Update your personal information and contact details.</p>
+                  <h2 className="text-xl font-semibold text-foreground">My Profile</h2>
+                  <p className="text-sm text-muted-foreground">Update your personal information and contact details.</p>
                 </div>
                 <Button onClick={handleSaveProfile} disabled={saving} className="bg-[#2563eb] hover:bg-blue-700">
                   {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -309,11 +309,11 @@ export default function AccountSettings() {
 
               <div className="grid gap-8 max-w-2xl">
                 <div className="flex items-center gap-6">
-                  <div className="relative h-24 w-24 rounded-full border-4 border-slate-50 overflow-hidden bg-slate-100 shadow-sm shrink-0 flex items-center justify-center">
+                  <div className="relative h-24 w-24 rounded-full border-4 border-background overflow-hidden bg-muted shadow-sm shrink-0 flex items-center justify-center">
                     {avatarUrl ? (
                       <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
                     ) : (
-                      <UserIcon className="h-10 w-10 text-slate-300" />
+                      <UserIcon className="h-10 w-10 text-slate-300 dark:text-slate-400" />
                     )}
                     <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 cursor-pointer transition-opacity">
                       <Camera className="h-6 w-6 text-white" />
@@ -321,8 +321,8 @@ export default function AccountSettings() {
                     </label>
                   </div>
                   <div>
-                    <h3 className="font-medium text-slate-900">Profile Picture</h3>
-                    <p className="text-sm text-slate-500 mb-2">JPG, GIF or PNG. Max size of 2MB.</p>
+                    <h3 className="font-medium text-foreground">Profile Picture</h3>
+                    <p className="text-sm text-muted-foreground mb-2">JPG, GIF or PNG. Max size of 2MB.</p>
                     <div className="flex items-center gap-2">
                       <label className="cursor-pointer">
                         <span className="text-sm font-medium text-blue-600 hover:text-blue-700">Upload new picture</span>
@@ -339,8 +339,8 @@ export default function AccountSettings() {
                     <Input value={fullName} onChange={e => setFullName(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Employee ID <span className="text-slate-400 font-normal">(Read-only)</span></Label>
-                    <Input value={employeeId} disabled className="bg-slate-50 text-slate-500" />
+                    <Label>Employee ID <span className="text-muted-foreground font-normal">(Read-only)</span></Label>
+                    <Input value={employeeId} disabled className="bg-muted/50 text-muted-foreground" />
                   </div>
                   <div className="space-y-2">
                     <Label>Designation</Label>
@@ -356,7 +356,7 @@ export default function AccountSettings() {
                   </div>
                   <div className="space-y-2">
                     <Label>Official Email</Label>
-                    <Input value={officialEmail} disabled className="bg-slate-50 text-slate-500" />
+                    <Input value={officialEmail} disabled className="bg-muted/50 text-muted-foreground" />
                   </div>
                 </div>
               </div>
@@ -365,8 +365,8 @@ export default function AccountSettings() {
 
           {activeTab === 'security' && (
             <div className="p-6 md:p-8 animate-in fade-in duration-300">
-              <h2 className="text-xl font-semibold text-slate-900 mb-1">Login & Security</h2>
-              <p className="text-sm text-slate-500 mb-6">Manage your password and active sessions.</p>
+              <h2 className="text-xl font-semibold text-foreground mb-1">Login & Security</h2>
+              <p className="text-sm text-muted-foreground mb-6">Manage your password and active sessions.</p>
 
               <Section title="Change Password" className="mb-8">
                 <div className="grid gap-4 max-w-sm">
@@ -385,13 +385,13 @@ export default function AccountSettings() {
               </Section>
 
               <Section title="Active Sessions">
-                <div className="border rounded-lg p-4 flex items-center gap-4 bg-slate-50">
+                <div className="border rounded-lg p-4 flex items-center gap-4 bg-muted/50">
                   <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0">
                     <LogIn className="h-5 w-5" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-sm text-slate-900">Current Session (Windows, Chrome)</p>
-                    <p className="text-xs text-slate-500">Active now</p>
+                    <p className="font-medium text-sm text-foreground">Current Session (Windows, Chrome)</p>
+                    <p className="text-xs text-muted-foreground">Active now</p>
                   </div>
                   <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Active</Badge>
                 </div>
@@ -403,15 +403,15 @@ export default function AccountSettings() {
                     {loginHistory.map((log: any) => (
                       <div key={log.id} className="p-3 px-4 flex items-center justify-between text-sm">
                         <div className="flex items-center gap-3">
-                          <LogIn className="h-4 w-4 text-slate-400" />
-                          <span className="text-slate-700">{log.action || "Login Successful"}</span>
+                          <LogIn className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-foreground">{log.action || "Login Successful"}</span>
                         </div>
-                        <span className="text-slate-500">{format(new Date(log.created_at), "MMM d, yyyy h:mm a")}</span>
+                        <span className="text-muted-foreground">{format(new Date(log.created_at), "MMM d, yyyy h:mm a")}</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-500 p-4 border rounded-lg bg-slate-50 text-center">No recent login history found.</p>
+                  <p className="text-sm text-muted-foreground p-4 border rounded-lg bg-muted/50 text-center">No recent login history found.</p>
                 )}
               </Section>
             </div>
@@ -419,38 +419,38 @@ export default function AccountSettings() {
 
           {activeTab === 'notifications' && (
             <div className="p-6 md:p-8 animate-in fade-in duration-300">
-              <h2 className="text-xl font-semibold text-slate-900 mb-1">Notification Preferences</h2>
-              <p className="text-sm text-slate-500 mb-6">Choose how and when you want to be notified.</p>
+              <h2 className="text-xl font-semibold text-foreground mb-1">Notification Preferences</h2>
+              <p className="text-sm text-muted-foreground mb-6">Choose how and when you want to be notified.</p>
 
               <div className="max-w-2xl space-y-6">
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                   <div>
-                    <h3 className="font-medium text-slate-900">Email Notifications</h3>
-                    <p className="text-sm text-slate-500">Receive daily summaries and important updates via email.</p>
+                    <h3 className="font-medium text-foreground">Email Notifications</h3>
+                    <p className="text-sm text-muted-foreground">Receive daily summaries and important updates via email.</p>
                   </div>
                   <Switch checked={emailNotif} onCheckedChange={setEmailNotif} />
                 </div>
                 
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                   <div>
-                    <h3 className="font-medium text-slate-900">WhatsApp Alerts</h3>
-                    <p className="text-sm text-slate-500">Get instant alerts for critical approvals or mentions on WhatsApp.</p>
+                    <h3 className="font-medium text-foreground">WhatsApp Alerts</h3>
+                    <p className="text-sm text-muted-foreground">Get instant alerts for critical approvals or mentions on WhatsApp.</p>
                   </div>
                   <Switch checked={whatsappNotif} onCheckedChange={setWhatsappNotif} />
                 </div>
 
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                   <div>
-                    <h3 className="font-medium text-slate-900">Task Reminders</h3>
-                    <p className="text-sm text-slate-500">Reminders for upcoming tasks and deadlines.</p>
+                    <h3 className="font-medium text-foreground">Task Reminders</h3>
+                    <p className="text-sm text-muted-foreground">Reminders for upcoming tasks and deadlines.</p>
                   </div>
                   <Switch checked={taskNotif} onCheckedChange={setTaskNotif} />
                 </div>
 
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                   <div>
-                    <h3 className="font-medium text-slate-900">Follow-up Reminders</h3>
-                    <p className="text-sm text-slate-500">Automated notifications for CRM follow-ups.</p>
+                    <h3 className="font-medium text-foreground">Follow-up Reminders</h3>
+                    <p className="text-sm text-muted-foreground">Automated notifications for CRM follow-ups.</p>
                   </div>
                   <Switch checked={followupNotif} onCheckedChange={setFollowupNotif} />
                 </div>
@@ -462,8 +462,8 @@ export default function AccountSettings() {
             <div className="p-6 md:p-8 animate-in fade-in duration-300">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-900">Preferences</h2>
-                  <p className="text-sm text-slate-500">Customize your application experience.</p>
+                  <h2 className="text-xl font-semibold text-foreground">Preferences</h2>
+                  <p className="text-sm text-muted-foreground">Customize your application experience.</p>
                 </div>
                 <Button onClick={handleSavePreferences} disabled={saving} className="bg-[#2563eb] hover:bg-blue-700">
                   {saving ? "Saving..." : "Save Preferences"}
@@ -538,8 +538,8 @@ export default function AccountSettings() {
             <div className="p-6 md:p-8 animate-in fade-in duration-300">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-900">Email Signature</h2>
-                  <p className="text-sm text-slate-500">Customize your signature for outbound emails and quotations.</p>
+                  <h2 className="text-xl font-semibold text-foreground">Email Signature</h2>
+                  <p className="text-sm text-muted-foreground">Customize your signature for outbound emails and quotations.</p>
                 </div>
                 <Button onClick={handleSaveSignature} disabled={saving} className="bg-[#2563eb] hover:bg-blue-700">
                   {saving ? "Saving..." : "Save Signature"}
@@ -555,16 +555,16 @@ export default function AccountSettings() {
                     className="w-full min-h-[150px] p-3 rounded-md border border-input bg-transparent text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     placeholder="E.g. Thanks & Regards,\n[Your Name]\n[Your Designation]"
                   />
-                  <p className="text-xs text-slate-500">HTML tags are supported.</p>
+                  <p className="text-xs text-muted-foreground">HTML tags are supported.</p>
                 </div>
 
                 <div className="space-y-3">
                   <Label>Company Info</Label>
-                  <Input value={companyInfo} onChange={e => setCompanyInfo(e.target.value)} disabled className="bg-slate-50" />
+                  <Input value={companyInfo} onChange={e => setCompanyInfo(e.target.value)} disabled className="bg-muted/50" />
                 </div>
 
                 <Section title="Preview">
-                  <div className="p-6 border rounded-lg bg-slate-50 prose prose-sm max-w-none text-slate-800" dangerouslySetInnerHTML={{ __html: signature || "<p class='text-slate-400 italic'>No signature configured.</p>" }} />
+                  <div className="p-6 border rounded-lg bg-muted/50 prose prose-sm max-w-none text-slate-800" dangerouslySetInnerHTML={{ __html: signature || "<p class='text-muted-foreground italic'>No signature configured.</p>" }} />
                 </Section>
               </div>
             </div>
@@ -572,13 +572,13 @@ export default function AccountSettings() {
 
           {activeTab === 'activity' && (
             <div className="p-6 md:p-8 animate-in fade-in duration-300">
-              <h2 className="text-xl font-semibold text-slate-900 mb-1">My Activity Log</h2>
-              <p className="text-sm text-slate-500 mb-6">Recent actions and modules accessed by you.</p>
+              <h2 className="text-xl font-semibold text-foreground mb-1">My Activity Log</h2>
+              <p className="text-sm text-muted-foreground mb-6">Recent actions and modules accessed by you.</p>
 
               {activityLogs.length > 0 ? (
                 <div className="border rounded-lg overflow-hidden">
                   <table className="w-full text-sm text-left">
-                    <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
+                    <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b">
                       <tr>
                         <th className="px-4 py-3">Action</th>
                         <th className="px-4 py-3">Module/Entity</th>
@@ -587,12 +587,12 @@ export default function AccountSettings() {
                     </thead>
                     <tbody className="divide-y">
                       {activityLogs.map((log: any) => (
-                        <tr key={log.id} className="bg-white hover:bg-slate-50">
-                          <td className="px-4 py-3 font-medium text-slate-900">{log.action || '-'}</td>
-                          <td className="px-4 py-3 text-slate-500">
+                        <tr key={log.id} className="bg-card hover:bg-muted/50">
+                          <td className="px-4 py-3 font-medium text-foreground">{log.action || '-'}</td>
+                          <td className="px-4 py-3 text-muted-foreground">
                             {log.module ? `[${log.module}]` : ''} {log.entity || '-'}
                           </td>
-                          <td className="px-4 py-3 text-slate-500">
+                          <td className="px-4 py-3 text-muted-foreground">
                             {format(new Date(log.created_at), "MMM d, yyyy HH:mm:ss")}
                           </td>
                         </tr>
@@ -601,9 +601,9 @@ export default function AccountSettings() {
                   </table>
                 </div>
               ) : (
-                <div className="text-center p-8 border rounded-lg bg-slate-50">
-                  <Activity className="mx-auto h-8 w-8 text-slate-400 mb-3" />
-                  <p className="text-slate-500">No recent activity logs found.</p>
+                <div className="text-center p-8 border rounded-lg bg-muted/50">
+                  <Activity className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">No recent activity logs found.</p>
                 </div>
               )}
             </div>
@@ -611,12 +611,12 @@ export default function AccountSettings() {
 
           {activeTab === 'access' && (
             <div className="p-6 md:p-8 animate-in fade-in duration-300">
-              <h2 className="text-xl font-semibold text-slate-900 mb-1">Access Information</h2>
-              <p className="text-sm text-slate-500 mb-6">Your current roles and permissions within the ERP.</p>
+              <h2 className="text-xl font-semibold text-foreground mb-1">Access Information</h2>
+              <p className="text-sm text-muted-foreground mb-6">Your current roles and permissions within the ERP.</p>
 
               <div className="grid gap-6 max-w-2xl">
                 <div className="grid grid-cols-3 gap-4 border-b pb-4">
-                  <div className="text-sm font-medium text-slate-500">Current Role</div>
+                  <div className="text-sm font-medium text-muted-foreground">Current Role</div>
                   <div className="col-span-2 flex items-center gap-2">
                     <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
                       {profile?.requested_role ? profile.requested_role.toUpperCase() : "STANDARD USER"}
@@ -625,27 +625,27 @@ export default function AccountSettings() {
                 </div>
 
                 <div className="grid grid-cols-3 gap-4 border-b pb-4">
-                  <div className="text-sm font-medium text-slate-500">Reporting Manager</div>
-                  <div className="col-span-2 text-sm text-slate-900">
+                  <div className="text-sm font-medium text-muted-foreground">Reporting Manager</div>
+                  <div className="col-span-2 text-sm text-foreground">
                     Not Assigned
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4 border-b pb-4">
-                  <div className="text-sm font-medium text-slate-500">Last Login</div>
-                  <div className="col-span-2 text-sm text-slate-900">
+                  <div className="text-sm font-medium text-muted-foreground">Last Login</div>
+                  <div className="col-span-2 text-sm text-foreground">
                     {user?.last_sign_in_at ? format(new Date(user.last_sign_in_at), "MMM d, yyyy h:mm a") : "Unknown"}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="text-sm font-medium text-slate-500">Permissions (Read-only)</div>
+                  <div className="text-sm font-medium text-muted-foreground">Permissions (Read-only)</div>
                   <div className="col-span-2">
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline" className="text-slate-600">View Dashboards</Badge>
-                      <Badge variant="outline" className="text-slate-600">Manage Leads</Badge>
-                      <Badge variant="outline" className="text-slate-600">View Inventory</Badge>
-                      <Badge variant="outline" className="text-slate-600">Create Quotations</Badge>
+                      <Badge variant="outline" className="text-muted-foreground">View Dashboards</Badge>
+                      <Badge variant="outline" className="text-muted-foreground">Manage Leads</Badge>
+                      <Badge variant="outline" className="text-muted-foreground">View Inventory</Badge>
+                      <Badge variant="outline" className="text-muted-foreground">Create Quotations</Badge>
                     </div>
                   </div>
                 </div>
