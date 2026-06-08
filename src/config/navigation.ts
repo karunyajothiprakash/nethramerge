@@ -100,12 +100,20 @@ export const navGroups: NavGroup[] = [
 
   {
     title: "Procurement",
-    icon: ShoppingBag,
+    icon: ShoppingCart,
     items: [
-      { title: "Purchase Orders", url: "/procurement/orders", icon: ShoppingBag, permission: "procurement.view" },
-      { title: "Create PO", url: "/procurement/orders/create", icon: FilePlus, permission: "procurement.create" },
+      { title: "Dashboard", url: "/procurement/dashboard", icon: LayoutDashboard },
+      { title: "Purchase Orders", url: "/procurement/orders", icon: ShoppingCart },
       { title: "Suppliers", url: "/procurement/suppliers", icon: Building2 },
-      { title: "Supplier Analytics", url: "/procurement/analytics", icon: Star },
+    ],
+  },
+  {
+    title: "Warehouse",
+    icon: Warehouse,
+    items: [
+      { title: "Dashboard", url: "/warehouse/dashboard", icon: LayoutDashboard },
+      { title: "Receiving Goods", url: "/warehouse/receiving", icon: PackageCheck },
+      { title: "Packing Management", url: "/warehouse/packing", icon: Package },
     ],
   },
   {
@@ -139,15 +147,6 @@ export const navGroups: NavGroup[] = [
       { title: "Damaged Stock Management", url: "/inventory/damaged-stock-management", icon: AlertOctagon },
       { title: "Expiry Monitoring", url: "/inventory/expiry-monitoring", icon: Timer },
       { title: "Multi-Warehouse Management", url: "/inventory/multi-warehouse", icon: Warehouse },
-    ],
-  },
-  {
-    title: "Warehouse",
-    icon: Warehouse,
-    items: [
-      { title: "Dashboard", url: "/warehouse/dashboard", icon: LayoutDashboard },
-      { title: "Receiving Goods", url: "/warehouse/receiving", icon: PackageCheck },
-      { title: "Packing Management", url: "/warehouse/packing", icon: Package },
     ],
   },
   {
