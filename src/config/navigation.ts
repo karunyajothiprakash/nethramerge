@@ -24,6 +24,7 @@ export type NavItem = {
   url: string;
   icon: LucideIcon;
   permission?: string; // permission code required to see this item
+  items?: NavItem[]; // nested sub-items
 };
 
 export type NavGroup = {
@@ -111,49 +112,90 @@ export const navGroups: NavGroup[] = [
     title: "Warehouse & Inventory",
     icon: Warehouse,
     items: [
-      { title: "Receiving Goods", url: "/warehouse/receiving", icon: PackageCheck },
       { title: "Dashboard", url: "/warehouse/dashboard", icon: LayoutDashboard },
+      { title: "Receiving Goods", url: "/warehouse/receiving", icon: PackageCheck },
       { title: "Packing Management", url: "/warehouse/packing", icon: Package },
-      { title: "Available Stock Management", url: "/inventory/available-stock", icon: CheckSquare },
-      { title: "Reserved Stock Tracking", url: "/inventory/reserved-stock", icon: Lock },
-      { title: "Export Ready Inventory", url: "/inventory/export-ready", icon: Plane },
-      { title: "Batch-wise Stock Tracking", url: "/inventory/batch-wise", icon: Layers },
-      { title: "Damaged Stock Management", url: "/inventory/damaged-stock-management", icon: AlertOctagon },
-      { title: "Expiry Monitoring", url: "/inventory/expiry-monitoring", icon: Timer },
-      { title: "Multi-Warehouse Management", url: "/inventory/multi-warehouse", icon: Warehouse },
-    ],
-  },
-  {
-    title: "Quality Control",
-    icon: ClipboardCheck,
-    items: [
-      { title: "Inspections", url: "/qc/inspections", icon: ClipboardCheck, permission: "qc.view" },
-      { title: "New Inspection", url: "/qc/inspections/create", icon: FlaskConical, permission: "qc.inspect" },
-      { title: "Approvals", url: "/qc/approvals", icon: BadgeCheck, permission: "qc.approve" },
-      { title: "WH Quality Control", url: "/warehouse/qc", icon: FlaskConical, permission: "qc.inspect" },
-      { title: "Container Loading", url: "/warehouse/container-loading", icon: Container, permission: "shipments.manage" },
-    ],
-  },
-  {
-    title: "Barcode & Tracking",
-    icon: QrCode,
-    items: [
-      { title: "Barcodes", url: "/barcodes", icon: QrCode, permission: "inventory.view" },
-      { title: "Generate QR", url: "/barcodes/generate", icon: FilePlus, permission: "inventory.manage" },
-      { title: "Scan", url: "/barcodes/scan", icon: ScanLine, permission: "inventory.view" },
-    ],
-  },
-  {
-    title: "Inventory",
-    icon: Boxes,
-    items: [
-      { title: "Available Stock Management", url: "/inventory/available-stock", icon: CheckSquare },
-      { title: "Reserved Stock Tracking", url: "/inventory/reserved-stock", icon: Lock },
-      { title: "Export Ready Inventory", url: "/inventory/export-ready", icon: Plane },
-      { title: "Batch-wise Stock Tracking", url: "/inventory/batch-wise", icon: Layers },
-      { title: "Damaged Stock Management", url: "/inventory/damaged-stock-management", icon: AlertOctagon },
-      { title: "Expiry Monitoring", url: "/inventory/expiry-monitoring", icon: Timer },
-      { title: "Multi-Warehouse Management", url: "/inventory/multi-warehouse", icon: Warehouse },
+      {
+        title: "Inventory",
+        url: "/warehouse/inventory",
+        icon: Boxes,
+        items: [
+          { title: "Available Stock Management", url: "/inventory/available-stock", icon: CheckSquare },
+          { title: "Reserved Stock Tracking", url: "/inventory/reserved-stock", icon: Lock },
+          { title: "Export Ready Inventory", url: "/inventory/export-ready", icon: Plane },
+          { title: "Batch-wise Stock Tracking", url: "/inventory/batch-wise", icon: Layers },
+          { title: "Damaged Stock Management", url: "/inventory/damaged-stock-management", icon: AlertOctagon },
+          { title: "Expiry Monitoring", url: "/inventory/expiry-monitoring", icon: Timer },
+          { title: "Multi-Warehouse Management", url: "/inventory/multi-warehouse", icon: Warehouse },
+        ]
+      },
+      {
+        title: "Quality Control",
+        url: "/qc",
+        icon: ClipboardCheck,
+        items: [
+          { title: "Inspection", url: "/qc/inspections", icon: ClipboardCheck, permission: "qc.view" },
+          { title: "New Inspection", url: "/qc/inspections/create", icon: FlaskConical, permission: "qc.inspect" },
+          { title: "Approvals", url: "/qc/approvals", icon: BadgeCheck, permission: "qc.approve" },
+          { title: "WH Quality Control", url: "/warehouse/qc", icon: FlaskConical, permission: "qc.inspect" },
+          { title: "Container Loading", url: "/warehouse/container-loading", icon: Container, permission: "shipments.manage" },
+        ]
+      },
+      {
+        title: "Barcode & Tracking",
+        url: "/barcodes",
+        icon: QrCode,
+        items: [
+          { title: "Barcodes", url: "/barcodes", icon: QrCode, permission: "inventory.view" },
+          { title: "Generate QR", url: "/barcodes/generate", icon: FilePlus, permission: "inventory.manage" },
+          { title: "Scan", url: "/barcodes/scan", icon: ScanLine, permission: "inventory.view" },
+        ]
+      },
+      {
+        title: "Shipments",
+        url: "/shipments",
+        icon: Ship,
+        items: [
+          { title: "Dispatch", url: "/shipments/dispatch", icon: Truck, permission: "shipments.manage" },
+          { title: "Shipment Register", url: "/shipments", icon: Ship, permission: "shipments.view" },
+          { title: "Create Shipment", url: "/shipments/create", icon: FilePlus, permission: "shipments.manage" },
+          { title: "Container Tracking", url: "/shipments/containers", icon: Container, permission: "shipments.view" },
+          { title: "Delivery Status", url: "/shipments/delivery", icon: Navigation, permission: "shipments.view" },
+        ]
+      },
+      {
+        title: "Quotations",
+        url: "/quotations",
+        icon: FileText,
+        items: [
+          { title: "Quotations", url: "/quotations", icon: FileText, permission: "orders.view" },
+          { title: "Create Quotation", url: "/quotations/create", icon: FilePlus, permission: "orders.manage" },
+          { title: "Approvals", url: "/quotations/approvals", icon: FileCheck, permission: "orders.manage" },
+          { title: "Convert to Order", url: "/quotations/convert", icon: ArrowRightLeft, permission: "orders.manage" },
+        ]
+      },
+      {
+        title: "Export Orders",
+        url: "/orders",
+        icon: ShoppingCart,
+        items: [
+          { title: "Orders", url: "/orders", icon: ShoppingCart, permission: "orders.view" },
+          { title: "Create Order", url: "/orders/create", icon: ClipboardList, permission: "orders.manage" },
+          { title: "Status Tracking", url: "/orders/status", icon: PackageCheck, permission: "orders.view" },
+          { title: "Fulfillment", url: "/orders/fulfillment", icon: Package2, permission: "orders.manage" },
+        ]
+      },
+      {
+        title: "Documents",
+        url: "/documents",
+        icon: FileSpreadsheet,
+        items: [
+          { title: "Invoices", url: "/documents/invoices", icon: FileSpreadsheet, permission: "orders.view" },
+          { title: "Packing Lists", url: "/documents/packing-lists", icon: FileBox, permission: "shipments.view" },
+          { title: "Certificate of Origin", url: "/documents/certificates", icon: Award, permission: "orders.view" },
+          { title: "Document Viewer", url: "/documents/viewer", icon: Eye, permission: "orders.view" },
+        ]
+      },
     ],
   },
   {
@@ -168,47 +210,6 @@ export const navGroups: NavGroup[] = [
       { title: "Damage/Wastage", url: "/reports/damage-wastage", icon: AlertTriangle },
       { title: "Inventory Aging", url: "/reports/inventory-aging", icon: CalendarCheck },
       { title: "Export Ready Stock", url: "/reports/export-ready", icon: BadgeCheck },
-    ],
-  },
-  {
-    title: "Quotations",
-    icon: FileText,
-    items: [
-      { title: "Quotations", url: "/quotations", icon: FileText, permission: "orders.view" },
-      { title: "Create Quotation", url: "/quotations/create", icon: FilePlus, permission: "orders.manage" },
-      { title: "Approvals", url: "/quotations/approvals", icon: FileCheck, permission: "orders.manage" },
-      { title: "Convert to Order", url: "/quotations/convert", icon: ArrowRightLeft, permission: "orders.manage" },
-    ],
-  },
-  {
-    title: "Export Orders",
-    icon: ShoppingCart,
-    items: [
-      { title: "Orders", url: "/orders", icon: ShoppingCart, permission: "orders.view" },
-      { title: "Create Order", url: "/orders/create", icon: ClipboardList, permission: "orders.manage" },
-      { title: "Status Tracking", url: "/orders/status", icon: PackageCheck, permission: "orders.view" },
-      { title: "Fulfillment", url: "/orders/fulfillment", icon: Package2, permission: "orders.manage" },
-    ],
-  },
-  {
-    title: "Shipments",
-    icon: Ship,
-    items: [
-      { title: "Dispatch", url: "/shipments/dispatch", icon: Truck, permission: "shipments.manage" },
-      { title: "Shipment Register", url: "/shipments", icon: Ship, permission: "shipments.view" },
-      { title: "Create Shipment", url: "/shipments/create", icon: FilePlus, permission: "shipments.manage" },
-      { title: "Container Tracking", url: "/shipments/containers", icon: Container, permission: "shipments.view" },
-      { title: "Delivery Status", url: "/shipments/delivery", icon: Navigation, permission: "shipments.view" },
-    ],
-  },
-  {
-    title: "Documents",
-    icon: FileSpreadsheet,
-    items: [
-      { title: "Invoices", url: "/documents/invoices", icon: FileSpreadsheet, permission: "orders.view" },
-      { title: "Packing Lists", url: "/documents/packing-lists", icon: FileBox, permission: "shipments.view" },
-      { title: "Certificate of Origin", url: "/documents/certificates", icon: Award, permission: "orders.view" },
-      { title: "Document Viewer", url: "/documents/viewer", icon: Eye, permission: "orders.view" },
     ],
   },
   {

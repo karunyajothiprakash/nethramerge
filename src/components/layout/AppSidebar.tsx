@@ -25,9 +25,27 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
     return active ? [active.title] : [navGroups[0].title];
   });
 
+  const [openSubGroups, setOpenSubGroups] = useState<string[]>([]);
   const [aiOpen, setAiOpen] = useState(false);
 
   const [counts, setCounts] = useState({ clientAcq: 0, conversions: 0, customers: 0 });
+
+  useEffect(() => {
+    // Auto-open sub-groups if active
+    navGroups.forEach(g => {
+      g.items.forEach(i => {
+        if (i.items?.some(sub => location.pathname.startsWith(sub.url))) {
+          setOpenSubGroups(prev => prev.includes(i.title) ? prev : [...prev, i.title]);
+        }
+      });
+    });
+  }, [location.pathname]);
+
+  const toggleGroup = (title: string) =>
+    setOpenGroups(prev => (prev.includes(title) ? prev.filter(t => t !== title) : [...prev, title]));
+
+  const toggleSubGroup = (title: string) =>
+    setOpenSubGroups(prev => (prev.includes(title) ? prev.filter(t => t !== title) : [...prev, title]));
 
   useEffect(() => {
     let mounted = true;
@@ -61,9 +79,6 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
     const interval = setInterval(fetchCounts, 30000);
     return () => { mounted = false; clearInterval(interval); };
   }, []);
-
-  const toggleGroup = (title: string) =>
-    setOpenGroups(prev => (prev.includes(title) ? prev.filter(t => t !== title) : [...prev, title]));
 
   const allowedSecretaryGroups = new Set(["dashboards", "quotations", "documents", "finance", "tally", "accounts", "hr & employees"]);
   const allowedBdeGroups = new Set(["dashboards", "crm", "mobile crm", "quotations", "documents", "system", "hr & employees"]);
@@ -164,7 +179,53 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
                   <div className="mt-0.5 ml-3 pl-3 border-l border-sidebar-border space-y-0.5">
                     {group.items.map(item => {
                       const ItemIcon = item.icon;
+                      const hasSubItems = item.items && item.items.length > 0;
+                      const isSubOpen = openSubGroups.includes(item.title);
+                      const isSubActive = item.items?.some(sub => location.pathname === sub.url || location.pathname.startsWith(sub.url + "/"));
                       const badgeCount = item.url === '/crm/client-acquisition' ? counts.clientAcq : item.url === '/crm/convert' ? counts.conversions : item.url === '/crm/customers' ? counts.customers : 0;
+
+                      if (hasSubItems) {
+                        return (
+                          <div key={item.title} className="space-y-0.5">
+                            <button
+                              onClick={() => toggleSubGroup(item.title)}
+                              className={cn(
+                                "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors border-l-[3px] border-transparent",
+                                isSubActive ? "nav-active font-medium" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
+                              )}
+                            >
+                              {ItemIcon && <ItemIcon className="h-3.5 w-3.5 shrink-0" />}
+                              <span className="truncate flex-1 text-left">{item.title}</span>
+                              <ChevronDown className={cn("h-3 w-3 transition-transform", isSubOpen && "rotate-180")} />
+                            </button>
+                            {isSubOpen && (
+                              <div className="ml-4 pl-2 border-l border-sidebar-border space-y-0.5">
+                                {item.items!.map(subItem => {
+                                  const SubIcon = subItem.icon;
+                                  return (
+                                    <NavLink
+                                      key={subItem.url}
+                                      to={subItem.url}
+                                      end
+                                      onClick={() => onClose()}
+                                      className={({ isActive }) =>
+                                        cn(
+                                          "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[11px] transition-colors border-l-[3px] border-transparent",
+                                          isActive ? "text-white bg-sidebar-accent font-medium border-primary" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
+                                        )
+                                      }
+                                    >
+                                      {SubIcon && <SubIcon className="h-3 w-3 shrink-0" />}
+                                      <span className="truncate">{subItem.title}</span>
+                                    </NavLink>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
                       return (
                         <NavLink
                           key={item.url}
@@ -219,8 +280,8 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
               <div className="text-[10px] text-sidebar-muted truncate capitalize">
                 {roleSlugs.size > 0
                   ? Array.from(roleSlugs)
-                      .map(s => s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()))
-                      .join(", ")
+                    .map(s => s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()))
+                    .join(", ")
                   : "No role assigned"}
               </div>
             </div>
