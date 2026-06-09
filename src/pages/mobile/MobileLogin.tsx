@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import Card from "@/components/Card";
 import { Smartphone, QrCode, Shield, CheckCircle, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import QRCode from "qrcode";
 
 export default function MobileLogin() {
   const [sessions, setSessions] = useState([
@@ -11,10 +12,45 @@ export default function MobileLogin() {
     { id: "S-1021", device: "iPad Air", location: "Tiruppur, India", ip: "49.37.192.88", lastActive: "3 days ago", status: "Expired" }
   ]);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const [pairingToken, setPairingToken] = useState<string>("");
 
-  const handleRegenerateQR = () => {
+  const generateQRCode = async () => {
+    try {
+      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      setPairingToken(token);
+      // Generate a dynamic pairing payload
+      const payload = JSON.stringify({
+        action: "pair-bde",
+        token: token,
+        url: window.location.origin,
+        timestamp: Date.now()
+      });
+      const url = await QRCode.toDataURL(payload, {
+        width: 176,
+        margin: 2,
+        color: {
+          dark: "#0a0a0a",
+          light: "#ffffff"
+        }
+      });
+      setQrCodeUrl(url);
+    } catch (err) {
+      console.error("Failed to generate QR Code", err);
+    }
+  };
+
+  useEffect(() => {
+    generateQRCode();
+    // Rotate code every 60 seconds
+    const interval = setInterval(generateQRCode, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleRegenerateQR = async () => {
     setIsRegenerating(true);
-    setTimeout(() => setIsRegenerating(false), 800);
+    await generateQRCode();
+    setTimeout(() => setIsRegenerating(false), 600);
   };
 
   return (
@@ -38,18 +74,14 @@ export default function MobileLogin() {
             </p>
           </div>
 
-          <div className="my-8 relative bg-white p-4 rounded-xl shadow-gold shadow-sm flex items-center justify-center border border-primary/30">
+          <div className="my-8 relative bg-white p-2 rounded-xl shadow-gold shadow-sm flex items-center justify-center border border-primary/30">
             <div className={`transition-all duration-300 ${isRegenerating ? "opacity-30 blur-xs" : "opacity-100"}`}>
-              {/* Mock QR Code visual */}
-              <div className="w-44 h-44 bg-neutral-900 rounded-lg flex flex-wrap p-1">
-                {Array.from({ length: 16 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`w-[41px] h-[41px] m-[1px] rounded-xs ${
-                      (i * 7 + 3) % 2 === 0 ? "bg-primary" : "bg-neutral-850 border border-neutral-900"
-                    } ${i === 0 || i === 3 || i === 12 || i === 15 ? "bg-primary border-4 border-neutral-900" : ""}`}
-                  />
-                ))}
+              <div className="w-44 h-44 flex items-center justify-center bg-white rounded-lg">
+                {qrCodeUrl ? (
+                  <img src={qrCodeUrl} alt="Pairing QR Code" className="w-full h-full object-contain" />
+                ) : (
+                  <div className="w-full h-full bg-neutral-900 animate-pulse rounded-lg" />
+                )}
               </div>
             </div>
             {isRegenerating && (
