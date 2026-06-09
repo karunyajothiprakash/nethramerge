@@ -24,6 +24,11 @@ export function ResetPasswordModal({ isOpen, onClose }: ResetPasswordModalProps)
       return;
     }
 
+    if (email.trim().toLowerCase() !== "shastikaglobal11@gmail.com") {
+      toast.error("Password resets must be initiated by shastikaglobal11 only. Please contact the administrator.");
+      return;
+    }
+
     setLoading(true);
 
     try {

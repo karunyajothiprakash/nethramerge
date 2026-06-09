@@ -38,9 +38,10 @@ const ROLE_NAMES: Record<string, string> = {
 
 
 export default function EmployeeDirectory() {
-  const { onlineUsers, roleSlugs, user, activeMinutes, idleMinutes } = useAuth();
+  const { onlineUsers, roleSlugs, user, activeMinutes, idleMinutes, profile } = useAuth();
   const isAdminOrManager = useIsAdminOrManager();
   const isAdmin = Array.from(roleSlugs).map(s => s.toLowerCase()).includes("admin");
+  const isShastikaGlobal = profile?.email === "shastikaglobal11@gmail.com";
   const [employees, setEmployees] = useState<ProfileRow[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -212,6 +213,10 @@ export default function EmployeeDirectory() {
   };
 
   const handleSendPasswordReset = async (email: string | null) => {
+    if (!isShastikaGlobal) {
+      toast.error("Only shastikaglobal11 is authorized to reset passwords.");
+      return;
+    }
     if (!email) {
       toast.error("User does not have an email address");
       return;
@@ -490,14 +495,16 @@ export default function EmployeeDirectory() {
                     {isAdmin && (
                       <div className="mt-4 pt-4 border-t border-white/5 opacity-50 hover:opacity-100 transition-opacity">
                         <div className="flex justify-between items-center mb-3">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-[10px] h-7 px-2 border-white/10 hover:bg-white/5"
-                            onClick={() => handleSendPasswordReset(e.email)}
-                          >
-                            Send Password Reset
-                          </Button>
+                          {isShastikaGlobal && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-[10px] h-7 px-2 border-white/10 hover:bg-white/5"
+                              onClick={() => handleSendPasswordReset(e.email)}
+                            >
+                              Send Password Reset
+                            </Button>
+                          )}
                           
                           <Button 
                             variant="outline" 
