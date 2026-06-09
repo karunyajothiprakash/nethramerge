@@ -92,7 +92,7 @@ function Dashboard() {
   const { data: leads = [], isLoading: isLoadingLeads } = useQuery({
     queryKey: ["crm_dashboard_leads"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("leads").select("stage");
+      const { data, error } = await supabase.from("leads").select("stage").not('is_deleted', 'eq', true);
       if (error) throw error;
       return data || [];
     }
@@ -123,7 +123,7 @@ function Dashboard() {
       const [quotesRes, profilesRes, leadsRes, ordersRes] = await Promise.all([
         supabase.from("quotations").select("total_amount, amount, status, created_at, lead_id"),
         supabase.from("profiles").select("id, full_name"),
-        supabase.from("leads").select("id, assigned_to"),
+        supabase.from("leads").select("id, assigned_to").not('is_deleted', 'eq', true),
         supabase.from("export_orders").select("id, status")
       ]);
 

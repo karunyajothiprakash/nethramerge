@@ -163,6 +163,7 @@ export default function LeadsList() {
       const { data, error } = await supabase
         .from("leads")
         .select(`*`)
+        .not('is_deleted', 'eq', true)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -413,7 +414,10 @@ export default function LeadsList() {
   const executeDelete = async () => {
     if (!deleteId) return;
     try {
-      const { error } = await supabase.from("leads").delete().eq("id", deleteId);
+      const { error } = await supabase
+        .from("leads")
+        .update({ is_deleted: true })
+        .eq("id", deleteId);
       if (error) throw error;
       toast.success("Lead deleted successfully");
       fetchLeads();

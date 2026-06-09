@@ -207,6 +207,7 @@ export default function SalaryReport() {
       const { data, error } = await supabase
         .from('attendance_logs')
         .select('*')
+        .not('is_deleted', 'eq', true)
         .gte('date', start)
         .lte('date', end);
       if (error) throw error;

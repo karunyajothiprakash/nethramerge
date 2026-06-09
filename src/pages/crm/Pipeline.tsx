@@ -40,6 +40,7 @@ export default function LeadPipeline() {
       const { data, error } = await supabase
         .from("leads")
         .select("id, company_name, contact_name, country, interested_product, stage")
+        .not('is_deleted', 'eq', true)
         .order("created_at", { ascending: false });
 
       if (error) throw error;

@@ -32,6 +32,7 @@ export default function CreateOrder() {
       const { data: leadsData } = await supabase
         .from("leads")
         .select("id, company_name, contact_name, mobile, email, country")
+        .not('is_deleted', 'eq', true)
         .order("created_at", { ascending: false });
       
       if (leadsData) setLeadsList(leadsData);

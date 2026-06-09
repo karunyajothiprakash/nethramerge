@@ -426,7 +426,7 @@ export default function Attendance() {
     try {
       const { error } = await supabase
         .from('attendance_logs')
-        .delete()
+        .update({ is_deleted: true })
         .eq('id', logId);
 
       if (error) throw error;
@@ -564,6 +564,7 @@ export default function Attendance() {
     const { data: logs, error: logsErr } = await supabase
       .from('attendance_logs')
       .select('*')
+      .not('is_deleted', 'eq', true)
       .gte('date', firstDayOfMonth)
       .lte('date', lastDayOfMonth);
 

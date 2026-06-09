@@ -96,6 +96,7 @@ function CustomerDatabase() {
     const { data, error } = await supabase
       .from("leads")
       .select("*")
+      .not('is_deleted', 'eq', true)
       .order("created_at", { ascending: false });
       
     if (!error && data) {

@@ -48,6 +48,7 @@ export function AddTaskDialog({ open, onOpenChange, onSuccess }: AddTaskDialogPr
       .from("leads")
       .select("id, company_name")
       .or(`company_id.eq.${profile?.company_id},company_id.is.null`)
+      .not('is_deleted', 'eq', true)
       .order("created_at", { ascending: false });
     if (data) setLeads(data);
   };

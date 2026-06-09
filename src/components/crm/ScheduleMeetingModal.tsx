@@ -58,6 +58,7 @@ export function ScheduleMeetingModal({ open, onOpenChange, meetingToEdit, defaul
         .from("leads")
         .select("id, company, name")
         .eq("company_id", profile.company_id)
+        .not('is_deleted', 'eq', true)
         .order("company")
         .then(({ data }) => setLeads(data || []));
 

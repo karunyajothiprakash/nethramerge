@@ -57,6 +57,7 @@ export async function getEmployeeHistory(employeeId, fromDate, toDate) {
       employees(name, bio_id, department)
     `)
     .eq('employee_id', employeeId)
+    .not('is_deleted', 'eq', true)
     .gte('date', fromDate)
     .lte('date', toDate)
     .order('date', { ascending: false })
@@ -240,6 +241,7 @@ export async function getAttendanceReport({ fromDate, toDate, department = null 
       *,
       employees(name, bio_id, department, role)
     `)
+    .not('is_deleted', 'eq', true)
     .gte('date', fromDate)
     .lte('date', toDate)
     .order('date', { ascending: false })
@@ -273,6 +275,7 @@ export async function getSalaryCutReport(month) {
       date,
       employees(name, bio_id, department)
     `)
+    .not('is_deleted', 'eq', true)
     .gte('date', startDate)
     .lte('date', endDateStr)
     .eq('is_late', true)
@@ -291,9 +294,9 @@ export async function getTodayStats() {
   const [{ count: totalEmp }, { count: present }, { count: late }, { data: cuts }] =
     await Promise.all([
       supabase.from('employees').select('*', { count: 'exact', head: true }).eq('is_active', true),
-      supabase.from('attendance_logs').select('*', { count: 'exact', head: true }).eq('date', today).eq('status', 'present'),
-      supabase.from('attendance_logs').select('*', { count: 'exact', head: true }).eq('date', today).eq('is_late', true),
-      supabase.from('attendance_logs').select('salary_cut').eq('date', today)
+      supabase.from('attendance_logs').select('*', { count: 'exact', head: true }).eq('date', today).eq('status', 'present').not('is_deleted', 'eq', true),
+      supabase.from('attendance_logs').select('*', { count: 'exact', head: true }).eq('date', today).eq('is_late', true).not('is_deleted', 'eq', true),
+      supabase.from('attendance_logs').select('salary_cut').eq('date', today).not('is_deleted', 'eq', true)
     ])
 
   const totalCut = cuts?.reduce((sum, r) => sum + (r.salary_cut || 0), 0) || 0
