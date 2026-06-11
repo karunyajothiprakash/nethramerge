@@ -1,26 +1,32 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const { createClient } = require('@supabase/supabase-js');
 const { requireAuth } = require('../middleware/auth');
+
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // --- API ROUTE: Get Attendance ---
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { start, end } = req.query;
-    let query = 'SELECT * FROM attendance_logs WHERE is_deleted IS NOT TRUE';
-    let params = [];
     
+    let query = supabase
+      .from('attendance_logs')
+      .select('*')
+      .order('date', { ascending: false });
+
     if (start && end) {
-      query += ' AND date >= $1 AND date <= $2';
-      params.push(start, end);
+      query = query.gte('date', start).lte('date', end);
     }
     
-    query += ' ORDER BY date DESC';
+    const { data, error } = await query;
+    if (error) throw error;
     
-    const { rows } = await db.query(query, params);
-    res.json(rows);
+    res.json(data || []);
   } catch (err) {
-    console.error("DB Error:", err);
+    console.error("Supabase Error (get attendance):", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
@@ -29,24 +35,48 @@ router.get('/', requireAuth, async (req, res) => {
 router.put('/manual-time', requireAuth, async (req, res) => {
   try {
     const { employee_id, date, check_in, check_out } = req.body;
-    const marked_by = req.user.sub;
     
-    const { rows: existing } = await db.query('SELECT id FROM attendance_logs WHERE employee_id = $1 AND date = $2', [employee_id, date]);
+    // In Supabase schema, company_id is required
+    const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', employee_id).single();
+    const company_id = profile ? profile.company_id : '00000000-0000-0000-0000-000000000000'; // fallback
     
-    if (existing.length > 0) {
-      await db.query(
-        'UPDATE attendance_logs SET check_in = $1, check_out = $2, is_manual = true, status = $3, marked_by = $4 WHERE employee_id = $5 AND date = $6',
-        [check_in, check_out || null, 'present', marked_by, employee_id, date]
-      );
+    const { data: existing, error: existErr } = await supabase
+      .from('attendance_logs')
+      .select('id')
+      .eq('employee_id', employee_id)
+      .eq('date', date);
+      
+    if (existErr) throw existErr;
+
+    if (existing && existing.length > 0) {
+      const { error } = await supabase
+        .from('attendance_logs')
+        .update({
+          clock_in: check_in,
+          clock_out: check_out || null,
+          is_manual: true,
+          status: 'present'
+        })
+        .eq('employee_id', employee_id)
+        .eq('date', date);
+      if (error) throw error;
     } else {
-      await db.query(
-        'INSERT INTO attendance_logs (employee_id, date, check_in, check_out, is_manual, status, marked_by) VALUES ($1, $2, $3, $4, true, $5, $6)',
-        [employee_id, date, check_in, check_out || null, 'present', marked_by]
-      );
+      const { error } = await supabase
+        .from('attendance_logs')
+        .insert([{
+          employee_id,
+          company_id,
+          date,
+          clock_in: check_in,
+          clock_out: check_out || null,
+          is_manual: true,
+          status: 'present'
+        }]);
+      if (error) throw error;
     }
     res.json({ success: true });
   } catch (err) {
-    console.error("DB Error (manual-time):", err);
+    console.error("Supabase Error (manual-time):", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
@@ -55,24 +85,48 @@ router.put('/manual-time', requireAuth, async (req, res) => {
 router.put('/mark-od', requireAuth, async (req, res) => {
   try {
     const { employee_id, date, od_reason, check_in } = req.body;
-    const marked_by = req.user.sub;
     
-    const { rows: existing } = await db.query('SELECT id FROM attendance_logs WHERE employee_id = $1 AND date = $2', [employee_id, date]);
+    // In Supabase schema, company_id is required
+    const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', employee_id).single();
+    const company_id = profile ? profile.company_id : '00000000-0000-0000-0000-000000000000'; // fallback
     
-    if (existing.length > 0) {
-      await db.query(
-        `UPDATE attendance_logs SET status = 'OD', is_manual = true, check_in = $1, od_reason = $2, marked_by = $3 WHERE employee_id = $4 AND date = $5`,
-        [check_in, od_reason || 'Field Trip (OD)', marked_by, employee_id, date]
-      );
+    const { data: existing, error: existErr } = await supabase
+      .from('attendance_logs')
+      .select('id')
+      .eq('employee_id', employee_id)
+      .eq('date', date);
+      
+    if (existErr) throw existErr;
+    
+    if (existing && existing.length > 0) {
+      const { error } = await supabase
+        .from('attendance_logs')
+        .update({
+          status: 'OD',
+          is_manual: true,
+          clock_in: check_in,
+          notes: od_reason || 'Field Trip (OD)'
+        })
+        .eq('employee_id', employee_id)
+        .eq('date', date);
+      if (error) throw error;
     } else {
-      await db.query(
-        `INSERT INTO attendance_logs (employee_id, date, check_in, status, is_manual, od_reason, marked_by) VALUES ($1, $2, $3, 'OD', true, $4, $5)`,
-        [employee_id, date, check_in, od_reason || 'Field Trip (OD)', marked_by]
-      );
+      const { error } = await supabase
+        .from('attendance_logs')
+        .insert([{
+          employee_id,
+          company_id,
+          date,
+          clock_in: check_in,
+          status: 'OD',
+          is_manual: true,
+          notes: od_reason || 'Field Trip (OD)'
+        }]);
+      if (error) throw error;
     }
     res.json({ success: true });
   } catch (err) {
-    console.error("DB Error (mark-od):", err);
+    console.error("Supabase Error (mark-od):", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });

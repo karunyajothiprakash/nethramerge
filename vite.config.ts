@@ -18,6 +18,10 @@ export default defineConfig(({ mode }) => ({
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api\/ai-chat/, "/api/chat"),
         },
+        "/api": {
+          target: "http://localhost:8082",
+          changeOrigin: true,
+        },
     },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),

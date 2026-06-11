@@ -18,7 +18,7 @@ const app = express();
 const PORT = process.env.PORT || 8082;
 
 // Initialize Supabase Client
-const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -32,8 +32,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   }
 });
 
-// Use raw text body parser to handle the tab-separated values sent by ZKTeco devices
-app.use(express.text({ type: '*/*', limit: '10mb' }));
 app.use(express.json());
 app.use(cors());
 
@@ -89,7 +87,7 @@ app.get('/iclock/cdata', (req, res) => {
  * 2. POST /iclock/cdata - Receive Punch Logs (ATTLOG) & Operation Logs (OPERLOG)
  * The device pushes new attendance records here.
  */
-app.post('/iclock/cdata', async (req, res) => {
+app.post('/iclock/cdata', express.text({ type: '*/*', limit: '10mb' }), async (req, res) => {
   const sn = req.query.SN || 'UNKNOWN';
   const table = req.query.table || 'UNKNOWN';
   console.log(`\n📥 [POST /iclock/cdata] Data upload from SN: ${sn}, Table: ${table}`);
