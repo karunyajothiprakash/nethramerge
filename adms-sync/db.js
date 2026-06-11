@@ -3,7 +3,7 @@ require('dotenv').config();
 
 const pool = new Pool({
   user: 'erp_admin',
-  host: '127.0.0.1',
+  host: process.env.PG_HOST || '127.0.0.1',
   database: 'shastika_erp',
   password: process.env.PG_PASSWORD,
   port: 5432,
