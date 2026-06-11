@@ -13,15 +13,15 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
     proxy: {
-        "/api/ai-chat": {
-          target: "http://localhost:3001",
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/ai-chat/, "/api/chat"),
-        },
-        "/api": {
-          target: "http://localhost:8082",
-          changeOrigin: true,
-        },
+      "/api/ai-chat": {
+        target: "http://127.0.0.1:3001",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/ai-chat/, "/api/chat"),
+      },
+      "/api": {
+        target: "http://127.0.0.1:8082",
+        changeOrigin: true,
+      },
     },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
