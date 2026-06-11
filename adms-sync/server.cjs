@@ -11,8 +11,13 @@ const { createClient } = require('@supabase/supabase-js');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const db = require('./db');
+const path = require('path');
+const fs = require('fs');
 
-require('dotenv').config();
+const dotenvPath = fs.existsSync(path.join(__dirname, '.env'))
+  ? path.join(__dirname, '.env')
+  : path.join(__dirname, '..', '.env');
+require('dotenv').config({ path: dotenvPath });
 
 const app = express();
 const PORT = process.env.PORT || 8082;
@@ -41,6 +46,7 @@ app.use(cors());
 const attendanceRoutes = require('./routes/attendance');
 const employeesRoutes = require('./routes/employees');
 const crmRoutes = require('./routes/crm');
+const farmersRoutes = require('./routes/farmers');
 const invoicesRoutes = require('./routes/invoices');
 const mailboxRoutes = require('./routes/mailbox');
 const productsRoutes = require('./routes/products');
@@ -49,6 +55,7 @@ const settingsRoutes = require('./routes/settings');
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/employees', employeesRoutes);
 app.use('/api/leads', crmRoutes);
+app.use('/api/farmers', farmersRoutes);
 app.use('/api', invoicesRoutes);
 app.use('/api/emails', mailboxRoutes);
 app.use('/api', productsRoutes);

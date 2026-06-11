@@ -25,6 +25,7 @@ type Farmer = {
 export default function FarmersList() {
   const nav = useNavigate();
   const can = useCan();
+  const canConvert = can("farmers.manage");
 
   const { data, isLoading } = useQuery({
     queryKey: ["farmers"],
@@ -38,6 +39,32 @@ export default function FarmersList() {
       return data as Farmer[];
     },
   });
+
+  const columns = [
+    { key: "code", header: "Code", render: (r: Farmer) => <span className="font-mono text-xs text-muted-foreground">{r.code || "—"}</span> },
+    { key: "name", header: "Farmer", render: (r: Farmer) => <span className="font-medium">{r.full_name}</span> },
+    { key: "phone", header: "Phone", render: (r: Farmer) => <span className="text-sm text-muted-foreground">{r.phone || "—"}</span> },
+    { key: "loc", header: "Location", render: (r: Farmer) => <span className="text-sm">{[r.village, r.district, r.state].filter(Boolean).join(", ") || "—"}</span> },
+    { key: "crops", header: "Crops", render: (r: Farmer) => <span className="text-xs text-muted-foreground">{(r.primary_crops || []).join(", ") || "—"}</span> },
+    { key: "status", header: "Status", render: (r: Farmer) => <StatusBadge status={r.is_active ? "Active" : "Inactive"} /> },
+    {
+      key: "actions",
+      header: "Action",
+      className: "text-right",
+      render: (r: Farmer) => (
+        <Button
+          size="xs"
+          variant="secondary"
+          onClick={(event) => {
+            event.stopPropagation();
+            nav(`/farmers/convert?id=${r.id}`);
+          }}
+        >
+          Convert to Customer
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <div>
@@ -76,14 +103,7 @@ export default function FarmersList() {
           data={data}
           searchKeys={["full_name", "code", "village", "district"]}
           onRowClick={(r) => nav(`/farmers/${r.id}`)}
-          columns={[
-            { key: "code", header: "Code", render: (r) => <span className="font-mono text-xs text-muted-foreground">{r.code || "—"}</span> },
-            { key: "name", header: "Farmer", render: (r) => <span className="font-medium">{r.full_name}</span> },
-            { key: "phone", header: "Phone", render: (r) => <span className="text-sm text-muted-foreground">{r.phone || "—"}</span> },
-            { key: "loc", header: "Location", render: (r) => <span className="text-sm">{[r.village, r.district, r.state].filter(Boolean).join(", ") || "—"}</span> },
-            { key: "crops", header: "Crops", render: (r) => <span className="text-xs text-muted-foreground">{(r.primary_crops || []).join(", ") || "—"}</span> },
-            { key: "status", header: "Status", render: (r) => <StatusBadge status={r.is_active ? "Active" : "Inactive"} /> },
-          ]}
+          columns={columns}
         />
       )}
     </div>
