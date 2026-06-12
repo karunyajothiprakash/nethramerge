@@ -675,8 +675,14 @@ export default function Attendance() {
       )
       .subscribe();
 
+    // Poll for updates from VPS database every 10 seconds since Supabase realtime doesn't capture VPS DB updates
+    const pollInterval = setInterval(() => {
+      loadData(startDate, endDate);
+    }, 10000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollInterval);
     };
   }, [startDate, endDate]);
 
