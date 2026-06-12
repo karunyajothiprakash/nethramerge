@@ -383,14 +383,26 @@ export default function Attendance() {
   const handleMarkOnLeave = async (emp: any) => {
     const todayStr = endDate;
     try {
-      const { error } = await supabase.from('attendance_logs').upsert({
-        employee_id: emp.id,
-        date: todayStr,
-        status: 'on_leave',
-        is_manual: true
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No active session found");
+
+      const response = await fetch('/api/attendance/mark-leave', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          employee_id: emp.id,
+          date: todayStr
+        })
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to mark leave');
+      }
+
       toast.success("Marked as Paid Leave");
       await loadData(startDate, endDate);
     } catch (e: any) {
@@ -434,12 +446,26 @@ export default function Attendance() {
 
   const handleToggleExcused = async (logId: string, checked: boolean) => {
     try {
-      const { error } = await supabase
-        .from('attendance_logs')
-        .update({ is_excused: checked })
-        .eq('id', logId);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No active session found");
 
-      if (error) throw error;
+      const response = await fetch('/api/attendance/toggle-excused', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          id: logId,
+          is_excused: checked
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to update permission');
+      }
+
       toast.success(checked ? "Excused status applied (No salary cut)" : "Removed excused status");
       await loadData(startDate, endDate);
     } catch (e: any) {
@@ -449,12 +475,25 @@ export default function Attendance() {
 
   const handleDeleteLog = async (logId: string) => {
     try {
-      const { error } = await supabase
-        .from('attendance_logs')
-        .update({ is_deleted: true })
-        .eq('id', logId);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No active session found");
 
-      if (error) throw error;
+      const response = await fetch('/api/attendance/delete-log', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          id: logId
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to clear record');
+      }
+
       toast.success("Record cleared");
       await loadData(startDate, endDate);
     } catch (e: any) {
@@ -725,27 +764,26 @@ export default function Attendance() {
     if (!userId) return toast.error("User ID missing");
 
     setPunching(true);
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
 
     try {
-      if (!myTodayStatus) {
-        // Punch In
-        const { error } = await supabase.from('attendance_logs').insert({
-          employee_id: userId,
-          date: todayStr,
-          status: 'present',
-          clock_in: new Date().toISOString()
-        });
-        if (error) throw error;
-        toast.success("Successfully Punched In!");
-      } else if (!myTodayStatus.clock_out) {
-        // Punch Out
-        const { error } = await supabase.from('attendance_logs').update({
-          clock_out: new Date().toISOString()
-        }).eq('id', myTodayStatus.id);
-        if (error) throw error;
-        toast.success("Successfully Punched Out!");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No active session found");
+
+      const response = await fetch('/api/attendance/punch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to record attendance');
       }
+
+      const resData = await response.json();
+      toast.success(resData.type === 'in' ? "Successfully Punched In!" : "Successfully Punched Out!");
       await loadData(startDate, endDate); // Reload
     } catch (e: any) {
       toast.error(e.message || "Failed to record attendance");
@@ -1204,7 +1242,7 @@ export default function Attendance() {
                           <div className={`inline-flex flex-col items-center justify-center gap-0.5 min-w-[65px] py-1 px-1.5 rounded border text-[9px] font-medium leading-none ${cellBg}`}>
                             {statusLabel && !log ? (
                               <span className="font-semibold py-1">{statusLabel}</span>
-                            ) : statusLabel ? (
+                            ) : statusLabel && statusLabel !== "LATE" ? (
                               <span className="font-semibold py-1">{statusLabel}</span>
                             ) : (
                               <>
@@ -1217,6 +1255,9 @@ export default function Attendance() {
                                   <span className="text-blue-600 dark:text-blue-400 font-semibold">{clockOutStr}</span>
                                 ) : (
                                   <span className="text-muted-foreground/40">--:--</span>
+                                )}
+                                {statusLabel === "LATE" && (
+                                  <span className="text-[8px] font-bold text-amber-600 dark:text-amber-500 uppercase mt-0.5">LATE</span>
                                 )}
                               </>
                             )}
