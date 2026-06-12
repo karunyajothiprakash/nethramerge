@@ -583,18 +583,18 @@ export default function Attendance() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) setUserId(user.id);
 
-    // Fetch approved profiles
-    const { data: profiles, error: profErr } = await supabase
-      .from('profiles')
-      .select('id, full_name, requested_role, company_id, biometric_id, monthly_salary, punch_deadline, system_mode, joining_date')
-      .eq('status', 'approved')
-      .order('full_name');
-
-    if (profErr) {
+    // Fetch approved profiles via local API
+    const { data: { session: empSession } } = await supabase.auth.getSession();
+    const empRes = await fetch('/api/employees', {
+      headers: { 'Authorization': `Bearer ${empSession?.access_token}` }
+    });
+    if (!empRes.ok) {
       toast.error("Failed to load employees");
       setLoading(false);
       return;
     }
+    const profiles = await empRes.json();
+    const profErr = null;
 
     // Exclude owners and users without a biometric ID
     const filtered = (profiles || []).filter(p =>
