@@ -8,17 +8,18 @@ import {
     AlertTriangle, Container, Activity, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export default function WarehouseDashboard() {
     const [loading, setLoading] = useState(false);
 
     // Fetch inventory data - OPTIMIZED: only count & sums, no full fetch
-    const { data: inventoryData, isLoading: inventoryLoading } = useQuery({
+    const { data: inventoryData, isLoading: inventoryLoading, refetch: refetchInventory } = useQuery({
         queryKey: ["warehouse-inventory"],
         queryFn: async () => {
             const { data, error } = await supabase
                 .from("inventory_batches")
-                .select("quantity_kg, is_export_ready")
+                .select("quantity_remaining_kg, status")
                 .limit(100);
             if (error) throw error;
             return data || [];
@@ -28,7 +29,7 @@ export default function WarehouseDashboard() {
     });
 
     // Fetch low stock alerts - OPTIMIZED with cache
-    const { data: lowStockData, isLoading: lowStockLoading } = useQuery({
+    const { data: lowStockData, isLoading: lowStockLoading, refetch: refetchLowStock } = useQuery({
         queryKey: ["low-stock-alerts"],
         queryFn: async () => {
             const { data, error } = await supabase
@@ -44,7 +45,7 @@ export default function WarehouseDashboard() {
     });
 
     // Fetch shipments - OPTIMIZED: reduced limit, added cache
-    const { data: shipmentsData, isLoading: shipmentsLoading } = useQuery({
+    const { data: shipmentsData, isLoading: shipmentsLoading, refetch: refetchShipments } = useQuery({
         queryKey: ["shipments-today"],
         queryFn: async () => {
             const today = new Date().toISOString().split('T')[0];
@@ -62,7 +63,7 @@ export default function WarehouseDashboard() {
     });
 
     // Fetch activity logs - OPTIMIZED: already limited to 5
-    const { data: activityLogs, isLoading: logsLoading } = useQuery({
+    const { data: activityLogs, isLoading: logsLoading, refetch: refetchLogs } = useQuery({
         queryKey: ["warehouse-activities"],
         queryFn: async () => {
             const today = new Date().toISOString().split('T')[0];
@@ -80,13 +81,30 @@ export default function WarehouseDashboard() {
     });
 
     // Calculate metrics from real data
-    const totalInventory = inventoryData?.reduce((sum, item) => sum + (parseFloat(item.quantity_kg) || 0), 0) || 0;
-    const exportReadyStock = inventoryData?.filter(item => item.is_export_ready).reduce((sum, item) => sum + (parseFloat(item.quantity_kg) || 0), 0) || 0;
-    const pendingPacking = inventoryData?.filter(item => !item.is_export_ready).length || 0;
+    const totalInventory = inventoryData?.reduce((sum, item) => sum + (parseFloat(item.quantity_remaining_kg) || 0), 0) || 0;
+    const exportReadyStock = inventoryData?.filter(item => item.status === 'export_ready').reduce((sum, item) => sum + (parseFloat(item.quantity_remaining_kg) || 0), 0) || 0;
+    const pendingPacking = inventoryData?.filter(item => item.status !== 'export_ready').length || 0;
     const lowStockCount = lowStockData?.length || 0;
     const dispatchedToday = shipmentsData?.length || 0;
     const containerLoading = shipmentsData?.filter(s => s.status === 'loading').length || 0;
     const activityCount = activityLogs?.length || 0;
+
+    const handleSync = async () => {
+        setLoading(true);
+        try {
+            await Promise.all([
+                refetchInventory(),
+                refetchLowStock(),
+                refetchShipments(),
+                refetchLogs()
+            ]);
+            toast.success("Warehouse data synced!");
+        } catch (error) {
+            toast.error("Failed to sync warehouse data");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="p-6 space-y-6 animate-fade-in max-w-[1600px] mx-auto">
@@ -96,9 +114,9 @@ export default function WarehouseDashboard() {
                     description="Live overview of stock, packing, and dispatch activities"
                     breadcrumbs={[{ label: "Warehouse" }, { label: "Dashboard" }]}
                 />
-                <Button className="btn-gold hidden sm:flex">
-                    <Activity className="h-4 w-4 mr-2" />
-                    Live Sync
+                <Button className="btn-gold hidden sm:flex" onClick={handleSync} disabled={loading}>
+                    {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Activity className="h-4 w-4 mr-2" />}
+                    {loading ? "Syncing..." : "Live Sync"}
                 </Button>
             </div>
 

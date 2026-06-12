@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +32,7 @@ export function PackingForm({
     const [manualMode, setManualMode] = useState(!!initialData);
     const [formData, setFormData] = useState(initialData || {
         receiving_id: "",
+        product_name: "",
         carton_count: 1,
         net_weight: 0,
         gross_weight: 0,
@@ -50,14 +52,36 @@ export function PackingForm({
     // Fetch unpacked receivings
     const { data: receivings = [], isLoading: isLoadingReceivings } = useQuery({
         queryKey: ["unpacked_receivings", companyId],
+        enabled: !!companyId,
         queryFn: () => getUnpackedReceivings(companyId),
     });
 
+    const { data: products = [], isLoading: isLoadingProducts } = useQuery({
+        queryKey: ["products-list", companyId],
+        enabled: !!companyId,
+        queryFn: async () => {
+             let query = supabase.from('products' as any).select('*').eq('is_active', true).order('name');
+             if (companyId) {
+                 query = query.or(`company_id.eq.${companyId},company_id.is.null`);
+             }
+             const { data, error } = await query;
+             if (error) throw error;
+             return data || [];
+        }
+    });
+
     const handleInputChange = (field: string, value: any) => {
-        setFormData((prev) => ({
-            ...prev,
-            [field]: value,
-        }));
+        const newFormData = { ...formData, [field]: value };
+        
+        // Auto-fill product details when receiving is selected
+        if (field === "receiving_id" && !manualMode) {
+            const selectedRec = receivings.find(r => r.id === value);
+            if (selectedRec && selectedRec.product_name) {
+                newFormData.product_name = selectedRec.product_name;
+            }
+        }
+        
+        setFormData(newFormData);
         setErrors([]);
     };
 
@@ -152,7 +176,7 @@ export function PackingForm({
                                 <SelectContent>
                                     {receivings.map((rec) => (
                                         <SelectItem key={rec.id} value={rec.id}>
-                                            {rec.receiving_number} - {rec.total_items} items
+                                            {rec.receiving_number} - {rec.product_name} - {rec.created_at ? new Date(rec.created_at).toLocaleDateString() : ''}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -173,6 +197,28 @@ export function PackingForm({
                                     handleInputChange("receiving_id", e.target.value)
                                 }
                             />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium mb-2 block">
+                                Product Name <span className="text-red-500">*</span>
+                            </label>
+                            <Select
+                                value={formData.product_name}
+                                onValueChange={(value) => handleInputChange("product_name", value)}
+                            >
+                                <SelectTrigger disabled={isLoadingProducts}>
+                                    <SelectValue placeholder="Select Product" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {products.length === 0 ? (
+                                        <div className="p-2 text-sm text-muted-foreground">No products available</div>
+                                    ) : (
+                                        products.map((p: any) => (
+                                            <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                                        ))
+                                    )}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </>
                 )}

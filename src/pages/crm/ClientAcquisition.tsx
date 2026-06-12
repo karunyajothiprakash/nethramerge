@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import SectionHeader from "../../components/SectionHeader";
 import Card from "@/components/Card";
 import { UserPlus, Star, BarChart3, TrendingUp, Search, UserCheck } from "lucide-react";
@@ -10,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 export default function ClientAcquisition() {
+  const navigate = useNavigate();
   const [sources, setSources] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -171,7 +173,7 @@ export default function ClientAcquisition() {
                 </form>
               </DialogContent>
             </Dialog>
-            <Button size="sm" className="btn-gold shadow-md">
+            <Button size="sm" className="btn-gold shadow-md" onClick={() => navigate('/crm/reports')}>
               <BarChart3 className="h-4 w-4 mr-1.5" /> Funnel Reports
             </Button>
           </div>

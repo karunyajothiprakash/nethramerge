@@ -3,6 +3,7 @@ import { supabase } from "./supabase";
 export interface PackingProtocol {
     id: string;
     receiving_id: string;
+    product_name?: string;
     carton_count: number;
     net_weight: number;
     gross_weight: number;
@@ -17,6 +18,7 @@ export interface PackingProtocol {
 
 export interface CreatePackingInput {
     receiving_id: string;
+    product_name?: string;
     carton_count: number;
     net_weight: number;
     gross_weight: number;
@@ -42,7 +44,7 @@ export async function createPackingProtocol(
                     gross_weight: data.gross_weight,
                     pallet_config: data.pallet_config,
                     export_marks: data.export_marks,
-                    status: data.status || "draft",
+                    status: (data.status || "draft") as any,
                     company_id: companyId,
                     created_by: userId,
                     is_deleted: false,
@@ -60,7 +62,7 @@ export async function createPackingProtocol(
             );
         }
 
-        return packing;
+        return packing as PackingProtocol;
     } catch (error: any) {
         console.error("Error in createPackingProtocol:", error);
         throw error;
@@ -89,7 +91,7 @@ export async function getPackingProtocols(
     const { data, error } = await query;
 
     if (error) throw error;
-    return data || [];
+    return (data as PackingProtocol[]) || [];
 }
 
 // Get single packing protocol
@@ -103,7 +105,7 @@ export async function getPackingProtocolById(
         .single();
 
     if (error) throw error;
-    return data;
+    return data as PackingProtocol;
 }
 
 // Update packing protocol
@@ -111,18 +113,19 @@ export async function updatePackingProtocol(
     id: string,
     updates: Partial<PackingProtocol>
 ): Promise<PackingProtocol> {
+    const { product_name, ...dbUpdates } = updates;
     const { data, error } = await supabase
         .from("packing_protocols")
         .update({
-            ...updates,
+            ...(dbUpdates as any),
             updated_at: new Date().toISOString(),
-        })
+        } as any)
         .eq("id", id)
         .select()
         .single();
 
     if (error) throw error;
-    return data;
+    return data as PackingProtocol;
 }
 
 // Delete packing protocol (Soft-delete)
@@ -197,17 +200,25 @@ export async function getPackingListPDF(packingId: string) {
 export async function getUnpackedReceivings(
     companyId: string
 ): Promise<any[]> {
-    const { data, error } = await supabase
+    let query = supabase
         .from("inventory_batches")
         .select(`
             id,
             lot_number,
             status,
             quantity_kg,
-            received_date
+            received_date,
+            products (
+                name
+            )
         `)
-        .eq("company_id", companyId)
         .order("received_date", { ascending: false });
+
+    if (companyId) {
+        query = query.eq('company_id', companyId);
+    }
+    
+    const { data, error } = await query;
 
     if (error) {
         console.error("Error fetching batches:", error);
@@ -217,7 +228,7 @@ export async function getUnpackedReceivings(
     return (data || []).map((batch: any) => ({
         id: batch.id,
         receiving_number: batch.lot_number || `BATCH-${batch.id.substring(0, 6)}`,
-        supplier_id: null,
+        product_name: batch.products?.name || "Unknown Product",
         status: batch.status,
         total_items: batch.quantity_kg,
         created_at: batch.received_date

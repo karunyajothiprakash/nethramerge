@@ -12,7 +12,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const db = require('./db');
 
-require('dotenv').config();
+require('dotenv').config({ path: '../.env' });
 
 const app = express();
 const PORT = process.env.PORT || 8082;
@@ -51,6 +51,7 @@ const productsRoutes = require('./routes/products');
 const settingsRoutes = require('./routes/settings');
 const financeRoutes = require('./routes/finance');
 const hrRoutes = require('./routes/hr');
+const farmersRoutes = require('./routes/farmers');
 
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/employees', employeesRoutes);
@@ -63,6 +64,7 @@ app.use('/api/warehouse', warehouseRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/hr', hrRoutes);
+app.use('/api/farmers', farmersRoutes);
 app.use('/api', invoicesRoutes);
 app.use('/api/emails', mailboxRoutes);
 app.use('/api', productsRoutes);

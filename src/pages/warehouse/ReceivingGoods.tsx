@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/shared/PageHeader";
 import Card from "@/components/Card";
@@ -40,36 +40,41 @@ export default function ReceivingGoods() {
     const [activeTab, setActiveTab] = useState<"entry" | "list">("entry");
     const [savedStocks, setSavedStocks] = useState<any[]>([]);
 
-    // Fetch products and warehouses using useQuery
-    const { data: products = [], isLoading: productsLoading, error: productsError } = useQuery({
-        queryKey: ["warehouse-products"],
+    const { data: suppliers = [], isLoading: suppliersLoading, error: suppliersError } = useQuery({
+        queryKey: ["warehouse-suppliers", profile?.company_id],
+        enabled: true,
         queryFn: async () => {
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                const res = await fetch('/api/products', {
-                    headers: { 'Authorization': `Bearer ${session?.access_token}` }
-                });
-                if (!res.ok) throw new Error('Failed to fetch products');
-                const data = await res.json();
-                return (data || []).slice(0, 1); // only need first for reference id
-            } catch (err: any) {
-                console.error("Error fetching products:", err);
-                return [];
+            let query = supabase.from('farmers').select('id, full_name').neq('is_deleted', true).eq('is_active', true).order('full_name', { ascending: true });
+            if (profile?.company_id) query = query.eq('company_id', profile.company_id);
+            const { data, error } = await query;
+            if (error) throw error;
+            return data || [];
+        }
+    });
+
+    const { data: products = [], isLoading: productsLoading, error: productsError } = useQuery({
+        queryKey: ["warehouse-products", profile?.company_id],
+        enabled: true,
+        queryFn: async () => {
+            let query = supabase.from('products').select('id, name, grade, unit').neq('is_deleted', true).order('name', { ascending: true });
+            if (profile?.company_id) {
+                query = query.or(`company_id.eq.${profile.company_id},company_id.is.null`);
             }
+            const { data, error } = await query;
+            if (error) throw error;
+            return data || [];
         }
     });
 
     const { data: warehouses = [], isLoading: warehousesLoading, error: warehousesError } = useQuery({
-        queryKey: ["warehouse-locations"],
+        queryKey: ["warehouse-locations", profile?.company_id],
+        enabled: true,
         queryFn: async () => {
-            try {
-                const { data, error } = await supabase.from('warehouses').select('id, name').limit(1);
-                if (error) throw error;
-                return data || [];
-            } catch (err: any) {
-                console.error("Error fetching warehouses:", err);
-                return [];
-            }
+            let query = supabase.from('warehouses').select('id, name').neq('is_deleted', true).order('name', { ascending: true });
+            if (profile?.company_id) query = query.eq('company_id', profile.company_id);
+            const { data, error } = await query;
+            if (error) throw error;
+            return data || [];
         }
     });
 
@@ -93,7 +98,10 @@ export default function ReceivingGoods() {
     // Form state
     const [formData, setFormData] = useState({
         grn: `GRN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        supplierId: "",
         supplierInfo: "",
+        productId: "",
+        warehouseId: "",
         expectedQty: "",
         receivedQty: "",
         qualityStatus: "",
@@ -106,23 +114,69 @@ export default function ReceivingGoods() {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    const nextStage = async () => {
-        if (currentStage < STAGES.length - 1) {
-            setCurrentStage(prev => prev + 1);
-        } else {
-            // Validate required fields before submission
-            if (!formData.receivedQty) {
-                toast.error("Please enter received quantity");
-                return;
-            }
-            if (!formData.qualityStatus) {
-                toast.error("Please select quality status");
-                return;
-            }
+    const selectedProduct = useMemo(
+        () => products.find((product: any) => product.id === formData.productId),
+        [products, formData.productId]
+    );
 
+    const selectedWarehouse = useMemo(
+        () => warehouses.find((warehouse: any) => warehouse.id === formData.warehouseId),
+        [warehouses, formData.warehouseId]
+    );
+
+    const selectedSupplier = useMemo(
+        () => suppliers.find((supplier: any) => supplier.id === formData.supplierId),
+        [suppliers, formData.supplierId]
+    );
+
+    const nextStage = async () => {
+        if (currentStage === 0) {
+            if (!formData.supplierId && !formData.supplierInfo) {
+                toast.error("Select a supplier or enter supplier details to continue.");
+                return;
+            }
+            if (!formData.productId) {
+                toast.error("Select a product for this receiving entry.");
+                return;
+            }
+            setCurrentStage(prev => prev + 1);
+            return;
+        }
+
+        if (currentStage === 1) {
+            if (!formData.warehouseId) {
+                toast.error("Please select a warehouse location.");
+                return;
+            }
+            if (!formData.expectedQty) {
+                toast.error("Please enter expected quantity.");
+                return;
+            }
+            setCurrentStage(prev => prev + 1);
+            return;
+        }
+
+        if (currentStage === 2) {
+            if (!formData.receivedQty) {
+                toast.error("Please enter received quantity.");
+                return;
+            }
+            setCurrentStage(prev => prev + 1);
+            return;
+        }
+
+        if (currentStage === 3) {
+            if (!formData.qualityStatus) {
+                toast.error("Please select quality status.");
+                return;
+            }
+            setCurrentStage(prev => prev + 1);
+            return;
+        }
+
+        if (currentStage === STAGES.length - 1) {
             setIsSubmitting(true);
             try {
-                // Get company ID from profile
                 let company_id = profile?.company_id;
 
                 if (!company_id) {
@@ -135,39 +189,81 @@ export default function ReceivingGoods() {
                             .select('company_id')
                             .eq('id', userId)
                             .single();
-                        
                         if (profileError) throw profileError;
                         company_id = profileData?.company_id;
                     }
                 }
 
-                // Validate we have required references
-                if (!products?.[0]?.id || !warehouses?.[0]?.id) {
-                    toast.error("Products or warehouses not available. Please ensure they are configured.");
+                if (!company_id) {
+                    throw new Error('Unable to determine company association for this user.');
+                }
+
+                if (!formData.productId || !formData.warehouseId) {
+                    toast.error("Please select product and warehouse before confirming.");
                     setIsSubmitting(false);
                     return;
                 }
 
-                // Insert into real database
-                const { error } = await supabase.from("inventory_batches").insert({
+                const quantityValue = Number(formData.receivedQty) || 0;
+                const status = formData.qualityStatus === 'pass' ? 'qc_passed' : 'pending_qc';
+                const isExportReady = formData.qualityStatus === 'pass';
+
+                const { error: insertError } = await supabase.from("inventory_batches").insert({
                     company_id,
                     lot_number: formData.batchNumber,
-                    product_id: products[0].id,
-                    warehouse_id: warehouses[0].id,
-                    quantity_kg: Number(formData.receivedQty) || 0,
-                    quantity_remaining_kg: Number(formData.receivedQty) || 0,
-                    status: formData.qualityStatus === 'pass' ? 'qc_passed' : 'pending_qc',
-                    is_export_ready: formData.qualityStatus === 'pass',
-                    received_date: formData.entryDate
+                    product_id: formData.productId,
+                    warehouse_id: formData.warehouseId,
+                    quantity_kg: quantityValue,
+                    quantity_remaining_kg: quantityValue,
+                    status,
+                    is_export_ready: isExportReady,
+                    received_date: formData.entryDate,
+                    notes: formData.notes || null
                 });
 
-                if (error) {
-                    console.error("Database insert error:", error);
-                    throw error;
+                if (insertError) {
+                    console.error("Database insert error:", insertError);
+                    throw insertError;
                 }
 
-                // Also save to local storage for the list display
-                const newEntry = { ...formData, id: new Date().getTime() };
+                // Update warehouse stock summary if the table exists
+                try {
+                    const productName = selectedProduct?.name || '';
+                    const { data: existingStock, error: stockError } = await supabase
+                        .from('warehouse_stock')
+                        .select('id, quantity, unit')
+                        .eq('warehouse_id', formData.warehouseId)
+                        .eq('product_name', productName)
+                        .maybeSingle();
+
+                    if (stockError) {
+                        throw stockError;
+                    }
+
+                    if (existingStock) {
+                        const updatedQty = Number(existingStock.quantity || 0) + quantityValue;
+                        await supabase.from('warehouse_stock').update({
+                            quantity: updatedQty,
+                            unit: selectedProduct?.unit || 'kg',
+                            last_updated: new Date().toISOString(),
+                            notes: `Updated from receiving ${formData.batchNumber}`
+                        }).eq('id', existingStock.id);
+                    } else {
+                        await supabase.from('warehouse_stock').insert({
+                            warehouse_id: formData.warehouseId,
+                            product_name: selectedProduct?.name || '',
+                            quantity: quantityValue,
+                            unit: selectedProduct?.unit || 'kg',
+                            last_updated: new Date().toISOString(),
+                            notes: `Stock added from receiving ${formData.batchNumber}`
+                        });
+                    }
+                } catch (stockErr) {
+                    console.warn('Warehouse stock update skipped:', stockErr);
+                }
+
+                const timestampId = new Date().getTime();
+                const newEntry = { ...formData, id: timestampId, supplierName: selectedSupplier?.full_name || formData.supplierInfo };
                 const updated = [newEntry, ...savedStocks];
                 setSavedStocks(updated);
                 localStorage.setItem("warehouseStockEntries", JSON.stringify(updated));
@@ -175,14 +271,17 @@ export default function ReceivingGoods() {
                 toast.success("Goods received and saved to database successfully!");
                 queryClient.invalidateQueries({ queryKey: ["warehouse-inventory"] });
                 queryClient.invalidateQueries({ queryKey: ["inventory_batches"] });
+                queryClient.invalidateQueries({ queryKey: ["warehouse-stock"] });
 
-                // Reset after completion
                 setTimeout(() => {
                     setCurrentStage(0);
                     setActiveTab("list");
                     setFormData({
                         grn: `GRN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                        supplierId: "",
                         supplierInfo: "",
+                        productId: "",
+                        warehouseId: "",
                         expectedQty: "",
                         receivedQty: "",
                         qualityStatus: "",
@@ -233,15 +332,17 @@ export default function ReceivingGoods() {
             {/* Tabs */}
             <div className="flex space-x-1 p-1 bg-muted/30 rounded-lg max-w-sm border border-border">
                 <button
+                    type="button"
                     onClick={() => setActiveTab('entry')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition-all ${activeTab === 'entry' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`pointer-events-auto flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition-all ${activeTab === 'entry' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                     <Plus className="w-4 h-4" />
                     New Entry
                 </button>
                 <button
+                    type="button"
                     onClick={() => setActiveTab('list')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition-all ${activeTab === 'list' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`pointer-events-auto flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition-all ${activeTab === 'list' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                     <List className="w-4 h-4" />
                     Stock List
@@ -307,11 +408,44 @@ export default function ReceivingGoods() {
                                             <p className="text-xs text-muted-foreground mt-1">Auto-generated unique receipt identifier.</p>
                                         </div>
                                     </div>
+
+                                    <div className="space-y-4">
+                                        <Label>Supplier</Label>
+                                        <Select value={formData.supplierId || undefined} onValueChange={(value) => handleInputChange("supplierId", value)}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={suppliersLoading ? "Loading suppliers..." : "Select supplier"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {suppliers.length > 0 ? suppliers.map((supplier: any) => (
+                                                    <SelectItem key={supplier.id} value={supplier.id}>{supplier.full_name}</SelectItem>
+                                                )) : null}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-muted-foreground">Choose an existing farmer/supplier or enter supplier details manually below.</p>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <Label>Product</Label>
+                                        <Select value={formData.productId || undefined} onValueChange={(value) => handleInputChange("productId", value)}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={productsLoading ? "Loading products..." : "Select product"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {products.length > 0 ? products.map((product: any) => (
+                                                    <SelectItem key={product.id} value={product.id}>
+                                                        {product.name} {product.grade ? `- ${product.grade}` : ''}
+                                                    </SelectItem>
+                                                )) : null}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-muted-foreground">Select the product batch being received.</p>
+                                    </div>
+
                                     <div className="space-y-4 md:col-span-2">
                                         <div>
-                                            <Label>Supplier Information</Label>
+                                            <Label>Supplier Details</Label>
                                             <Input
-                                                placeholder="Enter Supplier Name or ID"
+                                                placeholder="Enter Supplier Name or contact details"
                                                 value={formData.supplierInfo}
                                                 onChange={(e) => handleInputChange("supplierInfo", e.target.value)}
                                                 className="mt-1.5"
@@ -324,6 +458,19 @@ export default function ReceivingGoods() {
                             {currentStage === 1 && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
                                     <div className="space-y-4">
+                                        <Label>Warehouse Location</Label>
+                                        <Select value={formData.warehouseId || undefined} onValueChange={(value) => handleInputChange("warehouseId", value)}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={warehousesLoading ? "Loading warehouses..." : "Select warehouse"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {warehouses.length > 0 ? warehouses.map((warehouse: any) => (
+                                                    <SelectItem key={warehouse.id} value={warehouse.id}>{warehouse.name}</SelectItem>
+                                                )) : null}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-4">
                                         <Label>Warehouse Entry Date</Label>
                                         <Input
                                             type="date"
@@ -332,7 +479,7 @@ export default function ReceivingGoods() {
                                         />
                                     </div>
                                     <div className="space-y-4">
-                                        <Label>Expected Quantity (units or kg)</Label>
+                                        <Label>Expected Quantity (kg)</Label>
                                         <Input
                                             type="number"
                                             placeholder="0"
@@ -382,7 +529,7 @@ export default function ReceivingGoods() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
                                     <div className="space-y-4 md:col-span-2">
                                         <Label>Product Quality Inspection</Label>
-                                        <Select value={formData.qualityStatus} onValueChange={(v) => handleInputChange("qualityStatus", v)}>
+                                        <Select value={formData.qualityStatus || undefined} onValueChange={(v) => handleInputChange("qualityStatus", v)}>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Select Inspection Result" />
                                             </SelectTrigger>
@@ -464,8 +611,10 @@ export default function ReceivingGoods() {
                                         <h4 className="font-bold mb-3 text-sm flex items-center"><Database className="h-4 w-4 mr-2" /> Stock Entry Summary</h4>
                                         <ul className="space-y-2 text-sm">
                                             <li className="flex justify-between"><span className="text-muted-foreground">GRN:</span> <strong>{formData.grn}</strong></li>
-                                            <li className="flex justify-between"><span className="text-muted-foreground">Supplier:</span> <strong>{formData.supplierInfo || 'Not specified'}</strong></li>
-                                            <li className="flex justify-between"><span className="text-muted-foreground">Quantity:</span> <strong>{formData.receivedQty || '0'} units</strong></li>
+                                            <li className="flex justify-between"><span className="text-muted-foreground">Supplier:</span> <strong>{selectedSupplier?.full_name || formData.supplierInfo || 'Not specified'}</strong></li>
+                                            <li className="flex justify-between"><span className="text-muted-foreground">Product:</span> <strong>{selectedProduct?.name || 'Not selected'}</strong></li>
+                                            <li className="flex justify-between"><span className="text-muted-foreground">Warehouse:</span> <strong>{selectedWarehouse?.name || 'Not selected'}</strong></li>
+                                            <li className="flex justify-between"><span className="text-muted-foreground">Quantity:</span> <strong>{formData.receivedQty || '0'} kg</strong></li>
                                             <li className="flex justify-between"><span className="text-muted-foreground">Quality:</span> <strong>{formData.qualityStatus === 'pass' ? 'Passed' : formData.qualityStatus || 'Pending'}</strong></li>
                                             <li className="flex justify-between text-primary mt-2 pt-2 border-t border-border"><span className="font-semibold">Allocated Batch:</span> <strong className="font-mono">{formData.batchNumber}</strong></li>
                                         </ul>

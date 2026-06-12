@@ -7,7 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { getBatchTrackingData } from "@/lib/report-services";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Download, Loader2, Filter, Calendar } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Download, Loader2, Filter } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -15,8 +16,10 @@ export default function BatchTrackingReport() {
   const { profile } = useAuth();
   const [filters, setFilters] = useState({
     batch_id: "",
-    status: "",
+    status: "all",
   });
+  const [isExporting, setIsExporting] = useState(false);
+  const statusOptions = ["Active", "Completed", "On Hold", "Rejected"];
 
   const { data: report, isLoading } = useQuery({
     queryKey: ["batch-tracking", filters, profile?.company_id],
@@ -29,32 +32,40 @@ export default function BatchTrackingReport() {
     enabled: !!profile?.company_id,
   });
 
-  const handleExport = () => {
-    if (!report) return;
-
-    const csv = [
-      ["Lot Number", "Product", "Status", "Quantity (kg)", "Remaining (kg)", "Received Date", "Moisture %", "Is Export Ready"].join(","),
-      ...report.map(item =>
-        [
-          item.lot_number,
-          item.product?.name || "-",
-          item.status,
-          item.quantity_kg,
-          item.quantity_remaining_kg,
-          item.received_date,
-          item.moisture_pct || "-",
-          item.is_export_ready ? "Yes" : "No"
-        ].join(",")
-      )
-    ].join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `batch-tracking-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    toast.success("Report exported successfully!");
+  const handleExport = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('inventory_batches')
+        .select('*');
+      
+      if (error) throw error;
+      
+      const csv = [
+        ['Batch ID', 'Lot Number', 'Product', 
+         'Quantity (kg)', 'Status', 
+         'Quality Score', 'Created Date'],
+        ...data.map(row => [
+          row.batch_number,
+          row.lot_number,
+          row.product_name,
+          row.quantity_kg,
+          row.status,
+          row.quality_score,
+          row.created_at
+        ])
+      ].map(r => r.join(',')).join('\n');
+      
+      const blob = new Blob([csv], 
+        { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Batch_Tracking_Report.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    }
   };
 
   return (
@@ -64,9 +75,9 @@ export default function BatchTrackingReport() {
         description="Monitor individual batch movements, status changes, and quality metrics"
         breadcrumbs={[{ label: "Reports" }, { label: "Batch Tracking" }]}
         actions={
-          <Button onClick={handleExport} disabled={isLoading} className="gap-2">
-            <Download className="h-4 w-4" />
-            Export
+          <Button onClick={handleExport} disabled={isLoading || isExporting} className="gap-2">
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {isExporting ? "Exporting..." : "Export"}
           </Button>
         }
       />
@@ -84,11 +95,19 @@ export default function BatchTrackingReport() {
             onChange={(e) => setFilters({...filters, batch_id: e.target.value})}
           />
 
-          <Input
-            placeholder="Filter by Status"
-            value={filters.status}
-            onChange={(e) => setFilters({...filters, status: e.target.value})}
-          />
+          <Select value={filters.status} onValueChange={(value) => setFilters({...filters, status: value})}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filter by Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {statusOptions.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </Card>
 

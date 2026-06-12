@@ -10,13 +10,17 @@ type LogEntry = {
 
 type Props = {
   logs: LogEntry[];
+  hasShipments?: boolean;
 };
 
-const StatusTimeline: React.FC<Props> = ({ logs }) => {
+const StatusTimeline: React.FC<Props> = ({ logs, hasShipments }) => {
   if (!logs || logs.length === 0) {
-    return (
-      <div className="text-sm text-muted-foreground">No status updates yet.</div>
-    );
+    if (hasShipments === false) {
+      return (
+        <div className="text-sm text-muted-foreground">No status updates yet.</div>
+      );
+    }
+    return null;
   }
 
   return (

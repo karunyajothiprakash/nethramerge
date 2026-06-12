@@ -67,33 +67,22 @@ export default function ReservedStock() {
   });
 
   const { data: products = [] } = useQuery({
-    queryKey: ["reserved-stock-products", profile?.company_id],
-    enabled: !!profile?.company_id,
+    queryKey: ['products-list'],
     queryFn: async () => {
-      const query = supabase
-        .from("products")
-        .select("id, name, grade")
-        .eq("is_active", true)
-        .order("name");
-      const finalQuery = profile?.company_id
-        ? query.or(`company_id.eq.${profile.company_id},company_id.is.null`)
-        : query;
-      const { data, error } = await finalQuery;
+      const { data, error } = await supabase.from('products').select('*').eq('is_active', true).order('name');
       if (error) throw error;
       return data || [];
-    },
+    }
   });
 
   const { data: warehouses = [] } = useQuery({
-    queryKey: ["reserved-stock-warehouses", profile?.company_id],
-    enabled: !!profile?.company_id,
+    queryKey: ["warehouses"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("warehouses")
-        .select("id, name")
-        .eq("company_id", profile?.company_id)
-        .eq("is_active", true)
-        .order("name");
+        .select("*")
+        .neq("is_deleted", true)
+        .order("name", { ascending: true });
       if (error) throw error;
       return data || [];
     },

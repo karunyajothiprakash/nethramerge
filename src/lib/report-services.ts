@@ -16,10 +16,12 @@ export async function getStockSummaryData(filters: {
         lot_number,
         quantity_kg,
         quantity_remaining_kg,
+        reserved_quantity,
+        is_export_ready,
         status,
         grade,
         received_date,
-        product:products(id, name, sku),
+        product:products(id, name, sku, min_stock_level),
         warehouse:warehouses(id, name)
       `);
 
@@ -67,6 +69,7 @@ export async function getBatchTrackingData(filters: {
   batch_id?: string;
   status?: string;
   company_id?: string;
+  limit?: number;
 }) {
   try {
     let query = supabase
@@ -80,6 +83,7 @@ export async function getBatchTrackingData(filters: {
         status,
         is_export_ready,
         received_date,
+        created_at,
         grade,
         moisture_pct,
         product:products(id, name, sku),
@@ -87,10 +91,11 @@ export async function getBatchTrackingData(filters: {
       `);
 
     if (filters.batch_id) {
-      query = query.eq("id", filters.batch_id);
+      const searchTerm = `%${filters.batch_id}%`;
+      query = query.or(`id.ilike.${searchTerm},lot_number.ilike.${searchTerm}`);
     }
 
-    if (filters.status) {
+    if (filters.status && filters.status !== "all") {
       query = query.eq("status", filters.status);
     }
 
@@ -98,9 +103,12 @@ export async function getBatchTrackingData(filters: {
       query = query.eq("company_id", filters.company_id);
     }
 
+    if (filters.limit !== undefined) {
+      query = query.limit(filters.limit);
+    }
+
     const { data, error } = await query
-      .order("received_date", { ascending: false })
-      .limit(500);
+      .order("received_date", { ascending: false });
 
     if (error) throw error;
 

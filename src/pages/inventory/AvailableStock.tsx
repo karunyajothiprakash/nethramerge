@@ -104,13 +104,19 @@ export default function AvailableStock() {
   const { data: products = [] } = useQuery({
     queryKey: ['products-list', profile?.company_id],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch('/api/products', {
-        headers: { 'Authorization': `Bearer ${session?.access_token}` }
-      });
-      if (!res.ok) throw new Error('Failed to fetch products');
-      const data = await res.json();
-      return (data || []).filter((p: any) => p.is_active !== false);
+      let query = supabase.from('products').select('*').eq('is_active', true);
+      
+      // If profile is available and company_id exists, we might filter by it,
+      // but to ensure defaults load, we can get all or fallback.
+      // Usually default products might have null company_id or match the current company.
+      if (profile?.company_id) {
+        query = query.or(`company_id.eq.${profile.company_id},company_id.is.null`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data || [];
     }
   });
 
@@ -135,22 +141,18 @@ export default function AvailableStock() {
 
     const seedProducts = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        // Seed each default product via POST /api/products
         const records = defaultProducts.map(product => ({
           ...product,
           company_id: profile.company_id
         }));
-        await Promise.all(records.map(record =>
-          fetch('/api/products', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session?.access_token}`
-            },
-            body: JSON.stringify(record)
-          }).catch(() => null) // ignore duplicate-key errors gracefully
-        ));
+        
+        // Remove duplicates checking logic if upsert is supported with unique constraint,
+        // or just insert since most likely it's handled.
+        // We will insert one by one to avoid breaking all if one fails
+        for (const record of records) {
+          await supabase.from('products').insert([record]).catch(() => null);
+        }
+        
         queryClient.invalidateQueries({ queryKey: ['products-list', profile.company_id] });
       } catch (err) {
         console.error('Failed to seed default products:', err);

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { Badge } from '../../components/ui/badge'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
 import { toast } from 'sonner'
 import { Plus, Trash2, CheckCircle2, AlertTriangle, Loader2, Calendar, ChevronDown, FileText, Hash, Receipt, Edit3, Lock } from 'lucide-react'
 
@@ -28,36 +29,43 @@ const SearchBar = ({ placeholder, value, onChange, children }) => (
 )
 
 function NewEntryForm({ onSaved }) {
+  const { profile } = useAuth()
   const [voucherType, setVoucherType] = useState('Journal Voucher')
   const [date, setDate] = useState(today)
   const [referenceNo, setReferenceNo] = useState('')
   const [narration, setNarration] = useState('')
   const [rows, setRows] = useState(DEFAULT_ROWS)
   const [saving, setSaving] = useState(false)
-  const [accountsList, setAccountsList] = useState([
-    'Cash Account', 'Bank — HDFC', 'Sales Account', 'Purchase Account',
-    'CGST Payable', 'SGST Payable', 'IGST Payable', 'Office Rent', 
-    'Salary Expense', 'Capital Account', 'Sundry Debtors', 'Stock in Hand'
-  ])
+  const [accountsList, setAccountsList] = useState([])
 
   useEffect(() => {
     const loadAccounts = async () => {
       try {
-        const { data: customers } = await supabase.from('customers').select('name').neq('is_deleted', true)
-        const { data: suppliers } = await supabase.from('suppliers').select('name').neq('is_deleted', true)
+        if (!profile?.company_id) return;
+
+        // Fetch from chart_of_accounts table
+        const { data: coaData, error: coaError } = await supabase
+          .from('chart_of_accounts')
+          .select('id, name')
+          .eq('company_id', profile.company_id)
+          .eq('status', 'Active')
+          .neq('is_deleted', true)
+          .order('name')
         
-        const dynamicAccounts = [
-          ...accountsList,
-          ...(customers?.map(c => c.name) || []),
-          ...(suppliers?.map(s => s.name) || [])
-        ]
-        setAccountsList([...new Set(dynamicAccounts)].sort())
+        if (coaError) {
+          console.error("Failed to load chart of accounts:", coaError)
+          return
+        }
+
+        const accountNames = (coaData || []).map(a => a.name)
+        setAccountsList(accountNames)
       } catch (err) {
-        console.error("Failed to load dynamic accounts", err)
+        console.error("Failed to load accounts", err)
+        toast.error("Failed to load accounts")
       }
     }
     loadAccounts()
-  }, [])
+  }, [profile?.company_id])
 
   const addRow = () => setRows((r) => [...r, { account: '', drcr: 'Dr', debit: '', credit: '', gst: 'None' }])
   const delRow = (i) => setRows((r) => r.filter((_, idx) => idx !== i))
@@ -69,56 +77,103 @@ function NewEntryForm({ onSaved }) {
   const canPost = diff === 0 && !saving && totDr > 0
 
   const saveEntry = async (status) => {
-    if (status === 'Posted' && !canPost) {
-      if (totDr === 0 && totCr === 0) return toast.error('Please enter transaction amounts before posting.')
-      return toast.error('Voucher must be balanced before posting (Difference: ₹' + diff.toFixed(2) + ')')
+    // Validation checks
+    if (!profile?.company_id) {
+      toast.error("Company information not found")
+      return
     }
+
+    if (!narration || narration.trim() === '') {
+      toast.error("Please enter a narration")
+      return
+    }
+
+    // Check that at least one account is selected
+    const hasSelectedAccount = rows.some(r => r.account && r.account.trim() !== '')
+    if (!hasSelectedAccount) {
+      toast.error("Please select at least one account")
+      return
+    }
+
+    // Check that amounts are entered
+    if (totDr === 0 && totCr === 0) {
+      toast.error("Debit or Credit amount must be greater than 0")
+      return
+    }
+
+    // For Posted status, check balance
+    if (status === 'Posted') {
+      if (diff > 0.01) {
+        toast.error(`Total Debit must equal Total Credit (Difference: ₹${diff.toFixed(2)})`)
+        return
+      }
+    }
+
     setSaving(true)
     try {
-      const voucherNo = `JV-${Math.floor(1000 + Math.random() * 9000)}`
+      const voucherNo = `JV-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`
+      
+      // Insert journal entry
       const { data: entry, error: entryError } = await supabase
         .from('journal_entries')
-        .insert([{ 
-          voucher_no: voucherNo, 
-          voucher_type: voucherType, 
-          date, 
-          reference_no: referenceNo, 
-          narration, 
-          status, 
-          total_debit: totDr, 
-          total_credit: totCr 
-        }])
+        .insert({
+          company_id: profile.company_id,
+          voucher_no: voucherNo,
+          voucher_type: voucherType,
+          date,
+          reference_no: referenceNo,
+          narration,
+          status: status === 'Posted' ? 'Posted' : 'Draft',
+          total_debit: totDr,
+          total_credit: totCr
+        })
         .select('id')
         .single()
 
-      if (entryError) console.error("Insert error:", entryError)
-      
-      if (entry?.id) {
-        const rowPayload = rows.map((row) => ({
-          journal_entry_id: entry.id,
-          account: row.account,
-          drcr: row.drcr,
-          debit: parseFloat(row.debit) || 0,
-          credit: parseFloat(row.credit) || 0,
-          gst_percent: row.gst,
-          gst_amount: row.gst !== 'None' ? parseFloat(((parseFloat(row.debit) || 0) * parseFloat(row.gst) / 100).toFixed(2)) : 0,
-        }))
-        await supabase.from('journal_entry_rows').insert(rowPayload).catch(() => {})
-      } else {
-        await supabase.from('journal_entries').insert([{ 
-          entry_no: voucherNo, 
-          date, 
-          description: voucherType, 
-          reference_no: referenceNo, 
-          debit_account: rows[0]?.account,
-          credit_account: rows[1]?.account,
-          amount: totDr, 
-          currency: 'INR',
-          narration 
-        }]).catch(() => {})
+      if (entryError) {
+        console.error("Insert error:", entryError)
+        throw new Error(entryError.message || "Failed to save journal entry")
       }
 
-      toast.success(`Entry ${status} successfully`)
+      if (!entry?.id) {
+        throw new Error("Failed to create journal entry")
+      }
+
+      // Insert journal entry rows
+      const rowPayload = rows
+        .filter(row => row.account && row.account.trim() !== '')
+        .map((row) => {
+          const debitAmount = row.drcr === 'Dr' ? (parseFloat(row.debit) || 0) : 0
+          const creditAmount = row.drcr === 'Cr' ? (parseFloat(row.credit) || 0) : 0
+          const gstAmount = row.gst !== 'None' 
+            ? parseFloat(((debitAmount + creditAmount) * parseFloat(row.gst.replace('%', '')) / 100).toFixed(2))
+            : 0
+
+          return {
+            journal_entry_id: entry.id,
+            account: row.account,
+            drcr: row.drcr,
+            debit: debitAmount,
+            credit: creditAmount,
+            gst_percent: row.gst,
+            gst_amount: gstAmount
+          }
+        })
+
+      if (rowPayload.length > 0) {
+        const { error: rowError } = await supabase
+          .from('journal_entry_rows')
+          .insert(rowPayload)
+
+        if (rowError) {
+          console.error("Row insert error:", rowError)
+          throw new Error(rowError.message || "Failed to save journal entry rows")
+        }
+      }
+
+      toast.success(`Entry ${status === 'Posted' ? 'Posted' : 'Saved as Draft'} successfully`)
+      
+      // Reset form
       setVoucherType('Journal Voucher')
       setDate(today)
       setReferenceNo('')
@@ -126,8 +181,8 @@ function NewEntryForm({ onSaved }) {
       setRows(DEFAULT_ROWS)
       onSaved?.()
     } catch (error) {
-      toast.error('Unable to save journal entry.')
-      console.error(error)
+      console.error("Save error:", error)
+      toast.error(error.message || 'Unable to save journal entry.')
     } finally {
       setSaving(false)
     }
@@ -351,20 +406,30 @@ export default function JournalEntry() {
   const [loading, setLoading] = useState(true)
 
   const fetchEntries = async () => {
+    if (!profile?.company_id) {
+      setEntries([])
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     try {
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from('journal_entries')
         .select('*')
+        .eq('company_id', profile.company_id)
+        .neq('is_deleted', true)
         .order('created_at', { ascending: false })
 
       if (error) {
         console.error("Fetch entries error:", error)
-        data = []
+        setEntries([])
+      } else {
+        setEntries(data || [])
       }
-      setEntries(data || [])
     } catch (error) {
       console.error(error)
+      setEntries([])
     } finally {
       setLoading(false)
     }
@@ -372,7 +437,7 @@ export default function JournalEntry() {
 
   useEffect(() => {
     fetchEntries()
-  }, [])
+  }, [profile?.company_id])
 
   const filtered = entries.filter((j) =>
     (j.narration || j.description || '').toLowerCase().includes(search.toLowerCase()) || 

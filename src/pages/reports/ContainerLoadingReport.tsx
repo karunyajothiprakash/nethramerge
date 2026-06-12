@@ -2,11 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { getContainerLoadingData } from "@/lib/report-services";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Download, Loader2, Filter } from "lucide-react";
-import { toast } from "sonner";
 import { format } from "date-fns";
 
 export default function ContainerLoadingReport() {
@@ -22,32 +22,43 @@ export default function ContainerLoadingReport() {
     enabled: !!profile?.company_id,
   });
 
-  const handleExport = () => {
-    if (!report) return;
-
-    const csv = [
-      ["Container Number", "Type", "Status", "Quantity (kg)", "Cartons", "Seal Number", "Utilization %", "Created Date"].join(","),
-      ...report.map(item =>
-        [
-          item.container_number,
-          item.container_type || "-",
-          item.status,
-          item.total_quantity_kg || "-",
-          item.carton_count || "-",
-          item.seal_number || "-",
-          item.utilization_percentage || 0,
-          format(new Date(item.created_at), "MMM dd, yyyy")
-        ].join(",")
-      )
-    ].join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `container-loading-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    toast.success("Report exported successfully!");
+  const handleExport = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('container_loadings')
+        .select('*');
+      
+      if (error) throw error;
+      
+      const csv = [
+        ['Container ID', 'Container Number', 
+         'Product', 'Loading Status', 
+         'Seal Number', 'Utilization %',
+         'Total Weight (kg)', 'Destination',
+         'Loading Date'],
+        ...data.map(row => [
+          row.id,
+          row.container_number,
+          row.product_name,
+          row.loading_status,
+          row.seal_number,
+          row.utilization_percentage,
+          row.total_weight_kg,
+          row.destination,
+          row.loading_date
+        ])
+      ].map(r => r.join(',')).join('\n');
+      
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Container_Loading_Report.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    }
   };
 
   return (

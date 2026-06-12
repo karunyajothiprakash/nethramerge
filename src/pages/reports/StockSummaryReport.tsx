@@ -19,6 +19,7 @@ export default function StockSummaryReport() {
     date_from: "",
     date_to: "",
   });
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data: warehouses } = useQuery({
     queryKey: ["warehouses"],
@@ -39,31 +40,39 @@ export default function StockSummaryReport() {
     enabled: !!profile?.company_id,
   });
 
-  const handleExport = () => {
-    if (!report?.data) return;
-    
-    const csv = [
-      ["Lot Number", "Product", "Received Date", "Quantity (kg)", "Remaining (kg)", "Status", "Grade"].join(","),
-      ...report.data.map(item =>
-        [
-          item.lot_number,
-          item.product?.name || "-",
-          item.received_date,
-          item.quantity_kg,
-          item.quantity_remaining_kg,
-          item.status,
-          item.grade || "-"
-        ].join(",")
-      )
-    ].join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `stock-summary-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    toast.success("Report exported successfully!");
+  const handleExport = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('warehouse_inventory')
+        .select('*');
+      
+      if (error) throw error;
+      
+      const csv = [
+        ['Product', 'Warehouse', 'Available (kg)', 
+         'Reserved (kg)', 'Export Ready (kg)', 
+         'Min Level (kg)', 'Status'],
+        ...data.map(row => [
+          row.product_name,
+          row.warehouse_name,
+          row.available_quantity,
+          row.reserved_quantity,
+          row.export_ready_quantity,
+          row.min_level,
+          row.status
+        ])
+      ].map(r => r.join(',')).join('\n');
+      
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Stock_Summary_Report.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    }
   };
 
   return (
@@ -73,8 +82,8 @@ export default function StockSummaryReport() {
         description="Overview of warehouse inventory levels, stock status, and product distribution"
         breadcrumbs={[{ label: "Reports" }, { label: "Stock Summary" }]}
         actions={
-          <Button onClick={handleExport} disabled={isLoading} className="gap-2">
-            <Download className="h-4 w-4" />
+          <Button onClick={handleExport} disabled={isLoading || isExporting} className="gap-2">
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             Export
           </Button>
         }

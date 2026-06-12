@@ -3,8 +3,8 @@ import { supabase } from '@/services/supabase';
 
 type Vehicle = {
   id: string;
-  license_plate: string;
-  type: string;
+  vehicle_number: string;
+  vehicle_type: string;
 };
 
 type Props = {
@@ -14,11 +14,18 @@ type Props = {
 const VehicleEntryForm: React.FC<Props> = ({ onSelect }) => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selected, setSelected] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchVehicles = async () => {
-      const { data, error } = await supabase.from('vehicles').select('*');
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('id, vehicle_number, vehicle_type')
+        .eq('is_active', true)
+        .order('vehicle_number', { ascending: true });
       if (!error && data) setVehicles(data as Vehicle[]);
+      setIsLoading(false);
     };
     fetchVehicles();
   }, []);
@@ -36,11 +43,14 @@ const VehicleEntryForm: React.FC<Props> = ({ onSelect }) => {
         value={selected}
         onChange={handleChange}
         className="w-full rounded-md border bg-sidebar p-2 text-sidebar-foreground"
+        disabled={isLoading || vehicles.length === 0}
       >
-        <option value="">Select a vehicle</option>
+        <option value="" disabled>
+          {isLoading ? 'Loading vehicles...' : vehicles.length === 0 ? 'No vehicles available' : 'Select a vehicle'}
+        </option>
         {vehicles.map(v => (
           <option key={v.id} value={v.id}>
-            {v.license_plate} – {v.type}
+            {v.vehicle_number} - {v.vehicle_type}
           </option>
         ))}
       </select>

@@ -55,7 +55,7 @@ export default function PaymentsRegister() {
 
       const formattedPayments = (pData || []).map(p => ({
         id: p.payment_number || p.id.split('-')[0].toUpperCase(),
-        party: p.payer_name || "Unknown",
+        party: p.notes || "Unknown",
         ref: p.reference_number || "Direct",
         method: p.method,
         amount: p.amount,
@@ -108,14 +108,13 @@ export default function PaymentsRegister() {
       const { error } = await supabase.from("payments").insert({
         company_id: profile?.company_id,
         payment_number: payNum,
-        payer_name: partyName,
         amount: Number(amount),
         currency,
         method,
         status: 'Completed',
         reference_number: ref,
         received_at: new Date().toISOString(),
-        created_by: profile?.id
+        notes: partyName
       });
 
       if (error) throw error;

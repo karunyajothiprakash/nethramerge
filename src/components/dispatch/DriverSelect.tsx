@@ -3,7 +3,7 @@ import { supabase } from '@/services/supabase';
 
 type Driver = {
   id: string;
-  full_name: string;
+  name: string;
   license_number: string;
 };
 
@@ -14,11 +14,18 @@ type Props = {
 const DriverSelect: React.FC<Props> = ({ onSelect }) => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selected, setSelected] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchDrivers = async () => {
-      const { data, error } = await supabase.from('drivers').select('id, full_name, license_number');
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('drivers')
+        .select('id, name, license_number')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
       if (!error && data) setDrivers(data as Driver[]);
+      setIsLoading(false);
     };
     fetchDrivers();
   }, []);
@@ -36,11 +43,14 @@ const DriverSelect: React.FC<Props> = ({ onSelect }) => {
         value={selected}
         onChange={handleChange}
         className="w-full rounded-md border bg-sidebar p-2 text-sidebar-foreground"
+        disabled={isLoading || drivers.length === 0}
       >
-        <option value="">Select a driver</option>
+        <option value="" disabled>
+          {isLoading ? 'Loading drivers...' : drivers.length === 0 ? 'No drivers available' : 'Select a driver'}
+        </option>
         {drivers.map(d => (
           <option key={d.id} value={d.id}>
-            {d.full_name} – {d.license_number}
+            {d.name} - {d.license_number}
           </option>
         ))}
       </select>

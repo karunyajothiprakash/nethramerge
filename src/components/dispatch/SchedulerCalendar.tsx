@@ -1,12 +1,28 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 type Props = {
   onSchedule: (range: { start: string; end: string } | null) => void;
 };
 
+const getStartOfDay = () => {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T00:00`;
+};
+
+const getEndOfDay = () => {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T23:59`;
+};
+
 const SchedulerCalendar: React.FC<Props> = ({ onSchedule }) => {
-  const [start, setStart] = useState<string>('');
-  const [end, setEnd] = useState<string>('');
+  const [start, setStart] = useState<string>(getStartOfDay());
+  const [end, setEnd] = useState<string>(getEndOfDay());
+
+  useEffect(() => {
+    onSchedule({ start, end });
+  }, []);
 
   const handleApply = () => {
     if (start && end) {

@@ -67,7 +67,6 @@ export const navGroups: NavGroup[] = [
       { title: "Client Acquisition", url: "/crm/client-acquisition", icon: UserPlus, permission: "farmers.view" },
       { title: "Successful Conversation", url: "/crm/convert", icon: BadgeCheck, permission: "farmers.view" },
       { title: "Client Success", url: "/crm/customers", icon: Award, permission: "farmers.view" },
-      { title: "Follow-Ups", url: "/crm/follow-ups", icon: CalendarCheck, permission: "farmers.view" },
       { title: "Customer Database", url: "/crm/customer-database", icon: Database, permission: "farmers.view" },
       { title: "Task", url: "/crm/tasks", icon: ClipboardCheck, permission: "farmers.view" },
       { title: "Report", url: "/crm/reports", icon: BarChart3, permission: "farmers.view" },

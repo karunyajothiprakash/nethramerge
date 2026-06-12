@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../../hooks/useAuth'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { StatCard } from '../../components/shared/StatCard'
 import { Badge } from '../../components/ui/badge'
@@ -15,6 +16,8 @@ import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs'
 const fmt = (n) => (n || n === 0) ? Number(n).toLocaleString('en-IN') : '—'
 
 export default function GSTReports() {
+  const { profile } = useAuth()
+  const company_id = profile?.company_id
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
@@ -34,11 +37,17 @@ export default function GSTReports() {
   const [type, setType] = useState('Sales')
 
   const fetchData = async () => {
+    if (!company_id) {
+      setLoading(false)
+      return
+    }
+    
     setLoading(true)
     try {
       const { data: records, error } = await supabase
         .from('gst_transactions')
         .select('*')
+        .eq('company_id', company_id)
         .neq('is_deleted', true)
         .order('date', { ascending: false })
 
@@ -54,10 +63,26 @@ export default function GSTReports() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [company_id])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    if (!company_id) {
+      toast.error('Company not loaded. Please refresh.')
+      return
+    }
+
+    // Validation
+    if (!party.trim()) {
+      toast.error('Party name is required')
+      return
+    }
+    if (!invoiceNo.trim()) {
+      toast.error('Invoice number is required')
+      return
+    }
+    
     setSaving(true)
     try {
       const tAmt = parseFloat(taxableAmt) || 0
@@ -67,6 +92,7 @@ export default function GSTReports() {
       const total = tAmt + cAmt + sAmt + iAmt
 
       const { error } = await supabase.from('gst_transactions').insert([{
+        company_id,
         date,
         party,
         gstin,
@@ -112,6 +138,7 @@ export default function GSTReports() {
         .from('gst_transactions')
         .update({ is_deleted: true, deleted_at: new Date().toISOString() })
         .eq('id', id)
+        .eq('company_id', company_id)
 
       if (error) throw error
 

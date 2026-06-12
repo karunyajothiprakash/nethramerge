@@ -1,17 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://sxebygxpjzntogzpjnga.supabase.co';
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4ZWJ5Z3hwanpudG9nenBqbmdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjc5MzksImV4cCI6MjA5MjkwMzkzOX0.rtClmtuPuNicVQvBkITzY6PfFsh8yOYq3ykWoL9Ab_4';
+const supabaseUrl = "https://sxebygxpjzntogzpjnga.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4ZWJ5Z3hwanpudG9nenBqbmdhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzMyNzkzOSwiZXhwIjoyMDkyOTAzOTM5fQ.ke2FGR_2LlFLXziLRewOH3isT6xZGQ29AQQu-u5l9eI";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function check() {
-  const { data: tables, error } = await supabase.rpc('get_tables'); // This might not work if RPC doesn't exist
-  // Let's just try to select from both
-  const res1 = await supabase.from('shipments').select('count', { count: 'exact', head: true });
-  const res2 = await supabase.from('export_shipments').select('count', { count: 'exact', head: true });
-  
-  console.log("shipments exists:", !res1.error);
-  console.log("export_shipments exists:", !res2.error);
+  const tables = ['vehicles', 'drivers', 'shipment_vehicles', 'shipment_drivers', 'shipment_dispatches'];
+  for (const t of tables) {
+    const { error } = await supabase.from(t).select('id').limit(1);
+    if (error) {
+      console.log(`Table ${t} does NOT exist (or error):`, error.message);
+    } else {
+      console.log(`Table ${t} EXISTS!`);
+    }
+  }
 }
-
 check();

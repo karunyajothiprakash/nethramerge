@@ -39,6 +39,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import jsPDF from "jspdf";
+import "jspdf-autotable";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import {
@@ -442,6 +443,75 @@ export default function Performance() {
         break;
     }
 
+    const formatRupee = (value: number) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
+
+    const buildPdf = (title: string, rows: any[], fileName: string) => {
+      const doc = new jsPDF({ unit: 'pt' });
+      const headerHeight = 96;
+      doc.setFontSize(18);
+      doc.text("Shastika Global Impex", 40, 40);
+      doc.setFontSize(14);
+      doc.text(title, 40, 64);
+      doc.setFontSize(10);
+      doc.text(`Period: ${format(startDate, 'PP')} - ${format(endDate, 'PP')}`, 40, 84);
+
+      const tableHeaders = [
+        "BDE Name",
+        "Leads",
+        "Quotations",
+        "Orders Won",
+        "Revenue",
+        "Target",
+        "Achievement %"
+      ];
+
+      const tableRows = rows.map((row: any) => [
+        row.name || row.Employee || "Unknown",
+        String(row.leadsHandled ?? row.Leads ?? row.leads ?? 0),
+        String(row.quotationsCount ?? row.Quotations ?? 0),
+        String(row.dealsClosed ?? row.OrdersWon ?? row.Orders ?? 0),
+        formatRupee(row.revenueGenerated ?? row.Revenue ?? row.Amount ?? 0),
+        formatRupee(row.monthlyTarget ?? row.Target ?? 0),
+        row.achievement || row.Achievement || row.Conversion || `${row.conversionRatio ?? 0}%`
+      ]);
+
+      if (tableRows.length === 0) {
+        tableRows.push(["No data available", "", "", "", "", "", ""]);
+      }
+
+      // @ts-ignore
+      doc.autoTable({
+        startY: headerHeight,
+        head: [tableHeaders],
+        body: tableRows,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [36, 36, 36],
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        bodyStyles: {
+          textColor: 34,
+          fontSize: 9,
+          valign: 'middle'
+        },
+        styles: {
+          cellPadding: 6,
+          font: 'helvetica'
+        },
+        columnStyles: {
+          0: { cellWidth: 110 },
+          1: { cellWidth: 48 },
+          2: { cellWidth: 60 },
+          3: { cellWidth: 60 },
+          4: { cellWidth: 80 },
+          5: { cellWidth: 80 },
+          6: { cellWidth: 70 }
+        }
+      });
+      doc.save(`${fileName}.pdf`);
+    };
+
     if (fileFormat === 'csv') {
       const csv = Papa.unparse(reportData);
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -455,26 +525,17 @@ export default function Performance() {
       XLSX.utils.book_append_sheet(wb, ws, "Report");
       XLSX.writeFile(wb, `${fileName}.xlsx`);
     } else {
-      const doc = new jsPDF();
-      doc.setFontSize(20);
-      doc.text("SHASTIKA GLOBAL ERP", 14, 22);
-      doc.setFontSize(14);
-      doc.text(title, 14, 32);
-      doc.setFontSize(10);
-      doc.text(`Period: ${format(startDate, 'PP')} - ${format(endDate, 'PP')}`, 14, 40);
+      const rows = performanceStats.map((s: any) => ({
+        name: s.name,
+        leadsHandled: s.leadsHandled,
+        quotationsCount: s.quotationsCount,
+        dealsClosed: s.dealsClosed,
+        revenueGenerated: s.revenueGenerated,
+        monthlyTarget: s.monthlyTarget,
+        achievement: s.monthlyTarget > 0 ? `${Math.round((s.revenueGenerated / s.monthlyTarget) * 100)}%` : '0%'
+      }));
 
-      let y = 50;
-      const headers = Object.keys(reportData[0] || {});
-      doc.setFont("helvetica", "bold");
-      headers.forEach((h, i) => doc.text(h, 14 + (i * 35), y));
-
-      doc.setFont("helvetica", "normal");
-      reportData.forEach(row => {
-        y += 8;
-        if (y > 280) { doc.addPage(); y = 20; }
-        headers.forEach((h, i) => doc.text(String(row[h]).substring(0, 15), 14 + (i * 35), y));
-      });
-      doc.save(`${fileName}.pdf`);
+      buildPdf(title, rows, fileName);
     }
     toast.success(`${fileFormat.toUpperCase()} exported successfully`);
   };

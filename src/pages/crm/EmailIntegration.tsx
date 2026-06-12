@@ -167,7 +167,13 @@ export default function EmailIntegration() {
         body: { companyId: profile?.company_id }
       });
       if (error) throw error;
-      if (!silent && data?.count > 0) toast.success(`Synced ${data.count} new emails!`);
+      if (!silent) {
+        if (data?.count > 0) {
+          toast.success(`Synced ${data.count} new emails!`);
+        } else {
+          toast.success(data?.message || "Inbox synced. No new emails.");
+        }
+      }
       fetchData();
     } catch (e: any) {
       if (!silent) toast.error("Sync Failed: " + e.message);

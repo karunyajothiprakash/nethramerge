@@ -65,6 +65,15 @@ export default function ExpiryMonitoring() {
     },
   });
 
+  const { data: products = [] } = useQuery({
+    queryKey: ['products-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('products').select('*').eq('is_active', true).order('name');
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
   const mutation = useMutation({
     mutationFn: async (payload: any) => {
       if (payload.id) {
@@ -431,11 +440,23 @@ export default function ExpiryMonitoring() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Product Name *</Label>
-                <Input
+                <Select
                   value={formState.product_name}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, product_name: e.target.value }))}
-                  placeholder="e.g., Tender Coconut"
-                />
+                  onValueChange={(val) => setFormState((prev) => ({ ...prev, product_name: val }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Product" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground">No products available</div>
+                    ) : (
+                      products.map((p: any) => (
+                        <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Batch Number</Label>

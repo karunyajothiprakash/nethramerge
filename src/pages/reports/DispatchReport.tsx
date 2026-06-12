@@ -3,12 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/shared/PageHeader";
 import Card from "@/components/Card";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { getDispatchReportData } from "@/lib/report-services";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, Loader2, Filter, Truck } from "lucide-react";
-import { toast } from "sonner";
 import { format } from "date-fns";
 
 const statusOptions = ["dispatched", "in_transit", "delivered", "pending"];
@@ -32,32 +32,38 @@ export default function DispatchReport() {
     enabled: !!profile?.company_id,
   });
 
-  const handleExport = () => {
-    if (!report) return;
+  const handleExport = async () => {
+    try {
+      if (!report || report.length === 0) {
+        toast.error('No data to export');
+        return;
+      }
 
-    const csv = [
-      ["Shipment Number", "Customer", "Status", "Quantity (kg)", "Cartons", "Container", "Dispatch Date", "Destination"].join(","),
-      ...report.map(item =>
-        [
-          item.shipment_number,
-          item.customer?.name || "-",
-          item.status,
-          item.total_quantity_kg || "-",
-          item.carton_count || "-",
-          item.container_number || "-",
-          item.dispatch_date || "-",
-          item.destination_port || "-"
-        ].join(",")
-      )
-    ].join("\n");
+      const csv = [
+        ['Shipment #', 'Customer', 'Status', 'Qty (kg)', 'Cartons', 'Container', 'Dispatch Date', 'Destination'],
+        ...report.map((row: any) => [
+          row.shipment_number || '-',
+          row.customer?.name || '-',
+          row.status || '-',
+          row.total_quantity_kg ?? '-',
+          row.carton_count ?? '-',
+          row.container_number || '-',
+          row.dispatch_date || '-',
+          row.destination_port || '-',
+        ])
+      ].map(r => r.map((cell) => String(cell).replace(/"/g, '""')).join(',')).join('\n');
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `dispatch-report-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    toast.success("Report exported successfully!");
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Dispatch_Report.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+      toast.error('Failed to export dispatch report');
+    }
   };
 
   return (

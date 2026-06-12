@@ -54,12 +54,18 @@ export default function QuotationsList() {
     queryKey: ['quotations', profile?.company_id],
     queryFn: async () => {
       if (!profile?.company_id) return [];
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch('/api/quotations', {
-        headers: { 'Authorization': `Bearer ${session?.access_token}` }
-      });
-      if (!res.ok) throw new Error("Failed to fetch quotations");
-      const data = await res.json();
+      const { data, error } = await supabase
+        .from('quotations')
+        .select(`
+          *,
+          customer:customers(name, address),
+          items:quotation_items(id, quantity, unit_price, total_price, hsn_code)
+        `)
+        .eq('company_id', profile.company_id)
+        .neq('is_deleted', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw new Error(error.message);
 
       return (data || []).map((q: any) => ({
         ...q,
@@ -141,12 +147,15 @@ export default function QuotationsList() {
     setDeletingId(quotation.id);
     try {
       // Soft-delete the quotation via API
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`/api/quotations/${quotation.id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${session?.access_token}` }
-      });
-      if (!res.ok) throw new Error("Delete failed");
+      const { error } = await supabase
+        .from('quotations')
+        .update({ 
+          is_deleted: true, 
+          deleted_at: new Date().toISOString() 
+        })
+        .eq('id', quotation.id);
+
+      if (error) throw error;
       toast.success(`Quotation ${quotation.quotation_number} removed from view (soft-deleted)`);
       queryClient.invalidateQueries({ queryKey: ['quotations'] });
     } catch (err: any) {

@@ -1,7 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
-const db = require('../db');
+const { createClient } = require('@supabase/supabase-js');
+
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // POST /api/farmers/:id/convert - Convert a farmer record into a customer
 router.post('/:id/convert', requireAuth, async (req, res) => {
@@ -13,12 +17,14 @@ router.post('/:id/convert', requireAuth, async (req, res) => {
   }
 
   try {
-    const { rows: farmerRows } = await db.query(
-      'SELECT id, full_name, email, phone, country, notes, is_deleted FROM farmers WHERE id = $1',
-      [farmerId]
-    );
+    const { data: farmerRows, error: farmerErr } = await supabase
+      .from('farmers')
+      .select('id, full_name, email, phone, country, notes, is_deleted')
+      .eq('id', farmerId);
 
-    if (farmerRows.length === 0 || farmerRows[0].is_deleted) {
+    if (farmerErr) throw farmerErr;
+
+    if (!farmerRows || farmerRows.length === 0 || farmerRows[0].is_deleted) {
       return res.status(404).json({ error: 'Farmer not found' });
     }
 
@@ -26,12 +32,16 @@ router.post('/:id/convert', requireAuth, async (req, res) => {
     const customerEmail = (email || farmer.email || '').trim();
 
     if (customerEmail) {
-      const { rows: existingCustomers } = await db.query(
-        'SELECT id FROM customers WHERE company_id = $1 AND email = $2 LIMIT 1',
-        [company_id, customerEmail]
-      );
+      const { data: existingCustomers, error: existErr } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('company_id', company_id)
+        .eq('email', customerEmail)
+        .limit(1);
 
-      if (existingCustomers.length > 0) {
+      if (existErr) throw existErr;
+
+      if (existingCustomers && existingCustomers.length > 0) {
         return res.status(409).json({ error: 'A customer with this email already exists for the selected company.' });
       }
     }
@@ -45,21 +55,17 @@ router.post('/:id/convert', requireAuth, async (req, res) => {
       notes: notes || farmer.notes || null,
     };
 
-    const keys = Object.keys(customerData).filter((key) => customerData[key] !== undefined);
-    const values = keys.map((key) => customerData[key]);
-    const placeholders = keys.map((_, index) => `$${index + 1}`).join(', ');
-    const columns = keys.map((key) => `"${key}"`).join(', ');
-    const insertQuery = `INSERT INTO customers (${columns}) VALUES (${placeholders}) RETURNING *`;
+    const { data: insertedRows, error: insertErr } = await supabase
+      .from('customers')
+      .insert(customerData)
+      .select();
 
-    await db.query('BEGIN');
-    const { rows: insertedRows } = await db.query(insertQuery, values);
-    await db.query('COMMIT');
+    if (insertErr) throw insertErr;
 
     return res.status(201).json(insertedRows[0]);
   } catch (err) {
-    await db.query('ROLLBACK');
     console.error('DB Error (convert farmer):', err);
-    return res.status(500).json({ error: 'Failed to convert farmer to customer' });
+    return res.status(500).json({ error: err.message || 'Failed to convert farmer to customer' });
   }
 });
 
