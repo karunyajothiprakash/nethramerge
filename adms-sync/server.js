@@ -38,7 +38,7 @@ const PORT = process.env.PORT || 8082;
 
 // Initialize Supabase Client
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error("❌ CRITICAL ERROR: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in environment variables.");
@@ -71,6 +71,7 @@ const settingsRoutes = require('./routes/settings');
 const financeRoutes = require('./routes/finance');
 const hrRoutes = require('./routes/hr');
 const farmersRoutes = require('./routes/farmers');
+const permissionsRoutes = require('./routes/permissions');
 
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/employees', employeesRoutes);
@@ -84,6 +85,8 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/hr', hrRoutes);
 app.use('/api/farmers', farmersRoutes);
+app.use('/api/permissions', permissionsRoutes);
+app.use('/api/user-permissions', permissionsRoutes);
 app.use('/api', invoicesRoutes);
 app.use('/api/emails', mailboxRoutes);
 app.use('/api', productsRoutes);
@@ -398,6 +401,34 @@ app.post('/force-logout', express.json(), async (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🟢 ADMS Sync Server is listening on http://0.0.0.0:${PORT}`);
+const ensureUserPermissionsSetup = async () => {
+  try {
+    await db.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;');
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_permissions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+        section TEXT NOT NULL,
+        has_access BOOLEAN DEFAULT false,
+        created_at TIMESTAMPTZ DEFAULT now(),
+        updated_at TIMESTAMPTZ DEFAULT now()
+      );
+    `);
+    console.log('✅ user_permissions table is ready.');
+  } catch (err) {
+    console.error('❌ Could not ensure user_permissions table:', err);
+    process.exit(1);
+  }
+};
+
+const startServer = async () => {
+  await ensureUserPermissionsSetup();
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`\n🟢 ADMS Sync Server is listening on http://0.0.0.0:${PORT}`);
+  });
+};
+
+startServer().catch(err => {
+  console.error('❌ Failed to start ADMS Sync Server:', err);
+  process.exit(1);
 });

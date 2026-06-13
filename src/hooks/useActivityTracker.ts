@@ -29,6 +29,7 @@ export function useActivityTracker(moduleName: string) {
           .select("id")
           .eq("user_id", userId)
           .neq("is_deleted", true)
+          .limit(1)
           .maybeSingle();
 
         if (findError) {

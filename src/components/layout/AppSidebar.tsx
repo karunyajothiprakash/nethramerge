@@ -11,7 +11,7 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
   const location = useLocation();
   const navigate = useNavigate();
   const can = useCan();
-  const { profile, roleSlugs } = useAuth();
+  const { profile, roleSlugs, session } = useAuth();
 
   const slugs = Array.from(roleSlugs).map(s => s.toLowerCase());
   const isAdmin = slugs.includes("admin");
@@ -83,118 +83,125 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
     return () => { mounted = false; clearInterval(interval); };
   }, []);
 
+  const currentUserId = profile?.id;
+
   useEffect(() => {
     let mounted = true;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    
-    // We store user id separately for the fetch
-    let currentUser: string | undefined;
 
     const fetchPerms = async () => {
-      if (!currentUser) {
-        const { data: { user } } = await supabase.auth.getUser();
-        currentUser = user?.id;
-      }
-      
-      console.log('Current user id:', currentUser);
-      
-      if (!currentUser || !profile?.email) return;
-      
+      if (!profile?.email) return;
+
       let isEmpAdmin = false;
       try {
-        const { data: empData } = await (supabase
-          .from("employees" as any)
-          .select("role")
-          .eq("email", profile.email)
-          .maybeSingle() as unknown as Promise<{ data: any }>);
-        if (empData && empData.role?.toLowerCase() === "admin") {
+        const empRes = await fetch('/api/employees', {
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        });
+        const empData = empRes.ok ? await empRes.json() : [];
+        const employee = empData?.find((e: any) => e.email?.toLowerCase() === profile.email?.toLowerCase());
+        if (employee && employee.role?.toLowerCase() === "admin") {
           isEmpAdmin = true;
         }
       } catch (e) {
         console.error("Employee fetching error:", e);
       }
-      
-      if (mounted) setEmployeeAdmin(isEmpAdmin);
+
+      if (!mounted) return;
+      setEmployeeAdmin(isEmpAdmin);
 
       if (isAdmin || isEmpAdmin) {
-        if (mounted) setPermissionsLoading(false);
+        setPermissionsLoading(false);
+        return;
+      }
+
+      if (!currentUserId) {
+        console.log('[AppSidebar] No currentUserId yet, skipping permissions fetch.');
         return;
       }
 
       try {
-        const { data, error } = await (supabase
-          .from("user_permissions" as any)
-          .select("section, has_access")
-          .eq("user_id", currentUser)
-          .eq("has_access", true) as unknown as Promise<{ data: any[], error: any }>);
-          
+        const permsRes = await fetch(`/api/user-permissions?user_id=${currentUserId}`, {
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        });
+
         if (!mounted) return;
-        if (data) {
-          const perms = data.map(p => p.section.toLowerCase());
-          console.log('Fetched permissions mapped:', perms);
+
+        if (!permsRes.ok) {
+          console.error('[AppSidebar] ❌ Permissions API fail:', permsRes.status);
+          return;
+        }
+
+        const data = await permsRes.json();
+        if (Array.isArray(data)) {
+          const perms = data
+            .filter((p: any) => p.has_access === true)
+            .map((p: any) => String(p.section).toLowerCase().trim());
+
           setPermissions(perms);
+        } else {
+          console.warn('[AppSidebar] ⚠️ Permissions API returned unexpected data:', data);
         }
       } catch (err) {
-        console.error(err);
+        console.error("[AppSidebar] 🚨 Permissions fetch error:", err);
       } finally {
-        if (mounted) setPermissionsLoading(false);
+        if (mounted) {
+          setPermissionsLoading(false);
+        }
       }
     };
-    
-    fetchPerms().then(() => {
-      // Realtime subscription setup
-      if (mounted) {
-        channel = supabase
-          .channel('sidebar-permissions')
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'user_permissions',
-            },
-            (payload) => {
-              console.log('Realtime permission change detected, re-fetching...', payload);
-              setTimeout(() => {
-                if (mounted) fetchPerms();
-              }, 500);
-            }
-          )
-          .subscribe();
-      }
-    });
 
-    return () => { 
-      mounted = false;
-      if (channel) {
-        supabase.removeChannel(channel);
+    fetchPerms();
+    const interval = setInterval(() => {
+      if (mounted) {
+        fetchPerms();
       }
+    }, 30000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
     };
-  }, [profile?.email, isAdmin]);
+  }, [currentUserId, profile?.email, isAdmin, session?.access_token]);
 
   const activeIsAdmin = isAdmin || employeeAdmin;
 
+  console.log('[AppSidebar] 🛠 Recalculating visibleGroups. Admin:', activeIsAdmin, 'Permissions Count:', permissions.length);
+
   const visibleGroups = navGroups
     .map(g => {
-      if (activeIsAdmin) return g;
+      // 1. If Admin, show everything in the group
+      if (activeIsAdmin) {
+        return g;
+      }
       
-      let items = g.items.map(i => {
-        console.log('Nav item being checked:', i.title);
-        if (i.items) {
-          // nested children matching exactly as requested
-          const subItems = i.items.filter(sub => {
-            console.log('Nav item being checked (sub):', sub.title);
-            return permissions.includes(sub.title.toLowerCase());
+      // 2. Filter items in the group
+      const filteredItems = g.items.map(item => {
+        // If it has sub-items (like Warehouse -> Inventory -> Available Stock)
+        if (item.items && item.items.length > 0) {
+          const filteredSubItems = item.items.filter(sub => {
+            const isAllowed = permissions.includes(sub.title.toLowerCase().trim());
+            if (isAllowed) console.log(`[AppSidebar] ✔️ Allowed (sub): ${sub.title}`);
+            return isAllowed;
           });
-          return { ...i, items: subItems };
+          return { ...item, items: filteredSubItems };
         }
-        return i;
-      }).filter(i => {
-        // preserve standard items if mapped, or if they have successfully permitted children
-        return permissions.includes(i.title.toLowerCase()) || (i.items && i.items.length > 0);
+        
+        // If it's a top-level item in the group
+        return item;
+      }).filter(item => {
+        // Keep item if it has allowed sub-items OR if its own title is allowed
+        const isSelfAllowed = permissions.includes(item.title.toLowerCase().trim());
+        const hasAllowedChildren = item.items && item.items.length > 0;
+        
+        if (isSelfAllowed) console.log(`[AppSidebar] ✔️ Allowed (item): ${item.title}`);
+        
+        return isSelfAllowed || hasAllowedChildren;
       });
 
-      return { ...g, items };
+      return { ...g, items: filteredItems };
     })
     .filter(g => g.items.length > 0);
 
@@ -206,7 +213,10 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Verifying Access...</span>
+        </div>
       </aside>
     );
   }

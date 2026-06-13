@@ -68,22 +68,28 @@ export default function ClientAcquisition() {
     };
   }, []);
 
-  const getCompanyId = async () => {
+  async function getCompanyId() {
     if (profile?.company_id) return profile.company_id;
-    const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-    if (!userId) return null;
+
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data?.session?.user?.id) return null;
+
+    const userId = data.session.user.id;
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('company_id')
       .eq('id', userId)
       .single();
-    if (profileError) return null;
-    return profileData?.company_id || null;
-  };
 
-  const ensureDefaultChannels = async (companyId: string, currentChannels: any[]) => {
-    const existingNames = new Set(currentChannels.map(ch => String(ch.channel_name || '').trim().toLowerCase()));
+    if (profileError || !profileData) return null;
+    return profileData.company_id || null;
+  }
+
+  async function ensureDefaultChannels(companyId: string, currentChannels: any[]) {
+    const existingNames = new Set(
+      currentChannels.map(ch => String(ch.channel_name || '').trim().toLowerCase())
+    );
+
     const missingChannels = DEFAULT_ACQUISITION_CHANNELS
       .filter(name => !existingNames.has(name.trim().toLowerCase()))
       .map(name => ({
@@ -95,9 +101,9 @@ export default function ClientAcquisition() {
     if (missingChannels.length === 0) return;
 
     await supabase.from('acquisition_channels').insert(missingChannels);
-  };
+  }
 
-  const fetchData = async () => {
+  async function fetchData() {
     setLoading(true);
 
     const companyId = await getCompanyId();
@@ -201,16 +207,15 @@ export default function ClientAcquisition() {
     e.preventDefault();
     if (!newChannelName) return;
     setSubmitting(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const companyId = (await supabase.from("profiles").select("company_id").eq("id", session?.user?.id).single()).data?.company_id;
 
+    try {
+      const companyId = await getCompanyId();
       if (!companyId) throw new Error("Could not find company ID");
 
       const { error } = await supabase.from('acquisition_channels').insert({
         company_id: companyId,
         channel_name: newChannelName,
-        avg_lead_cost: parseFloat(newChannelCost) || 0
+        avg_lead_cost: parseFloat(newChannelCost) || 0,
       });
 
       if (error) throw error;
