@@ -13,6 +13,10 @@ import { useAuth } from "@/hooks/useAuth";
 
 const DEFAULT_ACQUISITION_CHANNELS = [
   "Social Media (Instagram, Facebook)",
+  "LinkedIn",
+  "Instagram",
+  "Google",
+  "Chrome / Direct Browsing",
   "Trade Fair / Exhibition",
   "Referral",
   "Cold Call / Direct Outreach",
