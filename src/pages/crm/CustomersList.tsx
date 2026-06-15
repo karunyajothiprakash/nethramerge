@@ -70,48 +70,66 @@ export default function CustomersList() {
     if (!profile?.company_id) return;
     try {
       setLoading(true);
-      // Fetch customers, leads, profiles, and orders for metrics
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No active session");
+
       const [custRes, leadsRes, profilesRes, ordersRes] = await Promise.all([
-        supabase
-          .from("customers" as any)
-          .select("*")
-          .eq("company_id", profile.company_id)
-          .neq("is_deleted", true)
-          .order("name"),
-        supabase
-          .from("leads" as any)
-          .select("company_name, country, email"),
-        supabase
-          .from("profiles")
-          .select("id, full_name"),
-        supabase
-          .from("sales_orders" as any)
-          .select("id, customer_id, created_at")
-          .eq("company_id", profile.company_id)
+        fetch(`/api/customers?company_id=${profile.company_id}`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        }),
+        fetch('/api/leads', {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        }),
+        fetch('/api/employees', {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        }),
+        fetch(`/api/finance/sales_orders?company_id=${profile.company_id}`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        })
       ]);
 
-      if (custRes.error) throw custRes.error;
+      if (!custRes.ok) {
+        console.error("Customers API failed:", custRes.status, await custRes.text());
+        throw new Error(`Failed to fetch customers: ${custRes.status}`);
+      }
+      if (!leadsRes.ok) {
+        console.error("Leads API failed:", leadsRes.status, await leadsRes.text());
+        throw new Error(`Failed to fetch leads: ${leadsRes.status}`);
+      }
+      if (!profilesRes.ok) {
+        console.error("Employees/Profiles API failed:", profilesRes.status, await profilesRes.text());
+        throw new Error(`Failed to fetch employees: ${profilesRes.status}`);
+      }
+      if (!ordersRes.ok) {
+        console.error("Orders API failed:", ordersRes.status, await ordersRes.text());
+        throw new Error(`Failed to fetch orders: ${ordersRes.status}`);
+      }
+
+      const custData = await custRes.json();
+      const leadsData = await leadsRes.json();
+      const profilesData = await profilesRes.json();
+      const ordersData = await ordersRes.json();
 
       const leadsMap = new Map();
-      (leadsRes.data as any[] || []).forEach((l: any) => {
+      (leadsData || []).forEach((l: any) => {
         if (l.company_name) {
           leadsMap.set(l.company_name.toLowerCase(), l);
         }
       });
 
       const profilesMap = new Map();
-      (profilesRes.data || []).forEach(p => {
+      (profilesData || []).forEach((p: any) => {
         profilesMap.set(p.id, p.full_name);
       });
 
       const ordersByCustomer = new Map();
-      (ordersRes.data || []).forEach(o => {
+      (ordersData || []).forEach((o: any) => {
         const list = ordersByCustomer.get(o.customer_id) || [];
         list.push(o);
         ordersByCustomer.set(o.customer_id, list);
       });
 
-      const merged = (custRes.data || []).map((c: any) => {
+      const merged = (custData || []).map((c: any) => {
         const lead = leadsMap.get(c.name?.toLowerCase());
         const customerOrders = ordersByCustomer.get(c.id) || [];
         const lastOrder = customerOrders.length > 0
@@ -131,8 +149,8 @@ export default function CustomersList() {
 
       setCustomers(merged);
     } catch (err: any) {
-      console.error("Fetch error:", err);
-      toast.error("Failed to load customer directory");
+      console.error("Detailed fetchCustomers error:", err);
+      toast.error(`Failed to load customer directory: ${err.message || err}`);
     } finally {
       setLoading(false);
     }
@@ -161,12 +179,12 @@ export default function CustomersList() {
   const executeDelete = async () => {
     if (!deleteId) return;
     try {
-      const { error } = await supabase.from("customers" as any).update({
-        is_deleted: true,
-        deleted_at: new Date().toISOString(),
-        deleted_by: profile?.id
-      } as any).eq("id", deleteId);
-      if (error) throw error;
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/finance/customers/${deleteId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${session?.access_token}` }
+      });
+      if (!res.ok) throw new Error("Delete failed");
       toast.success("Customer removed from view (soft-deleted)");
       setCustomers(customers.filter(c => c.id !== deleteId));
       setConfirmOpen(false);
@@ -183,12 +201,20 @@ export default function CustomersList() {
 
     try {
       setIsSubmitting(true);
-      const { error } = await supabase.from("customers" as any).insert([{
-        ...formData,
-        company_id: profile.company_id
-      }]);
-
-      if (error) throw error;
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/finance/customers`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...formData,
+          company_id: profile.company_id,
+          created_by: profile.id
+        })
+      });
+      if (!res.ok) throw new Error("Add failed");
 
       toast.success("Customer added successfully");
       setIsAddDialogOpen(false);
@@ -234,9 +260,14 @@ export default function CustomersList() {
 
     try {
       setIsSubmitting(true);
-      const { error } = await supabase
-        .from("customers" as any)
-        .update({
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/finance/customers/${selectedCustomer.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
           name: formData.name,
           country: formData.country,
           email: formData.email,
@@ -245,9 +276,8 @@ export default function CustomersList() {
           phone: formData.phone,
           notes: formData.notes
         })
-        .eq("id", selectedCustomer.id);
-
-      if (error) throw error;
+      });
+      if (!res.ok) throw new Error("Update failed");
 
       toast.success("Client data synchronized");
       setIsSheetOpen(false);
@@ -274,14 +304,18 @@ export default function CustomersList() {
 
     try {
       setIsSubmitting(true);
-      const { error } = await supabase
-        .from("customers" as any)
-        .update({
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/finance/customers/${editingCustomer.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
           satisfaction_notes: formData.satisfaction_notes
         })
-        .eq("id", editingCustomer.id);
-
-      if (error) throw error;
+      });
+      if (!res.ok) throw new Error("Update failed");
 
       toast.success("Engagement notes updated");
       setIsNotesDialogOpen(false);
@@ -299,9 +333,14 @@ export default function CustomersList() {
 
     try {
       setIsSubmitting(true);
-      const { error } = await supabase
-        .from("customers" as any)
-        .update({
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/finance/customers/${editingCustomer.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
           name: formData.name,
           country: formData.country,
           email: formData.email,
@@ -309,9 +348,8 @@ export default function CustomersList() {
           notes: formData.notes,
           relationship_status: formData.relationship_status
         })
-        .eq("id", editingCustomer.id);
-
-      if (error) throw error;
+      });
+      if (!res.ok) throw new Error("Update failed");
 
       toast.success("Customer updated successfully");
       setIsEditDialogOpen(false);
