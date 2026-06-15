@@ -100,7 +100,16 @@ export default function ClientAcquisition() {
 
     if (missingChannels.length === 0) return;
 
-    await supabase.from('acquisition_channels').insert(missingChannels);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await fetch('/api/leads/meta/sources', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(missingChannels)
+    });
   }
 
   async function fetchData() {
@@ -113,94 +122,109 @@ export default function ClientAcquisition() {
       return;
     }
 
-    const { data: channels } = await supabase
-      .from('acquisition_channels')
-      .select('*')
-      .eq('company_id', companyId)
-      .order('channel_name');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No active session");
 
-    const { data: leads } = await supabase
-      .from('leads')
-      .select('id, source_id, stage');
+      const [channelsRes, leadsRes] = await Promise.all([
+        fetch(`/api/leads/meta/sources?company_id=${companyId}`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        }),
+        fetch('/api/leads', {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        })
+      ]);
 
-    if (channels) {
-      await ensureDefaultChannels(companyId, channels);
-    }
+      if (!channelsRes.ok) throw new Error("Failed to fetch channels");
+      if (!leadsRes.ok) throw new Error("Failed to fetch leads");
 
-    const { data: allChannels } = await supabase
-      .from('acquisition_channels')
-      .select('*')
-      .eq('company_id', companyId)
-      .order('channel_name');
+      const channels = await channelsRes.json();
+      const leads = await leadsRes.json();
 
-    if (allChannels && leads) {
-      const isClient = (stage: string) => {
-        if (!stage) return false;
-        const s = stage.toLowerCase();
-        return ['won', 'client', 'converted'].some(keyword => s.includes(keyword));
-      };
+      if (channels) {
+        await ensureDefaultChannels(companyId, channels);
+      }
 
-      const tLeads = leads.length;
-      const tClients = leads.filter(l => isClient(l.stage)).length;
-      const tRevenue = tClients * 12000;
-
-      const processed = allChannels.map(ch => {
-        const chLeads = leads.filter(l => l.source_id === ch.id);
-        const chClients = chLeads.filter(l => isClient(l.stage));
-
-        const leadsCount = chLeads.length;
-        const clientsCount = chClients.length;
-        const rate = leadsCount > 0 ? ((clientsCount / leadsCount) * 100).toFixed(1) + "%" : "0.0%";
-
-        const revenue = clientsCount * 12000;
-
-        return {
-          id: ch.id,
-          channel: ch.channel_name,
-          leads: leadsCount,
-          clients: clientsCount,
-          cost: `$${parseFloat(ch.avg_lead_cost || 0).toFixed(2)}`,
-          rate: rate,
-          value: `$${revenue.toLocaleString()}`
-        };
+      // Fetch all channels again after ensuring defaults
+      const allChannelsRes = await fetch(`/api/leads/meta/sources?company_id=${companyId}`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
       });
+      if (!allChannelsRes.ok) throw new Error("Failed to fetch updated channels");
+      const allChannels = await allChannelsRes.json();
 
-      // Add "Direct / Unknown" row for leads without a source
-      const unknownLeads = leads.filter(l => !l.source_id);
-      if (unknownLeads.length > 0) {
-        const unknownClients = unknownLeads.filter(l => isClient(l.stage));
-        const leadsCount = unknownLeads.length;
-        const clientsCount = unknownClients.length;
-        const rate = leadsCount > 0 ? ((clientsCount / leadsCount) * 100).toFixed(1) + "%" : "0.0%";
-        const revenue = clientsCount * 12000;
-        
-        processed.push({
-          id: 'unknown-source',
-          channel: 'Direct / Unknown',
-          leads: leadsCount,
-          clients: clientsCount,
-          cost: `$0.00`,
-          rate: rate,
-          value: `$${revenue.toLocaleString()}`
+      if (allChannels && leads) {
+        const isClient = (stage: string) => {
+          if (!stage) return false;
+          const s = stage.toLowerCase();
+          return ['won', 'client', 'converted', 'client successfully acquired'].some(keyword => s.includes(keyword));
+        };
+
+        const tLeads = leads.length;
+        const tClients = leads.filter((l: any) => isClient(l.stage)).length;
+        const tRevenue = tClients * 12000;
+
+        const processed = allChannels.map((ch: any) => {
+          const chLeads = leads.filter((l: any) => l.source_id === ch.id);
+          const chClients = chLeads.filter((l: any) => isClient(l.stage));
+
+          const leadsCount = chLeads.length;
+          const clientsCount = chClients.length;
+          const rate = leadsCount > 0 ? ((clientsCount / leadsCount) * 100).toFixed(1) + "%" : "0.0%";
+
+          const revenue = clientsCount * 12000;
+
+          return {
+            id: ch.id,
+            channel: ch.channel_name,
+            leads: leadsCount,
+            clients: clientsCount,
+            cost: `$${parseFloat(ch.avg_lead_cost || 0).toFixed(2)}`,
+            rate: rate,
+            value: `$${revenue.toLocaleString()}`
+          };
         });
+
+        // Add "Direct / Unknown" row for leads without a source
+        const unknownLeads = leads.filter((l: any) => !l.source_id);
+        if (unknownLeads.length > 0) {
+          const unknownClients = unknownLeads.filter((l: any) => isClient(l.stage));
+          const leadsCount = unknownLeads.length;
+          const clientsCount = unknownClients.length;
+          const rate = leadsCount > 0 ? ((clientsCount / leadsCount) * 100).toFixed(1) + "%" : "0.0%";
+          const revenue = clientsCount * 12000;
+          
+          processed.push({
+            id: 'unknown-source',
+            channel: 'Direct / Unknown',
+            leads: leadsCount,
+            clients: clientsCount,
+            cost: `$0.00`,
+            rate: rate,
+            value: `$${revenue.toLocaleString()}`
+          });
+        }
+
+        setSources(processed);
+        setTotalLeads(tLeads);
+        setConvertedClients(tClients);
+
+        const overallRate = tLeads > 0 ? ((tClients / tLeads) * 100).toFixed(1) + "%" : "0.0%";
+        setAvgAcquisitionRate(overallRate);
+
+        let formattedRev = `$${tRevenue.toLocaleString()}`;
+        if (tRevenue >= 1000000) {
+          formattedRev = `$${(tRevenue / 1000000).toFixed(2)}M`;
+        } else if (tRevenue >= 1000) {
+          formattedRev = `$${(tRevenue / 1000).toFixed(1)}K`;
+        }
+        setTotalPipeValue(formattedRev);
       }
-
-      setSources(processed);
-      setTotalLeads(tLeads);
-      setConvertedClients(tClients);
-
-      const overallRate = tLeads > 0 ? ((tClients / tLeads) * 100).toFixed(1) + "%" : "0.0%";
-      setAvgAcquisitionRate(overallRate);
-
-      let formattedRev = `$${tRevenue.toLocaleString()}`;
-      if (tRevenue >= 1000000) {
-        formattedRev = `$${(tRevenue / 1000000).toFixed(2)}M`;
-      } else if (tRevenue >= 1000) {
-        formattedRev = `$${(tRevenue / 1000).toFixed(1)}K`;
-      }
-      setTotalPipeValue(formattedRev);
+    } catch (err: any) {
+      console.error("Fetch client acquisition data error:", err);
+      toast.error(err.message || "Failed to load acquisition data");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleAddChannel = async (e: React.FormEvent) => {
@@ -212,17 +236,29 @@ export default function ClientAcquisition() {
       const companyId = await getCompanyId();
       if (!companyId) throw new Error("Could not find company ID");
 
-      const { error } = await supabase.from('acquisition_channels').insert({
-        company_id: companyId,
-        channel_name: newChannelName,
-        avg_lead_cost: parseFloat(newChannelCost) || 0,
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No active session");
+
+      const res = await fetch('/api/leads/meta/sources', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          company_id: companyId,
+          channel_name: newChannelName,
+          avg_lead_cost: parseFloat(newChannelCost) || 0,
+        })
       });
 
-      if (error) throw error;
+      if (!res.ok) throw new Error("Failed to add channel");
+
       toast.success("Channel added successfully!");
       setIsDialogOpen(false);
       setNewChannelName("");
       setNewChannelCost("");
+      fetchData();
     } catch (err: any) {
       toast.error(err.message || "Failed to add channel");
     } finally {

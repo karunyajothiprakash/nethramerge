@@ -124,10 +124,37 @@ router.delete('/:id', requireAuth, async (req, res) => {
 // GET /api/leads/meta/sources - Fetch acquisition channels
 router.get('/meta/sources', requireAuth, async (req, res) => {
   try {
-    const { rows } = await db.query('SELECT id, channel_name FROM acquisition_channels ORDER BY channel_name');
+    const companyId = req.query.company_id;
+    if (companyId) {
+      const { rows } = await db.query('SELECT * FROM acquisition_channels WHERE company_id = $1 ORDER BY channel_name', [companyId]);
+      return res.json(rows);
+    }
+    const { rows } = await db.query('SELECT * FROM acquisition_channels ORDER BY channel_name');
     res.json(rows);
   } catch (err) {
     console.error("DB Error (get sources):", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// POST /api/leads/meta/sources - Add acquisition channel(s)
+router.post('/meta/sources', requireAuth, async (req, res) => {
+  try {
+    const data = Array.isArray(req.body) ? req.body : [req.body];
+    if (data.length === 0) return res.status(400).json({ error: "Empty payload" });
+    
+    const results = [];
+    for (const item of data) {
+      const { company_id, channel_name, avg_lead_cost } = item;
+      const { rows } = await db.query(
+        'INSERT INTO acquisition_channels (company_id, channel_name, avg_lead_cost) VALUES ($1, $2, $3) RETURNING *',
+        [company_id, channel_name, avg_lead_cost || 0]
+      );
+      results.push(rows[0]);
+    }
+    res.status(201).json(Array.isArray(req.body) ? results : results[0]);
+  } catch (err) {
+    console.error("DB Error (post sources):", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
