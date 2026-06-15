@@ -55,13 +55,18 @@ export default function ExpiryMonitoring() {
   const { data: items = [], isLoading: isItemsLoading } = useQuery({
     queryKey: ["expiry-monitoring"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("expiry_monitoring")
-        .select("*")
-        .neq("is_deleted", true)
-        .order("expiry_date", { ascending: true });
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch('/api/inventory/expiry_monitoring', {
+          headers: { 'Authorization': `Bearer ${session?.access_token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch expiry monitoring');
+        const rows = await res.json();
+        return (rows || []).filter((r: any) => !r.is_deleted);
+      } catch (err) {
+        console.error('Error fetching expiry monitoring:', err);
+        return [];
+      }
     },
   });
 
@@ -76,46 +81,34 @@ export default function ExpiryMonitoring() {
 
   const mutation = useMutation({
     mutationFn: async (payload: any) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const body = {
+        product_name: payload.product_name,
+        batch_number: payload.batch_number || null,
+        quantity: payload.quantity,
+        unit: payload.unit || 'kg',
+        manufacture_date: payload.manufacture_date || null,
+        expiry_date: payload.expiry_date,
+        warehouse: payload.warehouse || null,
+        status: payload.status || 'Active',
+        notes: payload.notes || null,
+        company_id: profile?.company_id || null,
+        updated_at: new Date().toISOString(),
+      };
       if (payload.id) {
-        const { error } = await supabase
-          .from("expiry_monitoring")
-          .update({
-            product_name: payload.product_name,
-            batch_number: payload.batch_number,
-            quantity: payload.quantity,
-            unit: payload.unit,
-            manufacture_date: payload.manufacture_date,
-            expiry_date: payload.expiry_date,
-            warehouse: payload.warehouse,
-            status: payload.status,
-            notes: payload.notes,
-          })
-          .eq("id", payload.id);
-        if (error) throw error;
-      } else {
-        const { data: { session: __session_ins } } = await supabase.auth.getSession();
-        const __res_ins = await fetch(`/api/inventory/expiry_monitoring`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${__session_ins?.access_token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify([
-          {
-            product_name: payload.product_name,
-            batch_number: payload.batch_number,
-            quantity: payload.quantity,
-            unit: payload.unit,
-            manufacture_date: payload.manufacture_date,
-            expiry_date: payload.expiry_date,
-            warehouse: payload.warehouse,
-            status: payload.status,
-            notes: payload.notes,
-          },
-        ])
+        const res = await fetch(`/api/inventory/expiry_monitoring/${payload.id}`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
         });
-        const error = __res_ins.ok ? null : new Error('Insert failed');
-        if (error) throw error;
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Update failed'); }
+      } else {
+        const res = await fetch('/api/inventory/expiry_monitoring', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify([body])
+        });
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Insert failed'); }
       }
     },
     onSuccess: () => {
@@ -132,12 +125,13 @@ export default function ExpiryMonitoring() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("expiry_monitoring").update({
-        is_deleted: true,
-        deleted_at: new Date().toISOString(),
-        deleted_by: profile?.id || null,
-      }).eq("id", id);
-      if (error) throw error;
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/inventory/expiry_monitoring/${id}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: profile?.id || null })
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Delete failed'); }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expiry-monitoring"] });

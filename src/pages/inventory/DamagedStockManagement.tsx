@@ -63,13 +63,18 @@ export default function DamagedStockManagement() {
   const { data: records = [], isLoading: isRecordsLoading } = useQuery({
     queryKey: ["damaged-stock"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("damaged_stock")
-        .select("*")
-        .neq("is_deleted", true)
-        .order("damage_date", { ascending: false });
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch('/api/inventory/damaged_stock', {
+          headers: { 'Authorization': `Bearer ${session?.access_token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch damaged stock');
+        const rows = await res.json();
+        return (rows || []).filter((r: any) => !r.is_deleted);
+      } catch (err) {
+        console.error('Error fetching damaged stock:', err);
+        return [];
+      }
     },
   });
 
@@ -84,50 +89,36 @@ export default function DamagedStockManagement() {
 
   const mutation = useMutation({
     mutationFn: async (payload: any) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const body = {
+        product_name: payload.product_name,
+        batch_number: payload.batch_number || null,
+        quantity: payload.quantity,
+        unit: payload.unit || 'kg',
+        damage_type: payload.damage_type,
+        damage_date: payload.damage_date,
+        reported_by: payload.reported_by || null,
+        warehouse: payload.warehouse || null,
+        estimated_loss: payload.estimated_loss || null,
+        action_taken: payload.action_taken || 'Under Review',
+        notes: payload.notes || null,
+        company_id: profile?.company_id || null,
+        updated_at: new Date().toISOString(),
+      };
       if (payload.id) {
-        const { error } = await supabase
-          .from("damaged_stock")
-          .update({
-            product_name: payload.product_name,
-            batch_number: payload.batch_number,
-            quantity: payload.quantity,
-            unit: payload.unit,
-            damage_type: payload.damage_type,
-            damage_date: payload.damage_date,
-            reported_by: payload.reported_by,
-            warehouse: payload.warehouse,
-            estimated_loss: payload.estimated_loss,
-            action_taken: payload.action_taken,
-            notes: payload.notes,
-          })
-          .eq("id", payload.id);
-        if (error) throw error;
-      } else {
-        const { data: { session: __session_ins } } = await supabase.auth.getSession();
-        const __res_ins = await fetch(`/api/inventory/damaged_stock`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${__session_ins?.access_token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify([
-          {
-            product_name: payload.product_name,
-            batch_number: payload.batch_number,
-            quantity: payload.quantity,
-            unit: payload.unit,
-            damage_type: payload.damage_type,
-            damage_date: payload.damage_date,
-            reported_by: payload.reported_by,
-            warehouse: payload.warehouse,
-            estimated_loss: payload.estimated_loss,
-            action_taken: payload.action_taken,
-            notes: payload.notes,
-          },
-        ])
+        const res = await fetch(`/api/inventory/damaged_stock/${payload.id}`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
         });
-        const error = __res_ins.ok ? null : new Error('Insert failed');
-        if (error) throw error;
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Update failed'); }
+      } else {
+        const res = await fetch('/api/inventory/damaged_stock', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify([body])
+        });
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Insert failed'); }
       }
     },
     onSuccess: () => {
@@ -144,12 +135,13 @@ export default function DamagedStockManagement() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("damaged_stock").update({
-        is_deleted: true,
-        deleted_at: new Date().toISOString(),
-        deleted_by: profile?.id || null,
-      }).eq("id", id);
-      if (error) throw error;
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/inventory/damaged_stock/${id}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: profile?.id || null })
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Delete failed'); }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["damaged-stock"] });
