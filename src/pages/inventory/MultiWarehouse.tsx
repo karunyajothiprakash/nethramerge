@@ -66,13 +66,18 @@ export default function MultiWarehouse() {
   const { data: warehouses = [], isLoading: isWarehousesLoading } = useQuery({
     queryKey: ["warehouses"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("warehouses")
-        .select("*")
-        .neq("is_deleted", true)
-        .order("name", { ascending: true });
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch('/api/warehouse/warehouses', {
+          headers: { 'Authorization': `Bearer ${session?.access_token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch warehouses');
+        const rows = await res.json();
+        return (rows || []).filter((r: any) => !r.is_deleted);
+      } catch (err) {
+        console.error('Error fetching warehouses:', err);
+        return [];
+      }
     },
   });
 
@@ -80,13 +85,18 @@ export default function MultiWarehouse() {
     queryKey: ["warehouse-stock", expandedWarehouseId],
     queryFn: async () => {
       if (!expandedWarehouseId) return [];
-      const { data, error } = await supabase
-        .from("warehouse_stock")
-        .select("*")
-        .eq("warehouse_id", expandedWarehouseId)
-        .neq("is_deleted", true);
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch('/api/inventory/warehouse_stock', {
+          headers: { 'Authorization': `Bearer ${session?.access_token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch warehouse stock');
+        const rows = await res.json();
+        return (rows || []).filter((r: any) => !r.is_deleted && r.warehouse_id === expandedWarehouseId);
+      } catch (err) {
+        console.error('Error fetching warehouse stock:', err);
+        return [];
+      }
     },
     enabled: !!expandedWarehouseId,
   });
@@ -229,17 +239,19 @@ export default function MultiWarehouse() {
     return (warehouses || []).filter((warehouse: any) => {
       const nameMatch = warehouse.name?.toLowerCase().includes(query) || false;
       const cityMatch = warehouse.city?.toLowerCase().includes(query) || false;
-      const statusMatch = statusFilter === "all" || warehouse.status === statusFilter;
+      // DB uses is_active boolean; map to form status for filtering
+      const warehouseStatus = warehouse.is_active === false ? "Inactive" : "Active";
+      const statusMatch = statusFilter === "all" || warehouseStatus === statusFilter;
       return (nameMatch || cityMatch) && statusMatch;
     });
   }, [warehouses, searchTerm, statusFilter]);
 
   const summary = useMemo(() => {
     const totalWarehouses = (warehouses || []).length;
-    const activeWarehouses = (warehouses || []).filter((w: any) => w.status === "Active").length;
+    // DB uses is_active boolean
+    const activeWarehouses = (warehouses || []).filter((w: any) => w.is_active !== false).length;
     const totalStock = (warehouseStock || []).reduce((sum, s: any) => sum + Number(s.quantity || 0), 0);
     const nonActiveWarehouses = totalWarehouses - activeWarehouses;
-
     return { totalWarehouses, activeWarehouses, totalStock, nonActiveWarehouses };
   }, [warehouses, warehouseStock]);
 
@@ -256,11 +268,12 @@ export default function MultiWarehouse() {
       name: warehouse.name || "",
       location: warehouse.location || "",
       city: warehouse.city || "",
-      capacity: String(warehouse.capacity || ""),
-      capacity_unit: warehouse.capacity_unit || "tons",
+      capacity: String(warehouse.capacity_kg || ""),
+      capacity_unit: "tons",
       manager_name: warehouse.manager_name || "",
-      contact_number: warehouse.contact_number || "",
-      status: warehouse.status || "Active",
+      contact_number: warehouse.manager_phone || "",
+      // Map is_active boolean back to status string for form display
+      status: warehouse.is_active === false ? "Inactive" : "Active",
       notes: warehouse.notes || "",
     });
     setIsWarehouseModalOpen(true);
@@ -416,9 +429,14 @@ export default function MultiWarehouse() {
                       {warehouse.location}{warehouse.city ? `, ${warehouse.city}` : ""}
                     </div>
                   </div>
-                  <Badge className={`border px-2 ${statusColorMap[warehouse.status] || statusColorMap.Active}`}>
-                    {warehouse.status}
-                  </Badge>
+                  {(() => {
+                    const wStatus = warehouse.is_active === false ? "Inactive" : "Active";
+                    return (
+                      <Badge className={`border px-2 ${statusColorMap[wStatus] || statusColorMap.Active}`}>
+                        {wStatus}
+                      </Badge>
+                    );
+                  })()}
                 </div>
 
                 {warehouse.manager_name && (
