@@ -49,6 +49,7 @@ const statusColorMap: Record<string, string> = {
 
 export default function MultiWarehouse() {
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isWarehouseModalOpen, setIsWarehouseModalOpen] = useState(false);
