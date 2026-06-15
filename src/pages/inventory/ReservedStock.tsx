@@ -53,16 +53,27 @@ export default function ReservedStock() {
   const { data: reservations = [], isLoading: isReservationsLoading } = useQuery({
     queryKey: ["reserved-stock"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("reserved_stock")
-        .select(`
-          *,
-          products(name, grade),
-          warehouses(name)
-        `)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch('/api/inventory/reserved_stock', {
+          headers: { 'Authorization': `Bearer ${session?.access_token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch reserved stock');
+        const rows = await res.json();
+        // Enrich with product/warehouse names from supabase
+        const { data: prods } = await supabase.from('products').select('id, name, grade');
+        const { data: whs } = await supabase.from('warehouses').select('id, name');
+        const prodMap = Object.fromEntries((prods || []).map((p: any) => [p.id, p]));
+        const whMap = Object.fromEntries((whs || []).map((w: any) => [w.id, w]));
+        return (rows || []).map((r: any) => ({
+          ...r,
+          products: r.product_id ? prodMap[r.product_id] : null,
+          warehouses: r.warehouse_id ? whMap[r.warehouse_id] : null,
+        }));
+      } catch (err) {
+        console.error('Error fetching reserved stock:', err);
+        return [];
+      }
     },
   });
 
@@ -90,45 +101,56 @@ export default function ReservedStock() {
 
   const mutation = useMutation({
     mutationFn: async (payload: any) => {
+      const { data: { session: __session_mut } } = await supabase.auth.getSession();
       if (payload.id) {
-        const { error } = await supabase
-          .from("reserved_stock")
-          .update({
+        // UPDATE via VPS API
+        const __res_upd = await fetch(`/api/inventory/reserved_stock/${payload.id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${__session_mut?.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
             product_id: payload.product_id,
             warehouse_id: payload.warehouse_id,
             reserved_quantity: payload.reserved_quantity,
             order_reference: payload.order_reference,
             reserved_date: payload.reserved_date,
-            expected_release_date: payload.expected_release_date,
-            status: payload.status,
-            notes: payload.notes,
+            expected_release_date: payload.expected_release_date || null,
+            status: payload.status || 'active',
+            notes: payload.notes || null,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", payload.id);
-        if (error) throw error;
+        });
+        if (!__res_upd.ok) {
+          const errData = await __res_upd.json().catch(() => ({}));
+          throw new Error(errData.error || 'Update failed');
+        }
       } else {
         const { data: { session: __session_ins } } = await supabase.auth.getSession();
+        const company_id = profile?.company_id;
         const __res_ins = await fetch(`/api/inventory/reserved_stock`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${__session_ins?.access_token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify([
-          {
+          body: JSON.stringify([{
             product_id: payload.product_id,
             warehouse_id: payload.warehouse_id,
             reserved_quantity: payload.reserved_quantity,
             order_reference: payload.order_reference,
             reserved_date: payload.reserved_date,
-            expected_release_date: payload.expected_release_date,
-            status: payload.status,
-            notes: payload.notes,
-          },
-        ])
+            expected_release_date: payload.expected_release_date || null,
+            status: payload.status || 'active',
+            notes: payload.notes || null,
+            company_id: company_id || null,
+          }])
         });
-        const error = __res_ins.ok ? null : new Error('Insert failed');
-        if (error) throw error;
+        if (!__res_ins.ok) {
+          const errData = await __res_ins.json().catch(() => ({}));
+          throw new Error(errData.error || 'Insert failed');
+        }
       }
     },
     onSuccess: () => {
@@ -145,11 +167,19 @@ export default function ReservedStock() {
 
   const actionMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase
-        .from("reserved_stock")
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/inventory/reserved_stock/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status, updated_at: new Date().toISOString() })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to update reservation');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reserved-stock"] });
