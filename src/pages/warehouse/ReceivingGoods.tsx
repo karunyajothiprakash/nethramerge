@@ -80,7 +80,7 @@ export default function ReceivingGoods() {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('products')
-                .select('id, name, grade, unit')
+                .select('id, name, grade:default_grade, unit')
                 .neq('is_deleted', true)
                 .eq('is_active', true)
                 .order('name', { ascending: true });
