@@ -71,17 +71,18 @@ const getDefaultSignature = (profile: any) => {
   return `
 <p><em><strong>Warm Regards,</strong></em></p>
 <p><br></p>
-<table cellpadding="0" cellspacing="0" border="0" style="font-family:Verdana,sans-serif; font-size:10pt; line-height:1.4;">
+<table cellpadding="0" cellspacing="0" border="0" style="font-family:Verdana,sans-serif; font-size:10pt; line-height:1.4; border-collapse:collapse;">
   <tr>
-    <td valign="middle" style="padding-right:14px; vertical-align:middle;">
+    <td width="72" valign="middle" style="padding-right:14px; vertical-align:middle; width:72px;">
       <img
         src="${COMPANY_LOGO_URL}"
         alt="logo"
         width="72"
-        style="display:block; width:72px; height:auto; max-height:60px; object-fit:contain;"
+        height="72"
+        style="display:block; width:72px; height:72px; border:0; outline:none; text-decoration:none;"
       />
     </td>
-    <td width="2" style="width:2px; background-color:#cccccc; padding:0; vertical-align:stretch;"></td>
+    <td width="2" style="width:2px; background-color:#cccccc; padding:0; vertical-align:middle;"></td>
     <td valign="middle" style="padding-left:14px; vertical-align:middle; text-align:left;">
       <div style="font-weight:bold; font-size:11pt; color:#000000; margin-bottom:1px;">${name}</div>
       <div style="font-size:9pt; color:#444444; margin-bottom:1px;">${role}</div>
