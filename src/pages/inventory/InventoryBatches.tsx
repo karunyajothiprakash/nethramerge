@@ -75,6 +75,7 @@ export default function InventoryBatches() {
     product_id: "",
     warehouse_id: "",
     quantity_kg: "",
+    quantity_remaining_kg: "",
     grade: "",
     moisture_pct: "",
     received_date: new Date().toISOString().split("T")[0],
@@ -225,7 +226,7 @@ export default function InventoryBatches() {
             product_id: formData.product_id,
             warehouse_id: formData.warehouse_id,
             quantity_kg: Number(formData.quantity_kg),
-            quantity_remaining_kg: Number(formData.quantity_kg),
+            quantity_remaining_kg: Number(formData.quantity_remaining_kg || formData.quantity_kg),
             grade: formData.grade,
             moisture_pct: formData.moisture_pct ? Number(formData.moisture_pct) : null,
             received_date: formData.received_date,
@@ -243,7 +244,7 @@ export default function InventoryBatches() {
           product_id: formData.product_id,
           warehouse_id: formData.warehouse_id,
           quantity_kg: Number(formData.quantity_kg),
-          quantity_remaining_kg: Number(formData.quantity_kg),
+          quantity_remaining_kg: Number(formData.quantity_remaining_kg || formData.quantity_kg),
           grade: formData.grade,
           moisture_pct: formData.moisture_pct ? Number(formData.moisture_pct) : null,
           received_date: formData.received_date,
@@ -279,6 +280,7 @@ export default function InventoryBatches() {
       product_id: "",
       warehouse_id: "",
       quantity_kg: "",
+      quantity_remaining_kg: "",
       grade: "",
       moisture_pct: "",
       received_date: new Date().toISOString().split("T")[0],
@@ -295,6 +297,7 @@ export default function InventoryBatches() {
       product_id: batch.product_id,
       warehouse_id: batch.warehouse_id,
       quantity_kg: String(batch.quantity_kg),
+      quantity_remaining_kg: String(batch.quantity_remaining_kg || batch.quantity_kg),
       grade: batch.grade || "",
       moisture_pct: batch.moisture_pct ? String(batch.moisture_pct) : "",
       received_date: batch.received_date,
@@ -500,18 +503,22 @@ export default function InventoryBatches() {
                       type="number"
                       step="0.001"
                       value={formData.quantity_kg}
-                      onChange={(e) => setFormData({ ...formData, quantity_kg: e.target.value })}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        quantity_kg: e.target.value,
+                        // auto-fill remaining when user changes total
+                        quantity_remaining_kg: formData.quantity_remaining_kg || e.target.value,
+                      })}
                       className="bg-white/5 border-white/10"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs uppercase tracking-wider font-bold">Moisture %</Label>
+                    <Label className="text-xs uppercase tracking-wider font-bold">Remaining Quantity *</Label>
                     <Input
                       type="number"
-                      step="0.1"
-                      value={formData.moisture_pct}
-                      onChange={(e) => setFormData({ ...formData, moisture_pct: e.target.value })}
-                      placeholder="12.5"
+                      step="0.001"
+                      value={formData.quantity_remaining_kg}
+                      onChange={(e) => setFormData({ ...formData, quantity_remaining_kg: e.target.value })}
                       className="bg-white/5 border-white/10"
                     />
                   </div>
@@ -727,17 +734,21 @@ export default function InventoryBatches() {
                   type="number"
                   step="0.001"
                   value={formData.quantity_kg}
-                  onChange={(e) => setFormData({ ...formData, quantity_kg: e.target.value })}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    quantity_kg: e.target.value,
+                    quantity_remaining_kg: formData.quantity_remaining_kg || e.target.value,
+                  })}
                   className="bg-white/5 border-white/10"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wider font-bold">Moisture %</Label>
+                <Label className="text-xs uppercase tracking-wider font-bold">Remaining Quantity *</Label>
                 <Input
                   type="number"
-                  step="0.1"
-                  value={formData.moisture_pct}
-                  onChange={(e) => setFormData({ ...formData, moisture_pct: e.target.value })}
+                  step="0.001"
+                  value={formData.quantity_remaining_kg}
+                  onChange={(e) => setFormData({ ...formData, quantity_remaining_kg: e.target.value })}
                   className="bg-white/5 border-white/10"
                 />
               </div>

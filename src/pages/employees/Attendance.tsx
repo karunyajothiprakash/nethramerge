@@ -275,6 +275,7 @@ export default function Attendance() {
 
   // Manual Time Entry States
   const [enteringTimeEmpId, setEnteringTimeEmpId] = useState<string | null>(null);
+  const [enteringTimeType, setEnteringTimeType] = useState<"in" | "out">("in");
   const [manualTime, setManualTime] = useState<string>("09:00");
   const [savingManualTime, setSavingManualTime] = useState(false);
 
@@ -323,15 +324,38 @@ export default function Attendance() {
     if (!settingsEmp) return;
     setSavingSettings(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No active session");
+
+      // Save to VPS database (source of truth for attendance)
+      const response = await fetch(`/api/employees/${settingsEmp.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
           monthly_salary: Number(settingsSalary) || 0,
           punch_deadline: settingsDeadline + ":00"
         })
-        .eq('id', settingsEmp.id);
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to update settings');
+      }
+
+      // Also update Supabase (best effort sync)
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            monthly_salary: Number(settingsSalary) || 0,
+            punch_deadline: settingsDeadline + ":00"
+          })
+          .eq('id', settingsEmp.id);
+      } catch { /* ignore supabase sync error */ }
+
       toast.success("Settings updated successfully!");
       setSettingsEmp(null);
       await loadData(startDate, endDate);
@@ -347,10 +371,24 @@ export default function Attendance() {
     setSavingManualTime(true);
     const todayStr = endDate;
     try {
-      const clockInIso = new Date(`${todayStr}T${manualTime}`).toISOString();
+      const timeIso = new Date(`${todayStr}T${manualTime}`).toISOString();
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) throw new Error("No active session found");
+
+      const existingLog = attendanceData[emp.id]?.[todayStr];
+      const payload: any = {
+        employee_id: emp.id,
+        date: todayStr,
+      };
+
+      if (enteringTimeType === "out") {
+        payload.check_in = existingLog?.clock_in;
+        payload.check_out = timeIso;
+      } else {
+        payload.check_in = timeIso;
+        payload.check_out = existingLog?.clock_out || null;
+      }
 
       const response = await fetch('/api/attendance/manual-time', {
         method: 'PUT',
@@ -358,11 +396,7 @@ export default function Attendance() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({
-          employee_id: emp.id,
-          date: todayStr,
-          check_in: clockInIso
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
@@ -1052,6 +1086,32 @@ export default function Attendance() {
                           </button>
                         </div>
                       )}
+                      {log && log.status !== 'on_leave' && !log.clock_out && (
+                        <div className="flex items-center justify-between w-full mt-1 gap-2">
+                          {emp.id === userId ? (
+                            <button
+                              type="button"
+                              onClick={handlePunch}
+                              disabled={punching}
+                              className="text-[10px] font-semibold bg-amber-600 hover:bg-amber-700 text-white px-2 py-1 rounded transition-colors disabled:opacity-50 flex items-center justify-center flex-1"
+                            >
+                              {punching && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                              Punch Out
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEnteringTimeEmpId(emp.id);
+                              setEnteringTimeType("out");
+                              setManualTime("17:00");
+                            }}
+                            className="text-[10px] font-semibold text-primary hover:underline flex-1 text-right"
+                          >
+                            Enter Out Time
+                          </button>
+                        </div>
+                      )}
                       {log && log.status !== 'on_leave' && log.is_manual && (
                         <div className="mt-1 pt-1 flex items-center justify-end">
                           <button
@@ -1083,6 +1143,7 @@ export default function Attendance() {
                             type="button"
                             onClick={() => {
                               setEnteringTimeEmpId(emp.id);
+                              setEnteringTimeType("in");
                               setManualTime("09:00");
                             }}
                             className="text-[10px] font-semibold text-primary hover:underline"
@@ -1091,7 +1152,7 @@ export default function Attendance() {
                           </button>
                         </div>
                       )}
-                      {!log && enteringTimeEmpId === emp.id && (
+                      {enteringTimeEmpId === emp.id && (
                         <div className="flex items-center gap-1.5 w-full mt-2 pt-2 border-t border-border/30">
                           <Input
                             type="time"

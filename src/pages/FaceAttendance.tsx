@@ -1,12 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import FaceScanner from '../components/FaceScanner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import {
   getAllFaceEmbeddings,
-  recordCheckIn,
-  recordCheckOut,
-  getTodayAttendance,
-  getTodaySummary,
   signOut,
 } from '../services/supabase';
 import {
@@ -14,6 +11,95 @@ import {
   findBestMatch,
   areModelsLoaded,
 } from '../services/faceEngine';
+
+// Use IST date (device timezone) to match biometric device
+function getTodayIST() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+}
+
+// Fetch today's attendance for an employee from VPS database
+async function fetchTodayFromVPS(employeeId: string) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
+    const today = getTodayIST();
+    const res = await fetch(`/api/attendance?start=${today}&end=${today}`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    if (!res.ok) return null;
+    const logs = await res.json();
+    return logs.find((l: any) => l.employee_id === employeeId && l.date === today) || null;
+  } catch { return null; }
+}
+
+// Sync a check-in to VPS and Supabase
+async function syncCheckIn(employeeId: string, confidence: number) {
+  const session_data = await supabase.auth.getSession();
+  const session = session_data.data.session;
+  if (!session) throw new Error('No session');
+  const now = new Date().toISOString();
+  const today = getTodayIST();
+  const hour = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false });
+  const status = Number(hour) >= 8 ? 'late' : 'present';
+
+  // VPS first (source of truth)
+  const res = await fetch('/api/attendance/face-sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({ employee_id: employeeId, date: today, check_in: now, status })
+  });
+  if (!res.ok) throw new Error('Failed to record check-in');
+
+  // Also sync to Supabase (best effort)
+  try {
+    await supabase.from('attendance_logs').upsert([{
+      employee_id: employeeId, date: today, clock_in: now, status,
+      is_manual: false, notes: `Face match: ${confidence.toFixed(1)}%`
+    }], { onConflict: 'employee_id,date', ignoreDuplicates: false });
+  } catch { /* ignore */ }
+
+  return { check_in: now, check_out: null, status };
+}
+
+// Sync a check-out to VPS and Supabase
+async function syncCheckOut(employeeId: string) {
+  const session_data = await supabase.auth.getSession();
+  const session = session_data.data.session;
+  if (!session) throw new Error('No session');
+  const now = new Date().toISOString();
+  const today = getTodayIST();
+
+  // VPS first (source of truth)
+  const res = await fetch('/api/attendance/face-sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({ employee_id: employeeId, date: today, check_out: now })
+  });
+  if (!res.ok) throw new Error('Failed to record check-out');
+
+  // Also sync to Supabase (best effort)
+  try {
+    await supabase.from('attendance_logs')
+      .update({ clock_out: now })
+      .eq('employee_id', employeeId).eq('date', today);
+  } catch { /* ignore */ }
+
+  return now;
+}
+
+// Fetch today summary from VPS
+async function fetchTodaySummaryFromVPS() {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return [];
+    const today = getTodayIST();
+    const res = await fetch(`/api/attendance?start=${today}&end=${today}`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch { return []; }
+}
 
 const CONFIDENCE_THRESHOLD = 55;
 
@@ -135,17 +221,18 @@ const isCheckin = searchParams.get('mode') === 'checkin';
         if (isMounted.current) setModelsReady(true);
       }
 
+      // Load face embeddings from Supabase, today's summary from VPS
       const [embeddings, summary] = await Promise.all([
         getAllFaceEmbeddings(),
-        getTodaySummary(),
+        fetchTodaySummaryFromVPS(),
       ]);
 
       if (!isMounted.current) return;
       setStoredEmbeddings(embeddings);
       setTodaySummary(summary);
 
-      const present = summary.filter((r) => r.status === 'present').length;
-      const late = summary.filter((r) => r.status === 'late').length;
+      const present = summary.filter((r: any) => r.status === 'present' || r.clock_in).length;
+      const late = summary.filter((r: any) => r.status === 'late').length;
       const total = summary.length;
       setStats({ present, late, absent: Math.max(0, total - present - late), total });
     } catch (err) {
@@ -196,18 +283,39 @@ const isCheckin = searchParams.get('mode') === 'checkin';
       setScanPhase('recording');
       setScanMessage(`Matched ${matchResult.employee?.full_name} (${matchResult.confidence}%) — recording attendance…`);
 
-      const existing = await getTodayAttendance(matchResult.employeeId);
+      // Read today's record from VPS (source of truth) using IST date
+      const existing = await fetchTodayFromVPS(matchResult.employeeId);
+      // VPS uses clock_in / clock_out column names
+      const hasCheckIn = !!(existing?.clock_in);
+      const hasCheckOut = !!(existing?.clock_out);
 
-      let record;
-      if (existing?.check_in && !existing?.check_out) {
-        record = await recordCheckOut(matchResult.employeeId);
-        record._action = 'check-out';
-      } else if (existing?.check_in && existing?.check_out) {
-        record = existing;
-        record._action = 'already-done';
+      let action: string;
+      let checkInTime = existing?.clock_in || null;
+      let checkOutTime = existing?.clock_out || null;
+
+      if (isCheckout && hasCheckIn && !hasCheckOut) {
+        // Explicit checkout mode — record checkout
+        const outTime = await syncCheckOut(matchResult.employeeId);
+        checkOutTime = outTime;
+        action = 'check-out';
+      } else if (hasCheckIn && hasCheckOut) {
+        // Already fully done for today
+        action = 'already-done';
+      } else if (hasCheckIn && !hasCheckOut) {
+        // Has check-in but no check-out — only mark checkout if mode=checkout
+        if (isCheckout) {
+          const outTime = await syncCheckOut(matchResult.employeeId);
+          checkOutTime = outTime;
+          action = 'check-out';
+        } else {
+          // Mode is check-in — already checked in, show existing
+          action = 'already-done';
+        }
       } else {
-        record = await recordCheckIn(matchResult.employeeId, matchResult.confidence / 100);
-        record._action = 'check-in';
+        // No record yet — record check-in
+        const newRecord = await syncCheckIn(matchResult.employeeId, matchResult.confidence);
+        checkInTime = newRecord.check_in;
+        action = 'check-in';
       }
 
       if (!isMounted.current) return;
@@ -215,31 +323,33 @@ const isCheckin = searchParams.get('mode') === 'checkin';
       setScanResult({
         employee: matchResult.employee,
         confidence: matchResult.confidence,
-        record,
-        action: record._action,
+        record: { check_in: checkInTime, check_out: checkOutTime, status: existing?.status || 'present', _action: action },
+        action,
       });
       setScanning(false);
-        if (isCheckout) {
-          setTimeout(async () => {
-            await signOut();
-            navigate('/dashboard');
-          }, 2000);
-        }
 
-      const summary = await getTodaySummary();
+      // Only sign out user if explicit checkout mode AND we just recorded checkout
+      if (isCheckout && action === 'check-out') {
+        setTimeout(async () => {
+          await signOut();
+          navigate('/auth');
+        }, 2500);
+      }
+
+      const summary = await fetchTodaySummaryFromVPS();
       if (isMounted.current) {
         setTodaySummary(summary);
-        const present = summary.filter((r) => r.status === 'present').length;
-        const late = summary.filter((r) => r.status === 'late').length;
+        const present = summary.filter((r: any) => r.status === 'present' || r.clock_in).length;
+        const late = summary.filter((r: any) => r.status === 'late').length;
         setStats({ present, late, absent: Math.max(0, summary.length - present - late), total: summary.length });
       }
-    } catch (err) {
+    } catch (err: any) {
       if (!isMounted.current) return;
       setScanPhase('error');
       setScanMessage(err.message);
       setScanning(false);
     }
-  }, [storedEmbeddings]);
+  }, [storedEmbeddings, isCheckout]);
 
   const handleScanError = useCallback((msg) => {
     if (!isMounted.current) return;

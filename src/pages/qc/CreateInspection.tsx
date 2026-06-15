@@ -29,13 +29,28 @@ export default function CreateInspection() {
     queryKey: ["batches-pending", profile?.company_id],
     queryFn: async () => {
       if (!profile?.company_id) return [];
-      const { data, error } = await supabase
-        .from("inventory_batches")
-        .select("id, lot_number, status, product:products(name)")
-        .eq("company_id", profile.company_id)
-        .order("received_date", { ascending: false });
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch('/api/inventory/inventory_batches', {
+          headers: { 'Authorization': `Bearer ${session?.access_token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch batches');
+        const rows = await res.json();
+        // Enrich with product names
+        const prodRes = await fetch('/api/inventory/products', {
+          headers: { 'Authorization': `Bearer ${session?.access_token}` }
+        });
+        const products = prodRes.ok ? await prodRes.json() : [];
+        const prodMap: Record<string,string> = {};
+        products.forEach((p: any) => { prodMap[p.id] = p.name; });
+        return (rows || []).filter((b: any) => b.company_id === profile.company_id && !b.is_deleted).map((b: any) => ({
+          ...b,
+          product: { name: prodMap[b.product_id] || 'Unknown' }
+        }));
+      } catch (err) {
+        console.error('Error fetching batches:', err);
+        return [];
+      }
     },
     enabled: !!profile?.company_id
   });
@@ -45,24 +60,33 @@ export default function CreateInspection() {
     if (!profile?.company_id || !user) return toast.error("Missing context");
     if (!batchId) return toast.error("Select a batch");
     setBusy(true);
-    const { error } = await supabase.from("qc_inspections").insert({
-      company_id: profile.company_id,
-      batch_id: batchId,
-      inspector_id: user.id,
-      moisture_pct: moisture ? Number(moisture) : null,
-      foreign_matter_pct: foreign ? Number(foreign) : null,
-      broken_pct: broken ? Number(broken) : null,
-      grade,
-      result: result as any,
-      lab_notes: notes || null,
-    });
-
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Inspection recorded");
-    qc.invalidateQueries({ queryKey: ["qc_inspections"] });
-    qc.invalidateQueries({ queryKey: ["batches-pending"] });
-    nav("/qc/inspections");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/inventory/qc_inspections', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify([{
+          company_id: profile.company_id,
+          batch_id: batchId,
+          inspector_id: user.id,
+          moisture_pct: moisture ? Number(moisture) : null,
+          foreign_matter_pct: foreign ? Number(foreign) : null,
+          broken_pct: broken ? Number(broken) : null,
+          grade,
+          result,
+          lab_notes: notes || null,
+        }])
+      });
+      if (!res.ok) { const e2 = await res.json().catch(() => ({})); throw new Error(e2.error || 'Insert failed'); }
+      toast.success("Inspection recorded");
+      qc.invalidateQueries({ queryKey: ["qc_inspections"] });
+      qc.invalidateQueries({ queryKey: ["batches-pending"] });
+      nav("/qc/inspections");
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save inspection');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

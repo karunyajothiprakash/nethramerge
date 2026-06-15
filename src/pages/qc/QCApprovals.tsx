@@ -21,42 +21,38 @@ export default function QCApprovals() {
     queryKey: ["qc_inspections", "pending", profile?.company_id],
     queryFn: async () => {
       if (!profile?.company_id) return [];
-      const { data, error } = await supabase
-        .from("qc_inspections")
-        .select(`
-          id, 
-          inspected_at, 
-          grade, 
-          moisture_pct, 
-          foreign_matter_pct, 
-          broken_pct, 
-          result, 
-          batch:inventory_batches(lot_number, product:products(name))
-        `)
-        .eq("company_id", profile.company_id)
-        .eq("result", "pending")
-        .order("inspected_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(`/api/inventory/qc_inspections/with-batch?company_id=${profile.company_id}&result=pending`, {
+          headers: { 'Authorization': `Bearer ${session?.access_token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch QC inspections');
+        return await res.json();
+      } catch (err) {
+        console.error('Error fetching QC approvals:', err);
+        return [];
+      }
     },
     enabled: !!profile?.company_id
   });
 
   const handleDecision = async (id: string, decision: "approved" | "rejected") => {
     setBusy(id);
-    const { error } = await supabase
-      .from("qc_inspections")
-      .update({ result: decision })
-      .eq("id", id);
-      
-    setBusy(null);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/inventory/qc_inspections/${id}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ result: decision })
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Update failed'); }
+      toast.success(`Inspection ${decision}`);
+      qc.invalidateQueries({ queryKey: ["qc_inspections"] });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update inspection');
+    } finally {
+      setBusy(null);
     }
-    
-    toast.success(`Inspection ${decision}`);
-    qc.invalidateQueries({ queryKey: ["qc_inspections"] });
   };
 
   return (

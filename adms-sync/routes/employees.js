@@ -7,7 +7,7 @@ const { requireAuth } = require('../middleware/auth');
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { rows } = await db.query(
-      `SELECT id, full_name, email, phone, requested_role, status, is_active, avatar_url, biometric_id, dob, joining_date, system_mode, city
+      `SELECT id, full_name, email, phone, requested_role, status, is_active, avatar_url, biometric_id, dob, joining_date, system_mode, city, monthly_salary, punch_deadline
        FROM profiles 
        WHERE status = 'approved' AND is_deleted IS NOT TRUE
        ORDER BY full_name ASC`

@@ -96,8 +96,15 @@ export default function RevenueAnalytics() {
         });
 
         normalizedRevenue.forEach((item: any) => {
-            if (item.bdeId !== "Unassigned" && map[item.bdeId] !== undefined) {
-                map[item.bdeId] += item.amount;
+            if (item.bdeId !== "Unassigned") {
+                const matchedBde = bdeProfiles.find((p: any) => {
+                    const profileName = (p.full_name || "").toLowerCase().trim();
+                    const bdeVal = String(item.bdeId).toLowerCase().trim();
+                    return p.id === bdeVal || profileName === bdeVal || profileName.includes(bdeVal) || bdeVal.includes(profileName);
+                });
+                if (matchedBde) {
+                    map[matchedBde.id] += item.amount;
+                }
             }
         });
 
@@ -180,8 +187,12 @@ export default function RevenueAnalytics() {
 
         const acquiredLeads = data.leads.filter((l: any) => {
             // Only include leads that actually have orders placed
-            const hasOrder = customerNamesWithOrders.has(l.company_name?.toLowerCase());
-            return hasOrder && ['won', 'converted', 'customer'].includes(l.stage?.toLowerCase()?.trim());
+            const hasOrder = l.company_name && [...customerNamesWithOrders].some(name => 
+                name && (l.company_name.toLowerCase().trim() === name || l.company_name.toLowerCase().trim().includes(name) || name.includes(l.company_name.toLowerCase().trim()))
+            );
+            return hasOrder && ['won', 'converted', 'customer', 'client successfully acquired', 'client'].some(keyword => 
+                l.stage?.toLowerCase()?.trim()?.includes(keyword)
+            );
         });
 
         acquiredLeads.forEach((lead: any) => {

@@ -185,7 +185,8 @@ router.post('/face-sync', requireAuth, async (req, res) => {
 router.post('/punch', requireAuth, async (req, res) => {
   try {
     const userId = req.user.sub;
-    const todayStr = new Date().toISOString().split('T')[0];
+    // Use IST date to match biometric device (avoids midnight UTC vs IST mismatch)
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
     const nowIso = new Date().toISOString();
     
     const { rows } = await db.query(

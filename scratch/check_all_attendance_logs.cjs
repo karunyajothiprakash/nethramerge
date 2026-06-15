@@ -6,8 +6,8 @@ async function run() {
       SELECT al.*, p.full_name, p.biometric_id
       FROM attendance_logs al
       JOIN profiles p ON al.employee_id = p.id
-      WHERE al.date >= '2026-06-01'
-      ORDER BY al.date DESC, p.full_name ASC
+      WHERE al.date = '2026-06-15'
+      ORDER BY p.full_name ASC
     `);
     console.log(`Found ${logs.length} attendance logs since June 1, 2026:`);
     for (const log of logs) {

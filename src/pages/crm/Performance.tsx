@@ -16,7 +16,8 @@ import {
   Award,
   Clock,
   Mail,
-  Globe
+  Globe,
+  Edit2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -653,7 +654,51 @@ export default function Performance() {
                     <td className="px-2 py-4">{emp.quotationsCount}</td>
                     <td className="px-2 py-4">{emp.dealsClosed}</td>
                     <td className="px-2 py-4">₹{emp.revenueGenerated.toLocaleString('en-IN')}</td>
-                    <td className="px-2 py-4">₹{emp.monthlyTarget ? emp.monthlyTarget.toLocaleString('en-IN') : '0'}</td>
+                    <td className="px-2 py-4 font-mono">
+                      {editingTarget === emp.id ? (
+                        <div className="flex items-center gap-1 min-w-[140px]">
+                          <span className="text-muted-foreground text-xs">₹</span>
+                          <Input
+                            type="number"
+                            value={targetValue}
+                            onChange={(e) => setTargetValue(e.target.value)}
+                            className="h-8 w-24 text-xs bg-black/40 border-white/10"
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            className="h-8 w-8 p-0 bg-emerald-600 hover:bg-emerald-700"
+                            onClick={() => handleUpdateTarget(emp.id)}
+                          >
+                            ✓
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:bg-white/5"
+                            onClick={() => setEditingTarget(null)}
+                          >
+                            ✗
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 group min-w-[100px]">
+                          <span>₹{emp.monthlyTarget ? emp.monthlyTarget.toLocaleString('en-IN') : '0'}</span>
+                          {isAdminOrManager && (
+                            <button
+                              onClick={() => {
+                                setEditingTarget(emp.id);
+                                setTargetValue(String(emp.monthlyTarget || ""));
+                              }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/5 rounded text-[#c8a84b]"
+                              title="Edit Target"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-2 py-4">{achievement}</td>
                   </tr>
                 );

@@ -16,12 +16,17 @@ export default function InspectionsList() {
   const { data, isLoading } = useQuery({
     queryKey: ["qc_inspections"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("qc_inspections")
-        .select("id, inspected_at, grade, moisture_pct, result, batch:inventory_batches(lot_number, product:products(name))")
-        .order("inspected_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch('/api/inventory/qc_inspections/with-batch', {
+          headers: { 'Authorization': `Bearer ${session?.access_token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch inspections');
+        return await res.json();
+      } catch (err) {
+        console.error('Error fetching inspections:', err);
+        return [];
+      }
     },
   });
 

@@ -13,13 +13,45 @@ const INVENTORY_TABLES = [
   'inventory_movements',
   'available_stock',
   'products',
-  'warehouses'
+  'warehouses',
+  'qc_inspections'
 ];
 
 // Helper to validate table name
 const isValidTable = (table) => INVENTORY_TABLES.includes(table);
 
 const hasDeletedColCache = {};
+
+// GET /api/inventory/qc_inspections/with-batch — joined read for QC pages
+router.get('/qc_inspections/with-batch', requireAuth, async (req, res) => {
+  try {
+    const companyId = req.query.company_id;
+    const result = req.query.result; // optional filter e.g. 'pending'
+    let query = `
+      SELECT qi.*,
+        ib.lot_number AS batch_lot_number,
+        p.name AS product_name
+      FROM qc_inspections qi
+      LEFT JOIN inventory_batches ib ON qi.batch_id = ib.id
+      LEFT JOIN products p ON ib.product_id = p.id
+      WHERE 1=1
+    `;
+    const params = [];
+    if (companyId) { params.push(companyId); query += ` AND qi.company_id = $${params.length}`; }
+    if (result) { params.push(result); query += ` AND qi.result = $${params.length}::qc_result`; }
+    query += ` ORDER BY qi.inspected_at DESC NULLS LAST`;
+    const { rows } = await db.query(query, params);
+    // Map to Supabase-like nested structure for frontend compatibility
+    const mapped = rows.map(r => ({
+      ...r,
+      batch: { lot_number: r.batch_lot_number, product: { name: r.product_name } }
+    }));
+    res.json(mapped);
+  } catch (err) {
+    console.error('Error GET qc_inspections/with-batch:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // GET /api/inventory/:table
 router.get('/:table', requireAuth, async (req, res) => {
