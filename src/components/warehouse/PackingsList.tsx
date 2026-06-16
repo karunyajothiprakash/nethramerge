@@ -103,7 +103,7 @@ export function PackingsList({
     }
 
     return (
-        <div className="space-y-4" style={{ position: 'relative', zIndex: 9999, pointerEvents: 'auto' }}>
+        <div className="space-y-4" style={{ position: 'relative', zIndex: 200000, pointerEvents: 'auto' }}>
             {/* Filters */}
             <div className="flex gap-4 flex-col md:flex-row">
                 <div className="flex-1 relative">
@@ -177,7 +177,7 @@ export function PackingsList({
                                     </TableCell>
                                     <TableCell>{item.pallet_config}</TableCell>
                                     <TableCell className="text-right">
-                                        <div className="flex gap-2 justify-end">
+                                        <div className="flex gap-2 justify-end" style={{ pointerEvents: 'auto', zIndex: 200001 }}>
                                             <Button
                                                 size="sm"
                                                 variant="outline"
