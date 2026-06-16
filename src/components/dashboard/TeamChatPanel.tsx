@@ -31,6 +31,10 @@ const playNotificationSound = () => {
 };
 
 export function TeamChatPanel() {
+  // Hide chat panel on Packing Management page to avoid overlay blocking
+  const isPackingPage = typeof window !== 'undefined' && window.location.pathname?.startsWith('/warehouse/packing');
+  if (isPackingPage) return null;
+
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState("");
@@ -64,10 +68,6 @@ export function TeamChatPanel() {
   useEffect(() => {
     currentUserRef.current = currentUser;
   }, [currentUser]);
-
-  // Hide chat panel on Packing Management page to avoid overlay blocking
-  const isPackingPage = typeof window !== 'undefined' && window.location.pathname?.startsWith('/warehouse/packing');
-  if (isPackingPage) return null;
 
   // Draggable logic for floating bubble
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
