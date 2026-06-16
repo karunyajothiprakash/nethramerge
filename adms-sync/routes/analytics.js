@@ -317,4 +317,110 @@ router.post('/daily_reports', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/analytics/employee_productivity
+// Returns real employee productivity stats from VPS DB
+router.get('/employee_productivity', requireAuth, async (req, res) => {
+  try {
+    // 1. Active employees count
+    const empRes = await db.query(
+      `SELECT COUNT(*) as total FROM profiles WHERE status = 'approved' AND is_active = true AND is_deleted IS NOT TRUE`
+    );
+    const activeEmployees = parseInt(empRes.rows[0].total, 10);
+
+    // 2. Avg Attendance this week (Mon-today)
+    const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    const dayOfWeek = new Date(todayIST).getDay(); // 0=Sun
+    const daysFromMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const weekStart = new Date(todayIST);
+    weekStart.setDate(weekStart.getDate() - daysFromMon);
+    const weekStartStr = weekStart.toISOString().slice(0, 10);
+
+    const attRes = await db.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE status IN ('present','on_leave') AND (is_deleted IS NULL OR is_deleted = false)) as present_count,
+         COUNT(DISTINCT employee_id) FILTER (WHERE (is_deleted IS NULL OR is_deleted = false)) as unique_employees
+       FROM attendance_logs
+       WHERE date >= $1 AND date <= $2`,
+      [weekStartStr, todayIST]
+    );
+    const presentCount = parseInt(attRes.rows[0].present_count || 0, 10);
+    const uniqueEmployeesThisWeek = parseInt(attRes.rows[0].unique_employees || 0, 10);
+    // Expected = active employees * days elapsed this week (Mon-today, max 5)
+    const daysElapsed = Math.min(daysFromMon + 1, 5);
+    const expectedDays = (activeEmployees || 1) * (daysElapsed || 1);
+    const avgAttendance = expectedDays > 0 ? Math.round((presentCount / expectedDays) * 100) : 0;
+
+    // 3. Tasks (activities) completed this week
+    const tasksRes = await db.query(
+      `SELECT COUNT(*) as total FROM activities
+       WHERE completed = true AND is_deleted = false
+       AND updated_at >= $1`,
+      [weekStart.toISOString()]
+    );
+    const tasksCompleted = parseInt(tasksRes.rows[0].total, 10);
+
+    // 4. Avg response time in hours (time between activity created_at and updated_at when completed)
+    const responseRes = await db.query(
+      `SELECT AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600.0) as avg_hours
+       FROM activities
+       WHERE completed = true AND is_deleted = false
+       AND EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600.0 BETWEEN 0 AND 72`
+    );
+    const avgResponseHours = parseFloat(responseRes.rows[0].avg_hours || 0);
+
+    // Compute week-over-week deltas using last week's data
+    const lastWeekStart = new Date(weekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+    const lastWeekEnd = new Date(weekStart);
+    lastWeekEnd.setDate(lastWeekEnd.getDate() - 1);
+
+    const prevEmpRes = await db.query(
+      `SELECT COUNT(*) as total FROM profiles WHERE status = 'approved' AND is_active = true AND is_deleted IS NOT TRUE AND created_at <= $1`,
+      [lastWeekEnd.toISOString()]
+    );
+    const prevActiveEmployees = parseInt(prevEmpRes.rows[0].total, 10);
+
+    const prevAttRes = await db.query(
+      `SELECT COUNT(*) FILTER (WHERE status IN ('present','on_leave') AND (is_deleted IS NULL OR is_deleted = false)) as present_count
+       FROM attendance_logs WHERE date >= $1 AND date <= $2`,
+      [lastWeekStart.toISOString().slice(0, 10), lastWeekEnd.toISOString().slice(0, 10)]
+    );
+    const prevPresent = parseInt(prevAttRes.rows[0].present_count || 0, 10);
+    const prevExpected = (prevActiveEmployees || 1) * 5;
+    const prevAvgAttendance = prevExpected > 0 ? Math.round((prevPresent / prevExpected) * 100) : 0;
+
+    const prevTasksRes = await db.query(
+      `SELECT COUNT(*) as total FROM activities
+       WHERE completed = true AND is_deleted = false
+       AND updated_at >= $1 AND updated_at < $2`,
+      [lastWeekStart.toISOString(), weekStart.toISOString()]
+    );
+    const prevTasks = parseInt(prevTasksRes.rows[0].total, 10);
+
+    const empDelta = activeEmployees - prevActiveEmployees;
+    const attDelta = avgAttendance - prevAvgAttendance;
+    const tasksDelta = tasksCompleted - prevTasks;
+    const responseFormatted = avgResponseHours > 0
+      ? (avgResponseHours >= 1 ? `${avgResponseHours.toFixed(1)}h` : `${Math.round(avgResponseHours * 60)}m`)
+      : 'N/A';
+
+    res.json({
+      activeEmployees,
+      avgAttendance,
+      tasksCompleted,
+      avgResponseHours: avgResponseHours > 0 ? avgResponseHours.toFixed(1) : null,
+      avgResponseFormatted: responseFormatted,
+      deltas: {
+        employees: empDelta >= 0 ? `+${empDelta}` : `${empDelta}`,
+        attendance: attDelta >= 0 ? `+${attDelta.toFixed(1)}%` : `${attDelta.toFixed(1)}%`,
+        tasks: tasksDelta >= 0 ? `+${tasksDelta}` : `${tasksDelta}`,
+      }
+    });
+  } catch (err) {
+    console.error("Analytics Error (employee_productivity):", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 module.exports = router;
+

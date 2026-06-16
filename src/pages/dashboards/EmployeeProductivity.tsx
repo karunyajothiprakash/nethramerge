@@ -3,41 +3,105 @@ import { StatCard } from "@/components/shared/StatCard";
 import { Section } from "@/components/shared/FormShell";
 import { DataTable } from "@/components/shared/DataTable";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { employees } from "@/data/mock";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+async function getAuthHeaders() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return { 'Authorization': `Bearer ${session?.access_token}` };
+}
+
 export default function EmployeeProductivity() {
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("all");
 
+  // Fetch employees list from VPS DB
+  const { data: employees = [] } = useQuery({
+    queryKey: ['employee_productivity_data'],
+    queryFn: async () => {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/employees', { headers });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.map((p: any) => ({
+        id: p.id,
+        name: p.full_name || 'Unknown',
+        role: p.requested_role || 'Employee',
+        department: p.department || 'General',
+        status: p.is_active ? 'Active' : 'Inactive',
+      }));
+    }
+  });
+
+  // Fetch real productivity stats from VPS DB
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ['employee_productivity_stats'],
+    queryFn: async () => {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/analytics/employee_productivity', { headers });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000, // cache 5 min
+  });
+
   const departments = useMemo(() => {
-    const depts = Array.from(new Set(employees.map(e => e.department)));
+    const depts = Array.from(new Set(employees.map((e: any) => e.department)));
     return ["all", ...depts];
-  }, []);
+  }, [employees]);
 
   const filteredEmployees = useMemo(() => {
-    return employees.filter(e => {
-      const matchesSearch = 
-        e.name.toLowerCase().includes(search.toLowerCase()) || 
+    return employees.filter((e: any) => {
+      const matchesSearch =
+        e.name.toLowerCase().includes(search.toLowerCase()) ||
         e.role.toLowerCase().includes(search.toLowerCase());
-      
       const matchesDept = department === "all" || e.department === department;
-      
       return matchesSearch && matchesDept;
     });
-  }, [search, department]);
+  }, [search, department, employees]);
+
+  // Derive stat card values — use real data or show skeleton
+  const activeCount = stats?.activeEmployees ?? employees.filter((e: any) => e.status === 'Active').length;
+  const activeValue = statsLoading ? "—" : String(activeCount);
+  const activeDelta = stats?.deltas?.employees;
+
+  const attendanceValue = statsLoading ? "—" : (stats?.avgAttendance != null ? `${stats.avgAttendance}%` : "N/A");
+  const attendanceDelta = stats?.deltas?.attendance;
+
+  const tasksValue = statsLoading ? "—" : String(stats?.tasksCompleted ?? 0);
+  const tasksDelta = stats?.deltas?.tasks;
+
+  const responseValue = statsLoading ? "—" : (stats?.avgResponseFormatted ?? "N/A");
 
   return (
     <div>
       <PageHeader title="Employee Productivity" description="Activity, attendance and performance" breadcrumbs={[{ label: "Dashboards" }, { label: "Employees" }]} />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Active Employees" value="42" delta={{ value: "+3", positive: true }} />
-        <StatCard label="Avg Attendance" value="94%" delta={{ value: "+1.2%", positive: true }} />
-        <StatCard label="Tasks Completed" value="284" delta={{ value: "+38", positive: true }} hint="this week" />
-        <StatCard label="Avg Response" value="2.4h" delta={{ value: "-12m", positive: true }} />
+        <StatCard
+          label="Active Employees"
+          value={activeValue}
+          delta={activeDelta ? { value: activeDelta, positive: !activeDelta.startsWith('-') } : undefined}
+        />
+        <StatCard
+          label="Avg Attendance"
+          value={attendanceValue}
+          delta={attendanceDelta ? { value: attendanceDelta, positive: !attendanceDelta.startsWith('-') } : undefined}
+          hint="this week"
+        />
+        <StatCard
+          label="Tasks Completed"
+          value={tasksValue}
+          delta={tasksDelta ? { value: tasksDelta, positive: !tasksDelta.startsWith('-') } : undefined}
+          hint="this week"
+        />
+        <StatCard
+          label="Avg Response"
+          value={responseValue}
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mb-4 bg-card p-3 rounded-lg border border-border shadow-sm">
@@ -73,7 +137,7 @@ export default function EmployeeProductivity() {
           showSearch={false}
           showFilters={false}
           columns={[
-            { key: "name", header: "Employee", render: (r) => <div className="flex items-center gap-2"><div className="h-7 w-7 rounded-full bg-primary-muted text-primary flex items-center justify-center text-xs font-semibold">{r.name.split(" ").map(n=>n[0]).join("")}</div><span className="font-medium">{r.name}</span></div> },
+            { key: "name", header: "Employee", render: (r) => <div className="flex items-center gap-2"><div className="h-7 w-7 rounded-full bg-primary-muted text-primary flex items-center justify-center text-xs font-semibold">{r.name.split(" ").map((n: string) => n[0]).join("")}</div><span className="font-medium">{r.name}</span></div> },
             { key: "role", header: "Role", render: (r) => <span className="text-sm">{r.role}</span> },
             { key: "dept", header: "Department", render: (r) => <span className="text-sm text-muted-foreground">{r.department}</span> },
             { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
