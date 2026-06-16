@@ -95,13 +95,17 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-2 mb-6">
-          <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-            <Sprout className="h-5 w-5 text-primary-foreground" />
+          <div className="flex items-center justify-center rounded-lg bg-primary p-2">
+            <img
+              src="/assets/shastika-logo.png"
+              alt="Shastika Global Impex"
+              style={{ width: '80px', height: '80px', objectFit: 'contain' }}
+            />
           </div>
           <div>
-            <div className="text-xl font-semibold">AgriExportOS</div>
+            <div className="text-xl font-semibold">Shastika Global Impex</div>
             <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              Agriculture Export ERP
+              IMPEX · AGRI EXPORT ERP
             </div>
           </div>
         </div>

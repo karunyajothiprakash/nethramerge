@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth, useCan } from '@/hooks/useAuth';
-import { supabase } from '@/services/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import VehicleEntryForm from '@/components/dispatch/VehicleEntryForm';
 import DriverSelect from '@/components/dispatch/DriverSelect';
 import SchedulerCalendar from '@/components/dispatch/SchedulerCalendar';

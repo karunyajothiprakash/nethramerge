@@ -619,15 +619,23 @@ export default function Attendance() {
 
     // Fetch approved profiles via local API
     const { data: { session: empSession } } = await supabase.auth.getSession();
-    const empRes = await fetch('/api/employees', {
-      headers: { 'Authorization': `Bearer ${empSession?.access_token}` }
-    });
-    if (!empRes.ok) {
-      toast.error("Failed to load employees");
+    let profiles = [];
+    try {
+      const empRes = await fetch('/api/employees', {
+        headers: { 'Authorization': `Bearer ${empSession?.access_token}` }
+      });
+      if (!empRes.ok) {
+        toast.error("Failed to load employees");
+        setLoading(false);
+        return;
+      }
+      profiles = await empRes.json();
+    } catch (err) {
+      console.error("Fetch API Error (Employees):", err);
+      toast.error("Network error: Cannot reach the backend API. Are you connected to the office network?");
       setLoading(false);
       return;
     }
-    const profiles = await empRes.json();
     const profErr = null;
 
     // Exclude owners and users without a biometric ID

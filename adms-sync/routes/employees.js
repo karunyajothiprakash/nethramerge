@@ -19,6 +19,17 @@ router.get('/', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/profiles - Fetch all profiles (including pending)
+router.get('/all/profiles', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query('SELECT * FROM profiles ORDER BY created_at DESC');
+    res.json(rows);
+  } catch (err) {
+    console.error("DB Error (get profiles):", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 // GET /api/employees/:id - Fetch single employee
 router.get('/:id', requireAuth, async (req, res) => {
   try {
@@ -82,17 +93,6 @@ router.delete('/:id', requireAuth, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error("DB Error (delete employee):", err);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
-// GET /api/profiles - Fetch all profiles (including pending)
-router.get('/all/profiles', requireAuth, async (req, res) => {
-  try {
-    const { rows } = await db.query('SELECT * FROM profiles ORDER BY created_at DESC');
-    res.json(rows);
-  } catch (err) {
-    console.error("DB Error (get profiles):", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });

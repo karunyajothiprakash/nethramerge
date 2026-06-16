@@ -1,5 +1,12 @@
 import { useState } from "react";
 import { Plus, Loader2, Container as ContainerIcon, CheckCircle2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -52,23 +59,35 @@ export default function ContainerLoading() {
   });
 
   const markAsLoaded = async (id: string, containerNumber: string) => {
-    if (!confirm(`Mark container ${containerNumber} as Loaded?`)) return;
-    
+    // This function is kept for backward-compat but will open the confirmation
+    // dialog instead of using the blocking `confirm()` browser dialog.
+    setPending({ id, containerNumber });
+    setDialogOpen(true);
+  };
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [pending, setPending] = useState<{ id: string; containerNumber: string } | null>(null);
+
+  const handleConfirmMark = async () => {
+    if (!pending) return;
+    const { id, containerNumber } = pending;
+    setDialogOpen(false);
     setUpdatingId(id);
     try {
       const { error } = await supabase
         .from("export_containers")
         .update({ status: "Loaded" })
         .eq("id", id);
-        
+
       if (error) throw error;
-      
+
       toast.success(`Container ${containerNumber} marked as loaded`);
       queryClient.invalidateQueries({ queryKey: ["wh_export_containers_loading"] });
     } catch (err: any) {
       toast.error(err.message || "Failed to update container status");
     } finally {
       setUpdatingId(null);
+      setPending(null);
     }
   };
 
@@ -131,6 +150,19 @@ export default function ContainerLoading() {
           ]}
         />
       )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Mark Loaded</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-sm">Are you sure you want to mark container <span className="font-mono font-bold">{pending?.containerNumber}</span> as <span className="font-semibold">Loaded</span>?</div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDialogOpen(false); setPending(null); }} className="mr-2">Cancel</Button>
+            <Button onClick={handleConfirmMark} disabled={!pending || !!updatingId}>{updatingId ? 'Updating...' : 'Confirm'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

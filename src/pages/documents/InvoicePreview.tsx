@@ -37,13 +37,19 @@ export default function InvoicePreview() {
             .maybeSingle();
 
           if (orderErr) throw orderErr;
-          
-          const shipmentData = orderOnly.export_shipments?.[0] || {
+
+          // If orderOnly is not found, bail out with a clear error instead of
+          // trying to access properties on null (which caused the crash).
+          if (!orderOnly) {
+            throw new Error('No shipment or order found for the requested id');
+          }
+
+          const shipmentData = (orderOnly.export_shipments && orderOnly.export_shipments[0]) || {
             origin_port: 'TBD',
             destination_port: 'TBD',
             departure_date: null
           };
-          
+
           setShipment({
             ...shipmentData,
             customer_name: orderOnly.customer_name,

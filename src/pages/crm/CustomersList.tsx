@@ -210,6 +210,9 @@ export default function CustomersList() {
         },
         body: JSON.stringify({
           ...formData,
+          email: formData.email || null,
+          phone: formData.phone || null,
+          country: formData.country || null,
           company_id: profile.company_id,
           created_by: profile.id
         })
@@ -231,8 +234,8 @@ export default function CustomersList() {
     setEditingCustomer(customer);
     setFormData({
       name: customer.name || "",
-      country: customer.country || "",
-      email: customer.email || "",
+      country: customer.country === "Unspecified" ? "" : (customer.country || ""),
+      email: customer.email === "No email recorded" ? "" : (customer.email || ""),
       phone: customer.phone || "",
       notes: customer.notes || "",
       relationship_status: customer.relationship_status || "Active Client",
@@ -245,8 +248,8 @@ export default function CustomersList() {
     setSelectedCustomer(customer);
     setFormData({
       name: customer.name || "",
-      country: customer.country || "",
-      email: customer.email || "",
+      country: customer.country === "Unspecified" ? "" : (customer.country || ""),
+      email: customer.email === "No email recorded" ? "" : (customer.email || ""),
       phone: customer.phone || "",
       notes: customer.notes || "",
       relationship_status: customer.relationship_status || "Active Client",
@@ -269,11 +272,11 @@ export default function CustomersList() {
         },
         body: JSON.stringify({
           name: formData.name,
-          country: formData.country,
-          email: formData.email,
+          country: formData.country || null,
+          email: formData.email || null,
           relationship_status: formData.relationship_status,
           satisfaction_notes: formData.satisfaction_notes,
-          phone: formData.phone,
+          phone: formData.phone || null,
           notes: formData.notes
         })
       });
@@ -342,9 +345,9 @@ export default function CustomersList() {
         },
         body: JSON.stringify({
           name: formData.name,
-          country: formData.country,
-          email: formData.email,
-          phone: formData.phone,
+          country: formData.country || null,
+          email: formData.email || null,
+          phone: formData.phone || null,
           notes: formData.notes,
           relationship_status: formData.relationship_status
         })
