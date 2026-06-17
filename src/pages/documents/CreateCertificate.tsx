@@ -22,18 +22,18 @@ export default function CreateCertificate() {
 
   const [formData, setFormData] = useState({
     refNumber: `COO-${Math.floor(1000 + Math.random() * 9000)}`,
-    consigneeName: "Example Consignee Ltd.",
-    consigneeAddress: "123 Business Road\nDubai, UAE",
-    vessel: "BY SEA",
-    portOfLoading: "CHENNAI, INDIA",
-    portOfDischarge: "JEBEL ALI, UAE",
-    marksAndNos: "1001-1050\nPACKED IN\nBULK/BAGS",
-    productName: "FRESH PRODUCE",
-    packingDetails: "Packed in 10kg Carton Boxes",
-    hsCode: "08011910",
-    quantity: "50",
-    unit: "MT",
-    grossWeight: "50,000",
+    consigneeName: "",
+    consigneeAddress: "",
+    vessel: "",
+    portOfLoading: "",
+    portOfDischarge: "",
+    marksAndNos: "",
+    productName: "",
+    packingDetails: "",
+    hsCode: "",
+    quantity: "",
+    unit: "",
+    grossWeight: "",
   });
 
   useEffect(() => {

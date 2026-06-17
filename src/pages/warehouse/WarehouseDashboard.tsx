@@ -101,10 +101,27 @@ export default function WarehouseDashboard() {
         gcTime: 5 * 60 * 1000,
     });
 
+    // Fetch packing protocols
+    const { data: packingData, isLoading: packingLoading, refetch: refetchPacking } = useQuery({
+        queryKey: ["warehouse-packing"],
+        queryFn: async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            const headers: Record<string, string> = {};
+            if (session?.access_token) {
+                headers['Authorization'] = `Bearer ${session.access_token}`;
+            }
+            const res = await fetch('/api/warehouse/packing_protocols', { headers });
+            if (!res.ok) throw new Error('Failed to fetch packing protocols');
+            return await res.json() || [];
+        },
+        staleTime: 30000,
+        gcTime: 5 * 60 * 1000,
+    });
+
     // Calculate metrics from real data
     const totalInventory = inventoryData?.reduce((sum, item) => sum + (parseFloat(item.quantity_remaining_kg) || 0), 0) || 0;
     const exportReadyStock = inventoryData?.filter(item => item.status === 'export_ready').reduce((sum, item) => sum + (parseFloat(item.quantity_remaining_kg) || 0), 0) || 0;
-    const pendingPacking = inventoryData?.filter(item => item.status !== 'export_ready').length || 0;
+    const pendingPacking = packingData?.filter((item: any) => item.status === 'draft' || item.status === 'in_progress').length || 0;
     const lowStockCount = lowStockData?.length || 0;
     const dispatchedToday = shipmentsData?.filter((s: any) => s.status === 'dispatched' || String(s.status).toLowerCase() === 'dispatched').length || 0;
     const containerLoading = shipmentsData?.filter((s: any) => s.status === 'loading' || String(s.status).toLowerCase() === 'loading').length || 0;
@@ -117,7 +134,8 @@ export default function WarehouseDashboard() {
                 refetchInventory(),
                 refetchLowStock(),
                 refetchShipments(),
-                refetchLogs()
+                refetchLogs(),
+                refetchPacking()
             ]);
             toast.success("Warehouse data synced!");
         } catch (error) {
@@ -284,8 +302,8 @@ export default function WarehouseDashboard() {
                                         <div key={i} className="flex flex-col gap-2 p-4 rounded-xl border border-white/5 bg-white/5">
                                             <div className="flex justify-between items-center">
                                                 <div>
-                                                    <span className="font-bold text-sm text-foreground">{shipment.id || `SHP-${i + 1}`}</span>
-                                                    <span className="text-xs text-muted-foreground ml-2">to {shipment.destination_port || 'Pending'}</span>
+                                                    <span className="font-bold text-sm text-foreground">{shipment.shipment_number || 'Unnamed Shipment'}</span>
+                                                    <span className="text-xs text-muted-foreground ml-2">to {shipment.destination_port || 'Unknown Destination'}</span>
                                                 </div>
                                                 <span className="text-xs font-semibold text-white/80 capitalize">{shipment.status || 'Processing'}</span>
                                             </div>
