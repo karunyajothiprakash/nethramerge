@@ -16,7 +16,6 @@ UPDATE public.profiles SET monthly_salary = 12000 WHERE lower(full_name) LIKE '%
 UPDATE public.profiles SET monthly_salary = 17000 WHERE lower(full_name) LIKE '%uma%';
 UPDATE public.profiles SET monthly_salary = 8000 WHERE lower(full_name) LIKE '%nethra%';
 UPDATE public.profiles SET monthly_salary = 8000 WHERE lower(full_name) LIKE '%swathi%';
-UPDATE public.profiles SET monthly_salary = 8000 WHERE lower(full_name) LIKE '%narmatha%';
 UPDATE public.profiles SET monthly_salary = 30000 WHERE lower(full_name) LIKE '%preethi%';
 UPDATE public.profiles SET monthly_salary = 12000 WHERE lower(full_name) LIKE '%karunya%';
 UPDATE public.profiles SET monthly_salary = 12000 WHERE lower(full_name) LIKE '%jayasri%';

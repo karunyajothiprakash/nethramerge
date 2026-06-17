@@ -7,7 +7,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const employeesToAdd = [
   { name: 'jayasri', email: 'sjayasri39@gmail.com' },
-  { name: 'narmatha', email: 'narmathaasubu@gmail.com' },
   { name: 'preethi', email: 'manager@shastikaglobalimpex.co.in' },
   { name: 'sathpreethika', email: 'sathpreethika5@gmail.com' },
   { name: 'uma parameshwari', email: 'parameshwariraj02@gmail.com' }

@@ -17,7 +17,6 @@ SET team = COALESCE(
     WHEN lower(regexp_replace(profiles.full_name, '\\s+', '', 'g')) LIKE '%karunya%' THEN 'IT'
     WHEN lower(regexp_replace(profiles.full_name, '\\s+', '', 'g')) LIKE '%swathi%' THEN 'IT'
     WHEN lower(regexp_replace(profiles.full_name, '\\s+', '', 'g')) LIKE '%nethra%' THEN 'IT'
-    WHEN lower(regexp_replace(profiles.full_name, '\\s+', '', 'g')) LIKE '%narmatha%' THEN 'IT'
     ELSE NULL
   END
 )

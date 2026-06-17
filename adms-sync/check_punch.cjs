@@ -9,18 +9,13 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 async function check() {
   try {
-    // 1. Get profile IDs for Narmatha and Nethra
-    const { data: profiles, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, email')
-      .ilike('full_name', '%Narmatha%');
-    
+    // 1. Get profile IDs for Nethra
     const { data: profilesN, error: errN } = await supabase
       .from('profiles')
       .select('id, full_name, email')
       .ilike('full_name', '%Nethra%');
       
-    const employees = [...(profiles || []), ...(profilesN || [])];
+    const employees = [...(profilesN || [])];
     console.log('Employees found:', employees);
 
     if (employees.length === 0) {

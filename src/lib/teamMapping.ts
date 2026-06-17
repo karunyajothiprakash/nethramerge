@@ -24,8 +24,7 @@ export function inferTeamFromActorName(name?: string): string | undefined {
   if (
     normalized.includes("karunya") ||
     normalized.includes("swathi") ||
-    normalized.includes("nethra") ||
-    normalized.includes("narmatha")
+    normalized.includes("nethra")
   ) {
     return "IT";
   }

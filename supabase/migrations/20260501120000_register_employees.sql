@@ -11,8 +11,8 @@ DECLARE
     v_auto_company UUID;
     
     -- Arrays for iteration
-    v_names TEXT[] := ARRAY['Preethi', 'Madhumithi', 'Uma Parameshwari', 'Karunya', 'Nethra', 'Swathi', 'Narmatha', 'Jaya Sri', 'Gayathri', 'Kaviya'];
-    v_emails TEXT[] := ARRAY['preethi@shastika.com', 'madhumithi@shastika.com', 'uma@shastika.com', 'karunya@shastika.com', 'nethra@shastika.com', 'swathi@shastika.com', 'narmatha@shastika.com', 'jayasri@shastika.com', 'gayathri@shastika.com', 'kaviya@shastika.com'];
+    v_names TEXT[] := ARRAY['Preethi', 'Madhumithi', 'Uma Parameshwari', 'Karunya', 'Nethra', 'Swathi', 'Jaya Sri', 'Gayathri', 'Kaviya'];
+    v_emails TEXT[] := ARRAY['preethi@shastika.com', 'madhumithi@shastika.com', 'uma@shastika.com', 'karunya@shastika.com', 'nethra@shastika.com', 'swathi@shastika.com', 'jayasri@shastika.com', 'gayathri@shastika.com', 'kaviya@shastika.com'];
     v_roles UUID[];
     i INT;
 BEGIN

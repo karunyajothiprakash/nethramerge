@@ -1,25 +1,27 @@
 import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+import { readFileSync } from 'fs';
 
-const SUPABASE_URL = "https://sxebygxpjzntogzpjnga.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4ZWJ5Z3hwanpudG9nenBqbmdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMjc5MzksImV4cCI6MjA5MjkwMzkzOX0.rtClmtuPuNicVQvBkITzY6PfFsh8yOYq3ykWoL9Ab_4";
+const env = dotenv.parse(readFileSync('.env'));
+const SUPABASE_URL = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-async function main() {
-  const { data: cols, error: colError } = await supabase
-    .from('shipment_dispatches')
-    .select('*')
-    .limit(1);
-    
-  if (colError) console.error("shipment_dispatches error", colError);
-  else console.log("shipment_dispatches exists", cols);
-
-  const { data: v, error: vErr } = await supabase.from('vehicles').select('*').limit(1);
-  if (vErr) console.error(vErr);
-  else console.log("vehicles exists", v);
-
-  const { data: d, error: dErr } = await supabase.from('drivers').select('*').limit(1);
-  if (dErr) console.error(dErr);
-  else console.log("drivers exists", d);
+async function checkNarmatha() {
+  console.log("Checking all tables for Narmatha...");
+  
+  // 1. Check profiles
+  const { data: profiles } = await supabase.from('profiles').select('*').ilike('full_name', '%Narmatha%');
+  console.log("Profiles:", profiles);
+  
+  // 2. Check emails
+  const { data: emails } = await supabase.from('emails').select('*').or('to_address.ilike.%Narmatha%,from_address.ilike.%Narmatha%');
+  console.log("Emails:", emails?.length);
+  
+  // 3. Check zoho_accounts
+  const { data: zoho } = await supabase.from('zoho_accounts').select('*');
+  console.log("Zoho Accounts:", zoho);
 }
-main();
+
+checkNarmatha();

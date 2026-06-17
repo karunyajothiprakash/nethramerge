@@ -445,6 +445,7 @@ export default function Mailbox() {
   // Realtime subscription
   useEffect(() => {
     // Supabase realtime removed. Relies on polling.
+    setIsConnected(true);
   }, [selectedAccount]);
 
   const handleSend = async () => {

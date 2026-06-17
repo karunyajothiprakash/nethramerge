@@ -83,7 +83,6 @@ BEGIN
         WHEN lower(regexp_replace(_actor_name, '\s+', '', 'g')) LIKE '%karunya%' THEN 'IT'
         WHEN lower(regexp_replace(_actor_name, '\s+', '', 'g')) LIKE '%swathi%' THEN 'IT'
         WHEN lower(regexp_replace(_actor_name, '\s+', '', 'g')) LIKE '%nethra%' THEN 'IT'
-        WHEN lower(regexp_replace(_actor_name, '\s+', '', 'g')) LIKE '%narmatha%' THEN 'IT'
         ELSE NULL
       END INTO _actor_team;
     END IF;
