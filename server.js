@@ -195,6 +195,45 @@ app.post('/api/vehicles', async (req, res) => {
   }
 })
 
+// Purchase Orders API
+app.get('/api/purchase_orders', async (req, res) => {
+  try {
+    const executor = pool || (db && db.query ? db : null)
+    if (!executor) return res.status(500).json({ error: 'Database not configured' })
+
+    const { rows } = await executor.query(
+      `SELECT * FROM purchase_orders WHERE is_deleted IS NOT TRUE ORDER BY order_date DESC`
+    )
+    return res.json(rows)
+  } catch (err) {
+    console.error('GET /api/purchase_orders error:', err?.message || err)
+    return res.status(500).json({ error: err?.message || 'Failed to fetch purchase orders' })
+  }
+})
+
+app.post('/api/purchase_orders', async (req, res) => {
+  try {
+    const { company_id, po_number, farmer_id, status, order_date, total, currency } = req.body
+    if (!company_id || !farmer_id || !po_number || !order_date || !total) {
+      return res.status(400).json({ error: 'company_id, po_number, farmer_id, order_date, and total are required' })
+    }
+
+    const executor = pool || (db && db.query ? db : null)
+    if (!executor) return res.status(500).json({ error: 'Database not configured' })
+
+    const { rows } = await executor.query(
+      `INSERT INTO purchase_orders (company_id, po_number, farmer_id, status, order_date, total, currency, is_deleted)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, false)
+       RETURNING *`,
+      [company_id, po_number, farmer_id, status || 'draft', order_date, total, currency || 'INR']
+    )
+    return res.status(201).json(rows[0])
+  } catch (err) {
+    console.error('POST /api/purchase_orders error:', err?.message || err)
+    return res.status(500).json({ error: err?.message || 'Failed to create purchase order' })
+  }
+})
+
 // Drivers API
 app.get('/api/drivers', async (req, res) => {
   try {
