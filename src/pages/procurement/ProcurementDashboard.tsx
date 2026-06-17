@@ -29,63 +29,19 @@ export default function ProcurementDashboard() {
       try {
         if (!profile?.company_id) return;
 
-        const { count: supCount, error: supErr } = await (supabase as any)
-          .from("farmers")
-          .select("*", { count: "exact", head: true })
-          .eq("company_id", profile.company_id)
-          .neq("is_deleted", true);
-
-        if (supErr) throw supErr;
-
-        const { data: pos, error: poErr } = await (supabase as any)
-          .from("purchase_orders")
-          .select("id, status, total, order_date, farmers(full_name)")
-          .eq("company_id", profile.company_id)
-          .neq("is_deleted", true);
-
-        if (poErr) throw poErr;
-
-        // Calculate PO value this month
-        const thisMonthStart = startOfMonth(new Date());
-        const monthValue = pos
-          ?.filter(po => new Date(po.order_date) >= thisMonthStart)
-          .reduce((sum, po) => sum + (Number(po.total) || 0), 0) || 0;
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(`/api/procurement/dashboard?company_id=${profile.company_id}`, {
+          headers: { 'Authorization': `Bearer ${session?.access_token}` }
+        });
+        if (!res.ok) throw new Error("Failed to load analytics");
+        const data = await res.json();
 
         setStats({
-          totalSuppliers: supCount || 0,
-          totalPOValueMonth: monthValue,
+          totalSuppliers: data.totalSuppliers || 0,
+          totalPOValueMonth: data.totalPOValueMonth || 0,
         });
-
-        // Calculate top 5 suppliers
-        const supplierTotals: Record<string, { name: string, value: number }> = {};
-        pos?.forEach(po => {
-          // Handle both object and array response for the relation
-          const farmerData = Array.isArray(po.farmers) ? po.farmers[0] : po.farmers;
-          const supName = (farmerData as any)?.full_name || "Unknown Supplier";
-
-          if (!supplierTotals[supName]) supplierTotals[supName] = { name: supName, value: 0 };
-          supplierTotals[supName].value += Number(po.total) || 0;
-        });
-
-
-
-        const sortedSuppliers = Object.values(supplierTotals)
-          .sort((a, b) => b.value - a.value)
-          .slice(0, 5);
-        setTopSuppliers(sortedSuppliers);
-
-        // Status breakdown
-        const statusCounts: Record<string, number> = {};
-        pos?.forEach(po => {
-          statusCounts[po.status] = (statusCounts[po.status] || 0) + 1;
-        });
-
-        const statusChartData = Object.entries(statusCounts).map(([name, value]) => ({
-          name: name.charAt(0).toUpperCase() + name.slice(1),
-          value
-        }));
-
-        setStatusData(statusChartData);
+        setTopSuppliers(data.topSuppliers || []);
+        setStatusData(data.statusData || []);
 
       } catch (err: any) {
         toast.error("Failed to load analytics");

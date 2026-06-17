@@ -6,7 +6,7 @@ const { requireAuth } = require('../middleware/auth');
 // GET /api/leads - Fetch all leads
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { rows } = await db.query('SELECT * FROM leads ORDER BY created_at DESC');
+    const { rows } = await db.query('SELECT * FROM leads WHERE is_deleted = false ORDER BY created_at DESC');
     res.json(rows);
   } catch (err) {
     console.error("DB Error (get leads):", err);
@@ -18,7 +18,7 @@ router.get('/', requireAuth, async (req, res) => {
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { rows } = await db.query('SELECT * FROM leads WHERE id = $1', [id]);
+    const { rows } = await db.query('SELECT * FROM leads WHERE id = $1 AND is_deleted = false', [id]);
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
     res.json(rows[0]);
   } catch (err) {

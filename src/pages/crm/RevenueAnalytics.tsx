@@ -41,10 +41,8 @@ export default function RevenueAnalytics() {
             const rawData = await res.json();
 
             const rawOrders = rawData.exportOrders || [];
-            // Remove the 2 legacy test dummy orders created in May 2026
-            const cleanOrders = rawOrders.filter((o: any) =>
-                !['159c447b-ac1b-46e0-8975-f3649fe7293a', 'f3f01e0e-2990-458d-bb3d-3778e3d955b5'].includes(o.id)
-            );
+            const cleanOrders = rawOrders;
+
 
             // Use all profiles from the database (no artificial filtering)
             setData({

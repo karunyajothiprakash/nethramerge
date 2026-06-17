@@ -115,9 +115,22 @@ if (DB_URL) {
 // Vehicles API - uses direct Postgres queries to avoid Supabase schema cache issues
 app.get('/api/vehicles', async (req, res) => {
   try {
-    if (!pool) return res.status(500).json({ error: 'Database not configured' })
-    const { rows } = await pool.query('SELECT id, vehicle_number, vehicle_type FROM vehicles WHERE is_active = true ORDER BY vehicle_number')
-    res.json(rows)
+    const executor = pool || (db && db.query ? db : null)
+    if (executor) {
+      const { rows } = await executor.query('SELECT id, vehicle_number, vehicle_type FROM vehicles WHERE is_active = true ORDER BY vehicle_number')
+      return res.json(rows)
+    }
+
+    if (supabase) {
+      const { data, error } = await supabase.from('vehicles').select('id, vehicle_number, vehicle_type').eq('is_active', true).order('vehicle_number', { ascending: true })
+      if (error) {
+        console.error('GET /api/vehicles supabase error:', error.message || error)
+        return res.status(500).json({ error: 'Failed to fetch vehicles' })
+      }
+      return res.json(data || [])
+    }
+
+    return res.status(500).json({ error: 'Database not configured' })
   } catch (err) {
     console.error('GET /api/vehicles error:', err?.message || err)
     res.status(500).json({ error: 'Failed to fetch vehicles' })
@@ -126,14 +139,31 @@ app.get('/api/vehicles', async (req, res) => {
 
 app.post('/api/vehicles', async (req, res) => {
   try {
-    if (!pool) return res.status(500).json({ error: 'Database not configured' })
     const { vehicle_number, vehicle_type } = req.body
     if (!vehicle_number) return res.status(400).json({ error: 'vehicle_number is required' })
 
-    const insertQuery = `INSERT INTO vehicles (vehicle_number, vehicle_type, is_active) VALUES ($1, $2, true) RETURNING id, vehicle_number, vehicle_type`
-    const values = [vehicle_number, vehicle_type || null]
-    const { rows } = await pool.query(insertQuery, values)
-    res.json(rows[0])
+    const executor = pool || (db && db.query ? db : null)
+    if (executor) {
+      const insertQuery = `INSERT INTO vehicles (vehicle_number, vehicle_type, is_active) VALUES ($1, $2, true) RETURNING id, vehicle_number, vehicle_type`
+      const values = [vehicle_number, vehicle_type || null]
+      const { rows } = await executor.query(insertQuery, values)
+      return res.json(rows[0])
+    }
+
+    if (supabase) {
+      const { data, error } = await supabase.from('vehicles').insert([{
+        vehicle_number,
+        vehicle_type: vehicle_type || null,
+        is_active: true
+      }]).select('id, vehicle_number, vehicle_type').single()
+      if (error) {
+        console.error('POST /api/vehicles supabase error:', error.message || error)
+        return res.status(500).json({ error: 'Failed to create vehicle' })
+      }
+      return res.json(data)
+    }
+
+    return res.status(500).json({ error: 'Database not configured' })
   } catch (err) {
     console.error('POST /api/vehicles error:', err?.message || err)
     res.status(500).json({ error: 'Failed to create vehicle' })

@@ -400,6 +400,7 @@ function NewEntryForm({ onSaved }) {
 }
 
 export default function JournalEntry() {
+  const { profile } = useAuth()
   const [search, setSearch] = useState('')
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)

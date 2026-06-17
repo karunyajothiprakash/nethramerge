@@ -43,14 +43,14 @@ export default function SuppliersList() {
 
   const fetchSuppliers = async () => {
     try {
-      const { data, error } = await supabase
-        .from("farmers")
-        .select("*")
-        .neq("is_deleted", true)
-        .order("created_at", { ascending: false });
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/farmers`, {
+        headers: { 'Authorization': `Bearer ${session?.access_token}` }
+      });
+      if (!res.ok) throw new Error("Failed to fetch suppliers");
+      const data = await res.json();
 
-      if (error) throw error;
-      const mapped = (data || []).map(f => ({
+      const mapped = (data || []).map((f: any) => ({
         ...f,
         name: f.full_name,
         contact_name: "-", // Farmers don't have a separate contact_name
@@ -79,18 +79,26 @@ export default function SuppliersList() {
     try {
       const prodCategories = categories.split(",").map(c => c.trim()).filter(Boolean);
 
-      const { error } = await supabase.from("farmers").insert({
-        company_id: profile.company_id,
-        full_name: name,
-        email,
-        phone,
-        country,
-        district: city, // Map city to district
-        primary_crops: prodCategories,
-        is_active: true
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/farmers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({
+          company_id: profile.company_id,
+          full_name: name,
+          email,
+          phone,
+          country,
+          district: city, // Map city to district
+          primary_crops: prodCategories,
+          is_active: true
+        })
       });
 
-      if (error) throw error;
+      if (!res.ok) throw new Error("Failed to add supplier");
 
       toast.success("Supplier added successfully");
       setIsDialogOpen(false);
@@ -111,13 +119,12 @@ export default function SuppliersList() {
 
   const handleDelete = async (id: string) => {
     try {
-      const { error } = await supabase.from("farmers").update({
-        is_deleted: true,
-        is_active: false,
-        deleted_at: new Date().toISOString(),
-        deleted_by: profile?.id || null,
-      }).eq("id", id);
-      if (error) throw error;
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/farmers/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${session?.access_token}` }
+      });
+      if (!res.ok) throw new Error("Failed to delete supplier");
       toast.success("Supplier hidden from the app");
       setSuppliers(suppliers.filter(s => s.id !== id));
     } catch (err: any) {

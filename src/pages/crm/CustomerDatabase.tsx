@@ -121,25 +121,16 @@ function CustomerDatabase() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user?.id) return;
         
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('company_id')
-          .eq('id', session.user.id)
-          .single();
-          
-        if (!profile?.company_id) return;
-
-        const { data: profiles, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('company_id', profile.company_id);
-          
-        if (error) throw error;
+        const res = await fetch('/api/employees', {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+        if (!res.ok) throw new Error("Failed to fetch team members");
+        const profiles = await res.json();
           
         if (profiles) {
           // Filter out admins gracefully
           const filtered = profiles.filter((p: any) => 
-            p.role !== 'admin' && p.role_slug !== 'admin'
+            p.role !== 'admin' && p.role_slug !== 'admin' && p.requested_role !== 'admin'
           );
           setTeamMembers(filtered);
         }

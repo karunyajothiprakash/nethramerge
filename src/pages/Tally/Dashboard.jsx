@@ -8,30 +8,17 @@ import { useNavigate } from 'react-router-dom'
 
 // Mock Data
 const kpis = {
-  revenue: { label: 'Revenue', value: '₹15,00,000', delta: { value: '+12%', positive: true }, hint: 'vs last month' },
-  expenses: { label: 'Expenses', value: '₹8,50,000', delta: { value: '-5%', positive: false }, hint: 'cost trend' },
-  profit: { label: 'Profit', value: '₹6,50,000', delta: { value: '+20%', positive: true }, hint: 'net margin' },
-  gst: { label: 'GST Payable', value: '₹1,81,000', hint: 'liability amount' },
-  receivable: { label: 'Receivable', value: '₹7,35,000', hint: 'customer balance' },
-  payable: { label: 'Payable', value: '₹3,12,000', hint: 'vendor balance' },
+  revenue: { label: 'Revenue', value: '₹0', delta: { value: '0%', positive: true }, hint: 'vs last month' },
+  expenses: { label: 'Expenses', value: '₹0', delta: { value: '0%', positive: false }, hint: 'cost trend' },
+  profit: { label: 'Profit', value: '₹0', delta: { value: '0%', positive: true }, hint: 'net margin' },
+  gst: { label: 'GST Payable', value: '₹0', hint: 'liability amount' },
+  receivable: { label: 'Receivable', value: '₹0', hint: 'customer balance' },
+  payable: { label: 'Payable', value: '₹0', hint: 'vendor balance' },
 };
 
-const journalEntries = [
-  { id: 'JV-2026-001', date: '10 Mar 2026', narration: 'Sales to ABC Corp', voucher: 'Sales', debit: 50000, credit: null, status: 'Posted' },
-  { id: 'JV-2026-002', date: '11 Mar 2026', narration: 'Payment to Supplier', voucher: 'Payment', debit: null, credit: 20000, status: 'Posted' },
-  { id: 'JV-2026-003', date: '12 Mar 2026', narration: 'Office Rent', voucher: 'Journal', debit: 15000, credit: null, status: 'Draft' },
-  { id: 'JV-2026-004', date: '13 Mar 2026', narration: 'Cash Deposit', voucher: 'Contra', debit: 10000, credit: null, status: 'Posted' },
-  { id: 'JV-2026-005', date: '14 Mar 2026', narration: 'Salary Payment', voucher: 'Payment', debit: null, credit: 80000, status: 'Posted' },
-];
+const journalEntries = [];
 
-const monthlyData = [
-  { month: 'Oct', revenue: 1000000, expenses: 600000, profit: 400000 },
-  { month: 'Nov', revenue: 1100000, expenses: 650000, profit: 450000 },
-  { month: 'Dec', revenue: 1200000, expenses: 700000, profit: 500000 },
-  { month: 'Jan', revenue: 1300000, expenses: 750000, profit: 550000 },
-  { month: 'Feb', revenue: 1400000, expenses: 800000, profit: 600000 },
-  { month: 'Mar', revenue: 1500000, expenses: 850000, profit: 650000 },
-];
+const monthlyData = [];
 
 const fmt = (val) => `₹${val.toLocaleString()}`;
 

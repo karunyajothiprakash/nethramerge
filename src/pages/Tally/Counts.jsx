@@ -9,15 +9,29 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
-// Mock Data
-export const counts = {
-  journals: { total: 142, posted: 130, draft: 12 },
-  ledgers: { total: 45, active: 42 },
-  parties: { total: 128, customers: 85, vendors: 43 },
-  invoices: { total: 84, paid: 62, pending: 22 },
-  vouchers: { sales: 45, purchase: 28, payment: 50, receipt: 30 },
-  gst: { gstr1: 'Pending', gstr3b: 'Filed', payable: '₹1,81,000' }
-};
+
+
+const VoucherRow = ({ label, value, color }) => (
+  <div className="flex items-center justify-between gap-4 py-4 sm:py-3">
+    <div>
+      <div className="text-sm font-semibold text-slate-200">{label}</div>
+      <div className="text-xs text-slate-500">Ledger classification</div>
+    </div>
+    <Tag variant="gold" className={`text-sm ${color}`}>
+      {value}
+    </Tag>
+  </div>
+)
+
+export default function Counts() {
+  const [counts, setCounts] = useState({
+    journals: { total: 0, posted: 0, draft: 0 },
+    ledgers: { total: 0, active: 0 },
+    parties: { total: 0, customers: 0, vendors: 0 },
+    invoices: { total: 0, paid: 0, pending: 0 },
+    vouchers: { sales: 0, purchase: 0, payment: 0, receipt: 0 },
+    gst: { gstr1: 'Pending', gstr3b: 'Pending', payable: '₹0' }
+  })
 
   const statCards = [
     {
@@ -50,9 +64,9 @@ export const counts = {
     },
     {
       label: 'Purchase Orders',
-      value: '16',
+      value: '0',
       icon: <ShoppingCart className="h-4 w-4 text-amber-300" />,
-      hint: '12 Fulfilled · 4 Pending',
+      hint: '0 Fulfilled · 0 Pending',
       accent: 'border-amber-500/80 bg-amber-500/10',
     },
     {
@@ -63,28 +77,6 @@ export const counts = {
       accent: 'border-emerald-500/80 bg-emerald-500/10',
     },
   ]
-
-const VoucherRow = ({ label, value, color }) => (
-  <div className="flex items-center justify-between gap-4 py-4 sm:py-3">
-    <div>
-      <div className="text-sm font-semibold text-slate-200">{label}</div>
-      <div className="text-xs text-slate-500">Ledger classification</div>
-    </div>
-    <Tag variant="gold" className={`text-sm ${color}`}>
-      {value}
-    </Tag>
-  </div>
-)
-
-export default function Counts() {
-  const [counts, setCounts] = useState({
-    journals: { total: 142, posted: 130, draft: 12 },
-    ledgers: { total: 45, active: 42 },
-    parties: { total: 128, customers: 85, vendors: 43 },
-    invoices: { total: 84, paid: 62, pending: 22 },
-    vouchers: { sales: 45, purchase: 28, payment: 50, receipt: 30 },
-    gst: { gstr1: 'Pending', gstr3b: 'Filed', payable: '₹1,81,000' }
-  })
 
   useEffect(() => {
     const loadCounts = async () => {

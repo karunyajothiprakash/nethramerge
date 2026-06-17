@@ -21,12 +21,14 @@ export default function ZohoIntegration() {
   async function fetchAccounts() {
     if (!profile?.id) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("zoho_accounts")
-      .select("*")
-      .eq("user_id", profile.id)
-      .neq("is_deleted", true);
-    if (data) setAccounts(data);
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch('/api/emails/accounts', {
+      headers: { 'Authorization': `Bearer ${session?.access_token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setAccounts(data.filter((a: any) => a.user_id === profile.id));
+    }
     setLoading(false);
   }
 
@@ -74,13 +76,14 @@ export default function ZohoIntegration() {
       const { data: authData } = await supabase.auth.getUser();
       const currentUserId = authData?.user?.id || null;
 
-      const { error } = await supabase
-        .from("zoho_accounts")
-        .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: currentUserId })
-        .eq("id", accountId);
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/emails/accounts/${accountId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${session?.access_token}` }
+      });
         
-      if (error) {
-        toast.error(`Failed to disconnect account: ${error.message}`);
+      if (!res.ok) {
+        toast.error(`Failed to disconnect account`);
         return;
       }
 

@@ -264,8 +264,12 @@ export default function Mailbox() {
       setSentEmails(prev => prev.map(e => e.id === email.id ? { ...e, is_read: true } : e));
       setSelectedEmail((prev: any) => prev?.id === email.id ? { ...prev, is_read: true } : prev);
 
-      supabase.from('emails').update({ is_read: true }).eq('id', email.id)
-        .then(({ error }) => { if (error) console.error("Failed to mark email as read in database:", error); });
+      const { data: { session } } = await supabase.auth.getSession();
+      fetch(`/api/emails/${email.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ is_read: true })
+      }).catch(err => console.error("Failed to mark email as read:", err));
     }
     setIsComposing(false);
 
@@ -360,11 +364,12 @@ export default function Mailbox() {
         roleSlugs?.has("bde") ||
         (profile?.requested_role && ["bd", "bde"].includes(profile.requested_role.toLowerCase()));
 
-      const { data: accountsData, error } = await supabase
-        .from('zoho_accounts')
-        .select('*');
-      
-      if (error) { toast.error("Failed to fetch accounts"); return; }
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/emails/accounts', {
+        headers: { 'Authorization': `Bearer ${session?.access_token}` }
+      });
+      if (!res.ok) { toast.error("Failed to fetch accounts"); return; }
+      const accountsData = await res.json();
       let data = accountsData || [];
 
       if (!isAdmin) {
@@ -390,14 +395,12 @@ export default function Mailbox() {
   }
 
   async function fetchHistory(accountId: string) {
-    const { data: emailsData, error } = await supabase
-      .from('emails')
-      .select('*')
-      .eq('account_id', accountId)
-      .order('received_at', { ascending: false })
-      .limit(500);
-
-    if (error) { toast.error("Failed to fetch email history"); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`/api/emails?account_id=${accountId}`, {
+      headers: { 'Authorization': `Bearer ${session?.access_token}` }
+    });
+    if (!res.ok) { toast.error("Failed to fetch email history"); return; }
+    const emailsData = await res.json();
     if (emailsData) setSentEmails(emailsData);
   }
 
@@ -441,38 +444,7 @@ export default function Mailbox() {
 
   // Realtime subscription
   useEffect(() => {
-    if (!selectedAccount) return;
-
-    const channel = supabase
-      .channel(`live-mailbox-${selectedAccount}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "emails", filter: `account_id=eq.${selectedAccount}` },
-        (payload) => {
-          if (payload.eventType === "UPDATE") {
-            const { id, status, subject } = payload.new;
-            setEmailStatuses(prev => ({ ...prev, [id]: status }));
-            setSentEmails(prev => prev.map(e => e.id === id ? { ...e, ...payload.new } : e));
-            if (status === "sent") {
-              toast.success(`✓ Sent: ${subject}`, { id: `sending-${id}`, duration: 4000, icon: "📨" });
-            } else if (status === "failed") {
-              toast.error(`✗ Failed to send: ${subject}`, { id: `sending-${id}`, duration: 6000, icon: "⚠️" });
-            }
-          }
-          if (payload.eventType === "INSERT") {
-            setSentEmails(prev => {
-              const exists = prev.find(e => e.id === payload.new.id);
-              if (exists) return prev;
-              return [payload.new, ...prev];
-            });
-          }
-        }
-      )
-      .subscribe(status => {
-        setIsConnected(status === "SUBSCRIBED");
-      });
-
-    return () => { supabase.removeChannel(channel); setIsConnected(false); };
+    // Supabase realtime removed. Relies on polling.
   }, [selectedAccount]);
 
   const handleSend = async () => {
@@ -571,9 +543,10 @@ export default function Mailbox() {
 
       const { data: { session } } = await supabase.auth.getSession();
       
-      const { data: insertData, error: insertError } = await supabase
-        .from('emails')
-        .insert({
+      const insertRes = await fetch('/api/emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+        body: JSON.stringify({
           to_address: to,
           cc_address: cc || null,
           bcc_address: bcc || null,
@@ -588,18 +561,16 @@ export default function Mailbox() {
           account_id: account.id,
           attachments: uploadedAttachments.length > 0 ? uploadedAttachments : null
         })
-        .select()
-        .single();
+      });
+      if (!insertRes.ok) throw new Error("Failed to insert email log");
+      const emailRow = await insertRes.json();
 
-      if (insertError || !insertData) throw new Error("Failed to insert email log: " + (insertError?.message || ""));
-      const emailRow = insertData;
-
-      const { error: updateError } = await supabase
-        .from('emails')
-        .update({ status: "pending" })
-        .eq('id', emailRow.id);
-        
-      if (updateError) console.error("Failed to update status to pending:", updateError);
+      const putRes = await fetch(`/api/emails/${emailRow.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ status: "pending" })
+      });
+      if (!putRes.ok) console.error("Failed to update status to pending");
 
       toast.info("Sending email...", { id: `sending-${emailRow.id}`, duration: 10000 });
 

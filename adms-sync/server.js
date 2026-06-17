@@ -85,6 +85,9 @@ const ordersRoutes = require('./routes/orders');
 const hrRoutes = require('./routes/hr');
 const farmersRoutes = require('./routes/farmers');
 const permissionsRoutes = require('./routes/permissions');
+const securityRoutes = require('./routes/security');
+const procurementRoutes = require('./routes/procurement');
+const purchaseOrdersRoutes = require('./routes/purchase_orders');
 
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/employees', employeesRoutes);
@@ -108,6 +111,9 @@ app.use('/api', productsRoutes);
 app.use('/api', settingsRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/meta', metaRoutes);
+app.use('/api/security', securityRoutes);
+app.use('/api/procurement', procurementRoutes);
+app.use('/api/purchase_orders', purchaseOrdersRoutes);
 
 
 console.log("🚀 Starting ADMS Sync Server...");

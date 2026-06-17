@@ -6,7 +6,7 @@ const { requireAuth } = require('../middleware/auth');
 // GET /api/emails/accounts - Fetch zoho accounts
 router.get('/accounts', requireAuth, async (req, res) => {
   try {
-    const { rows } = await db.query('SELECT * FROM zoho_accounts');
+    const { rows } = await db.query('SELECT * FROM zoho_accounts WHERE is_deleted = false');
     res.json(rows);
   } catch (err) {
     console.error("DB Error (get zoho accounts):", err);
@@ -18,10 +18,10 @@ router.get('/accounts', requireAuth, async (req, res) => {
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { account_id } = req.query;
-    let query = 'SELECT * FROM emails';
+    let query = 'SELECT * FROM emails WHERE is_deleted = false';
     let params = [];
     if (account_id) {
-      query += ' WHERE account_id = $1';
+      query += ' AND account_id = $1';
       params.push(account_id);
     }
     query += ' ORDER BY received_at DESC LIMIT 500';
@@ -38,7 +38,7 @@ router.get('/', requireAuth, async (req, res) => {
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { rows } = await db.query('SELECT * FROM emails WHERE id = $1', [id]);
+    const { rows } = await db.query('SELECT * FROM emails WHERE id = $1 AND is_deleted = false', [id]);
     if (rows.length === 0) return res.status(404).json({ error: "Email not found" });
     res.json(rows[0]);
   } catch (err) {
@@ -95,8 +95,7 @@ router.post('/', requireAuth, async (req, res) => {
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    // Hard delete or soft delete? Assuming hard delete for now, if table doesn't have is_deleted
-    await db.query('DELETE FROM emails WHERE id = $1', [id]);
+    await db.query('UPDATE emails SET is_deleted = true, deleted_at = NOW() WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (err) {
     console.error("DB Error (delete email):", err);
@@ -105,3 +104,15 @@ router.delete('/:id', requireAuth, async (req, res) => {
 });
 
 module.exports = router;
+
+// DELETE /api/emails/accounts/:id - Soft delete account
+router.delete('/accounts/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query('UPDATE zoho_accounts SET is_deleted = true, deleted_at = NOW() WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("DB Error (delete zoho account):", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});

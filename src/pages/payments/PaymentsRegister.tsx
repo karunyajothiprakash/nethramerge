@@ -47,7 +47,7 @@ export default function PaymentsRegister() {
 
       const formattedPayments = (pData || []).map(p => ({
         id: p.payment_number || p.id.split('-')[0].toUpperCase(),
-        party: p.notes || "Unknown",
+        party: p.payer_name || p.customer || p.notes || "Unknown",
         ref: p.reference_number || "Direct",
         method: p.method,
         amount: p.amount,
@@ -107,6 +107,7 @@ export default function PaymentsRegister() {
           company_id: profile?.company_id,
           payment_number: payNum,
           payer_name: partyName,
+          customer: partyName,
           amount: Number(amount),
           currency,
           method,

@@ -7,11 +7,16 @@ const { requireAuth } = require('../middleware/auth');
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { start, end } = req.query;
-    let queryText = 'SELECT id, employee_id, date::text as date, clock_in, clock_out, status, is_manual, is_excused, is_deleted, notes FROM attendance_logs WHERE (is_deleted IS NULL OR is_deleted = false)';
+    let queryText = `
+      SELECT a.id, a.employee_id, a.date::text as date, a.clock_in, a.clock_out, a.status, a.is_manual, a.is_excused, a.is_deleted, a.notes, p.full_name as name 
+      FROM attendance_logs a 
+      LEFT JOIN profiles p ON a.employee_id::text = p.id::text 
+      WHERE (a.is_deleted IS NULL OR a.is_deleted = false)
+    `;
     const params = [];
     
     if (start && end) {
-      queryText += ' AND date >= $1 AND date <= $2';
+      queryText += ' AND a.date >= $1 AND a.date <= $2';
       params.push(start, end);
     }
     

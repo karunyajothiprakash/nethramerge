@@ -23,21 +23,7 @@ export default function Tasks() {
     if (profile?.company_id) {
       fetchTasks();
 
-      // Subscribe to real-time changes
-      const channel = supabase
-        .channel('tasks-changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'crm_tasks', filter: `company_id=eq.${profile.company_id}` },
-          (payload) => {
-            fetchTasks(); // Simple refetch on any change to keep joins fresh
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
+      // Supabase realtime removed. We rely on initial fetch and manual/optimistic updates.
     }
   }, [profile?.company_id]);
 

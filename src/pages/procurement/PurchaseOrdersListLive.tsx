@@ -38,41 +38,13 @@ export default function PurchaseOrdersListLive() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        // 1. Fetch Purchase Orders without the relation
-        const { data: poData, error: poError } = await supabase
-          .from("purchase_orders")
-          .select("id, po_number, farmer_id, status, order_date, total, currency")
-          .neq("is_deleted", true)
-          .order("order_date", { ascending: false });
-
-        if (poError) throw poError;
-
-        // 2. Extract unique farmer_ids
-        const farmerIds = Array.from(new Set((poData || []).map(po => po.farmer_id).filter(Boolean)));
-
-        let farmersMap: Record<string, string> = {};
-        
-        // 3. Fetch Farmers if we have any
-        if (farmerIds.length > 0) {
-          const { data: farmersData, error: farmersError } = await supabase
-            .from("farmers")
-            .select("id, full_name")
-            .in("id", farmerIds);
-            
-          if (!farmersError && farmersData) {
-            farmersData.forEach(f => {
-              farmersMap[f.id] = f.full_name;
-            });
-          }
-        }
-
-        // 4. Stitch them together
-        const mappedOrders = (poData || []).map(po => ({
-          ...po,
-          farmers: { full_name: farmersMap[po.farmer_id] || "Unknown Supplier" }
-        }));
-
-        setOrders(mappedOrders as unknown as PurchaseOrder[]);
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(`/api/purchase_orders`, {
+          headers: { 'Authorization': `Bearer ${session?.access_token}` }
+        });
+        if (!res.ok) throw new Error("Failed to fetch purchase orders");
+        const poData = await res.json();
+        setOrders(poData as PurchaseOrder[]);
       } catch (err: any) {
         toast.error(err.message || "Failed to fetch purchase orders");
         console.error("Fetch error:", err);
@@ -88,12 +60,13 @@ export default function PurchaseOrdersListLive() {
     e.stopPropagation();
     if (!window.confirm("Delete this purchase order? This will hide the order from the app, but keep it in the database.")) return;
     try {
-      const { error } = await supabase.from("purchase_orders").update({
-        is_deleted: true,
-        deleted_at: new Date().toISOString(),
-        deleted_by: profile?.id || null,
-      }).eq("id", id);
-      if (error) throw error;
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/purchase_orders/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${session?.access_token}` }
+      });
+      if (!res.ok) throw new Error("Failed to delete purchase order");
+      
       setOrders(orders.filter(o => o.id !== id));
       toast.success("Purchase order hidden from the app");
     } catch (err: any) {

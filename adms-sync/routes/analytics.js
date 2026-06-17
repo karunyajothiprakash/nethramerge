@@ -16,20 +16,25 @@ router.get('/sidebar_counts', requireAuth, async (req, res) => {
   try {
     const { company_id } = req.query;
     
-    let acqQuery = `SELECT COUNT(*) as count FROM client_acquisition WHERE is_deleted = false`;
-    let convQuery = `SELECT COUNT(*) as count FROM leads WHERE is_deleted = false AND stage IN ('Won', 'Client Successfully Acquired')`;
-    let custQuery = `SELECT COUNT(*) as count FROM customers WHERE is_deleted = false`;
+    let acqQuery = `SELECT COUNT(*) as count FROM client_acquisition ca WHERE ca.is_deleted IS NOT TRUE`;
+    let acqParams = [];
+    if (company_id) {
+      acqQuery = `SELECT COUNT(*) as count FROM client_acquisition ca JOIN leads l ON ca.lead_id = l.id WHERE ca.is_deleted IS NOT TRUE AND l.company_id = $1`;
+      acqParams.push(company_id);
+    }
+
+    let convQuery = `SELECT COUNT(*) as count FROM leads WHERE is_deleted IS NOT TRUE AND stage IN ('Won', 'Client Successfully Acquired')`;
+    let custQuery = `SELECT COUNT(*) as count FROM customers WHERE is_deleted IS NOT TRUE`;
     
     let params = [];
     if (company_id) {
-      acqQuery += ` AND company_id = $1`;
       convQuery += ` AND company_id = $1`;
       custQuery += ` AND company_id = $1`;
       params.push(company_id);
     }
     
     const [acqRes, convRes, custRes] = await Promise.all([
-      db.query(acqQuery, params),
+      db.query(acqQuery, acqParams),
       db.query(convQuery, params),
       db.query(custQuery, params)
     ]);
