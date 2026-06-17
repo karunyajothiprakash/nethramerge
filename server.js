@@ -91,6 +91,27 @@ if (DB_URL) {
     } else {
       console.warn('No DB available to create drivers table')
     }
+    // Ensure vehicles table exists too (used by frontend /api/vehicles)
+    const createVehiclesSql = `CREATE TABLE IF NOT EXISTS vehicles (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      vehicle_number text NOT NULL,
+      vehicle_type text,
+      is_active boolean DEFAULT true,
+      created_at timestamptz DEFAULT now()
+    )`;
+    try {
+      if (db && db.query) {
+        await db.query(createVehiclesSql)
+        console.log('Ensured vehicles table exists (via adms-sync/db.js)')
+      } else if (pool) {
+        await pool.query(createVehiclesSql)
+        console.log('Ensured vehicles table exists (via local pool)')
+      } else {
+        console.warn('No DB available to create vehicles table')
+      }
+    } catch (e) {
+      console.error('Failed to ensure vehicles table exists:', e?.message || e)
+    }
     // Ensure driver_name column exists and migrate from older 'name' column if present
     const ensureCols = `ALTER TABLE drivers ADD COLUMN IF NOT EXISTS driver_name text; ALTER TABLE drivers ADD COLUMN IF NOT EXISTS license_number text;`;
     if (db && db.query) {
@@ -116,6 +137,8 @@ if (DB_URL) {
 app.get('/api/vehicles', async (req, res) => {
   try {
     const executor = pool || (db && db.query ? db : null)
+    const executorName = executor ? (executor === pool ? 'pool' : 'adms-sync/db') : (supabase ? 'supabase' : 'none')
+    console.log(`GET /api/vehicles executor: ${executorName}`)
     if (executor) {
       const { rows } = await executor.query('SELECT id, vehicle_number, vehicle_type FROM vehicles WHERE is_active = true ORDER BY vehicle_number')
       return res.json(rows)
@@ -143,6 +166,8 @@ app.post('/api/vehicles', async (req, res) => {
     if (!vehicle_number) return res.status(400).json({ error: 'vehicle_number is required' })
 
     const executor = pool || (db && db.query ? db : null)
+    const executorName = executor ? (executor === pool ? 'pool' : 'adms-sync/db') : (supabase ? 'supabase' : 'none')
+    console.log(`POST /api/vehicles executor: ${executorName}`)
     if (executor) {
       const insertQuery = `INSERT INTO vehicles (vehicle_number, vehicle_type, is_active) VALUES ($1, $2, true) RETURNING id, vehicle_number, vehicle_type`
       const values = [vehicle_number, vehicle_type || null]
