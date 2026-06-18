@@ -44,6 +44,8 @@ Deno.serve(async (req) => {
       bcc_address: bcc
     } = record;
 
+    let finalHtml = html;
+
     emailId = id;
 
     const supabaseClient = createClient(
@@ -138,8 +140,44 @@ Deno.serve(async (req) => {
 
     if (!zohoId) throw new Error("Could not retrieve Zoho Account ID.");
 
-    // 4. Process attachments - upload to Zoho
+    // 3.5 Intercept company logo and make it an inline attachment
     const processedAttachments: any[] = [];
+    const logoUrl = "https://sxebygxpjzntogzpjnga.supabase.co/storage/v1/object/public/chat-attachments/company-logo-1779776670741.png";
+    
+    if (finalHtml && finalHtml.includes(logoUrl)) {
+      try {
+        const logoRes = await fetch(logoUrl);
+        if (logoRes.ok) {
+          const logoData = await logoRes.arrayBuffer();
+          const uploadUrl = `https://mail.${apiDomain}/api/accounts/${zohoId}/messages/attachments?fileName=company_logo.png`;
+          const uploadRes = await fetch(uploadUrl, {
+            method: "POST",
+            headers: {
+              Authorization: `Zoho-oauthtoken ${accessToken}`,
+              "Content-Type": "image/png",
+            },
+            body: logoData,
+          });
+          const uploadResult = await uploadRes.json();
+          if (uploadRes.ok && uploadResult.data) {
+             const attachmentData = Array.isArray(uploadResult.data) ? uploadResult.data[0] : uploadResult.data;
+             processedAttachments.push({
+               storeName: attachmentData.storeName,
+               attachmentPath: attachmentData.attachmentPath,
+               attachmentName: "company_logo.png"
+             });
+             finalHtml = finalHtml.split(logoUrl).join("cid:company_logo.png");
+             console.log("Successfully intercepted and inlined company logo.");
+          } else {
+             console.error("Zoho Logo Upload Failed: " + JSON.stringify(uploadResult));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to inline logo:", err);
+      }
+    }
+
+    // 4. Process user attachments - upload to Zoho
     if (Array.isArray(attachments) && attachments.length > 0) {
       for (const att of attachments) {
         if (!att.path) continue;
@@ -193,8 +231,8 @@ Deno.serve(async (req) => {
       fromAddress: cleanEmail(account.account_email),
       toAddress: cleanEmail(to),
       subject: subject || "(No Subject)",
-      content: html || text || " ",
-      mailFormat: html ? "html" : "text",
+      content: finalHtml || text || " ",
+      mailFormat: finalHtml ? "html" : "text",
     };
 
     if (cc) mailData.ccAddress = cleanEmail(cc);

@@ -196,8 +196,7 @@ export function TeamChatPanel() {
       const { data, error } = await supabase
         .from('team_chat')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
+        .order('created_at', { ascending: false });
       
       if (error) console.error('Fetch error:', error);
       else if (isMounted && data) setMessages([...data].reverse());

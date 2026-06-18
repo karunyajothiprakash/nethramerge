@@ -165,9 +165,17 @@ router.post('/face-sync', requireAuth, async (req, res) => {
           'UPDATE attendance_logs SET clock_out = $1, is_deleted = false, deleted_at = null, deleted_by = null WHERE employee_id = $2 AND date = $3',
           [check_out, employee_id, date]
         );
+        await db.query(
+          'UPDATE face_attendance SET clock_out = $1 WHERE employee_id = $2 AND date = $3',
+          [check_out, employee_id, date]
+        );
       } else if (check_in) {
         await db.query(
           'UPDATE attendance_logs SET clock_in = $1, status = $2, is_deleted = false, deleted_at = null, deleted_by = null WHERE employee_id = $3 AND date = $4',
+          [check_in, status, employee_id, date]
+        );
+        await db.query(
+          'UPDATE face_attendance SET clock_in = $1, status = $2 WHERE employee_id = $3 AND date = $4',
           [check_in, status, employee_id, date]
         );
       }
@@ -175,6 +183,10 @@ router.post('/face-sync', requireAuth, async (req, res) => {
       if (check_in) {
         await db.query(
           'INSERT INTO attendance_logs (employee_id, date, clock_in, clock_out, is_manual, status) VALUES ($1, $2, $3, $4, false, $5)',
+          [employee_id, date, check_in, check_out || null, status || 'present']
+        );
+        await db.query(
+          'INSERT INTO face_attendance (employee_id, date, clock_in, clock_out, status) VALUES ($1, $2, $3, $4, $5)',
           [employee_id, date, check_in, check_out || null, status || 'present']
         );
       }

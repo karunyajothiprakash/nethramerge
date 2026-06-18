@@ -47,7 +47,7 @@ export default function ReservedStock() {
   const [selectedReservation, setSelectedReservation] = useState<any>(null);
   const [formState, setFormState] = useState(initialFormState);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<"release" | "cancel" | null>(null);
+  const [confirmAction, setConfirmAction] = useState<"release" | "cancel" | "delete" | null>(null);
   const [confirmTargetId, setConfirmTargetId] = useState<string | null>(null);
 
   const { data: reservations = [], isLoading: isReservationsLoading } = useQuery({
@@ -199,10 +199,14 @@ export default function ReservedStock() {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["reserved-stock"] });
       setIsConfirmOpen(false);
-      toast.success("Reservation updated successfully");
+      if (variables.status === "delete") {
+        toast.success("Reservation deleted successfully");
+      } else {
+        toast.success("Reservation updated successfully");
+      }
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to update reservation");
@@ -350,7 +354,7 @@ export default function ReservedStock() {
     });
   };
 
-  const startConfirm = (action: "release" | "cancel", reservationId: string) => {
+  const startConfirm = (action: "release" | "cancel" | "delete", reservationId: string) => {
     setConfirmAction(action);
     setConfirmTargetId(reservationId);
     setIsConfirmOpen(true);
@@ -360,7 +364,7 @@ export default function ReservedStock() {
     if (!confirmAction || !confirmTargetId) return;
     actionMutation.mutate({
       id: confirmTargetId,
-      status: confirmAction === "release" ? "released" : "cancelled",
+      status: confirmAction === "release" ? "released" : confirmAction === "delete" ? "delete" : "cancelled",
     });
   };
 

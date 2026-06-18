@@ -34,7 +34,7 @@ if (envPath) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 8082;
+const PORT = 8083;
 
 // Initialize Supabase Client
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -61,13 +61,6 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ error: 'Invalid JSON payload' });
   }
   next(err);
-});
-
-app.use((req, res, next) => {
-  if (req.url.includes('/api/emails') && req.method === 'POST') {
-    require('fs').appendFileSync('requests.log', JSON.stringify({ body: req.body, time: new Date() }) + '\n');
-  }
-  next();
 });
 
 // --- Mount API Routes ---

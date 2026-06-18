@@ -558,12 +558,15 @@ export default function Mailbox() {
           status: "draft",
           folder: "sent",
           received_at: new Date().toISOString(),
-          company_id: profile?.company_id,
+          company_id: profile?.company_id || null,
           account_id: account.id,
           attachments: uploadedAttachments.length > 0 ? uploadedAttachments : null
         })
       });
-      if (!insertRes.ok) throw new Error("Failed to insert email log");
+      if (!insertRes.ok) {
+        const errData = await insertRes.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to insert email log");
+      }
       const emailRow = await insertRes.json();
 
       const putRes = await fetch(`/api/emails/${emailRow.id}`, {

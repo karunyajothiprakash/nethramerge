@@ -27,16 +27,19 @@ const initialFormState = {
   unit: "kg",
   received_date: new Date().toISOString().slice(0, 10),
   expiry_date: new Date().toISOString().slice(0, 10),
-  status: "In Stock",
+  status: "approved",
   warehouse: "",
   notes: "",
 };
 
 const statusColorMap: Record<string, string> = {
-  "In Stock": "bg-green-50 text-green-800 border-green-200",
-  Reserved: "bg-yellow-50 text-yellow-800 border-yellow-200",
-  Dispatched: "bg-blue-50 text-blue-800 border-blue-200",
-  Damaged: "bg-red-50 text-red-800 border-red-200",
+  "approved": "bg-green-50 text-green-800 border-green-200",
+  "pending_qc": "bg-yellow-50 text-yellow-800 border-yellow-200",
+  "reserved": "bg-blue-50 text-blue-800 border-blue-200",
+  "shipped": "bg-purple-50 text-purple-800 border-purple-200",
+  "damaged": "bg-red-50 text-red-800 border-red-200",
+  "rejected": "bg-red-100 text-red-900 border-red-300",
+  "consumed": "bg-gray-50 text-gray-800 border-gray-200",
 };
 
 export default function BatchWiseStock() {
@@ -51,7 +54,7 @@ export default function BatchWiseStock() {
   const [confirmTargetId, setConfirmTargetId] = useState<string | null>(null);
 
   const { data: warehouses = [] } = useQuery({
-    key: ['warehouses-list', profile?.company_id],
+    queryKey: ['warehouses-list', profile?.company_id],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const headers = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : undefined;
@@ -60,10 +63,10 @@ export default function BatchWiseStock() {
       const data = await res.json();
       return (data || []).filter((w: any) => !w.is_deleted && (!profile?.company_id || w.company_id === profile.company_id));
     }
-  } as any);
+  });
 
   const { data: products = [] } = useQuery({
-    key: ['products-list', profile?.company_id],
+    queryKey: ['products-list', profile?.company_id],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const headers = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : undefined;
@@ -72,7 +75,7 @@ export default function BatchWiseStock() {
       const data = await res.json();
       return (data || []).filter((p: any) => p.is_active && !p.is_deleted && (!profile?.company_id || p.company_id === profile.company_id));
     }
-  } as any);
+  });
 
   const { data: rawBatches = [], isLoading: isBatchesLoading } = useQuery({
     queryKey: ["inventory-batches", profile?.company_id],
@@ -152,14 +155,20 @@ export default function BatchWiseStock() {
           headers,
           body: JSON.stringify(body)
         });
-        if (!res.ok) throw new Error('Update failed');
+        if (!res.ok) {
+           const errData = await res.json().catch(() => ({}));
+           throw new Error(errData.error || 'Update failed');
+        }
       } else {
         const res = await fetch(`/api/inventory/inventory_batches`, {
           method: 'POST',
           headers,
           body: JSON.stringify(body)
         });
-        if (!res.ok) throw new Error('Insert failed');
+        if (!res.ok) {
+           const errData = await res.json().catch(() => ({}));
+           throw new Error(errData.error || 'Insert failed');
+        }
       }
     },
     onSuccess: () => {
@@ -205,7 +214,7 @@ export default function BatchWiseStock() {
 
   const summary = useMemo(() => {
     const totalBatches = (batches || []).length;
-    const inStockCount = (batches || []).filter((b: any) => b.status === "In Stock").length;
+    const inStockCount = (batches || []).filter((b: any) => b.status === "approved" || b.status === "pending_qc").length;
     const expiringCount = (batches || []).filter((b: any) => {
       if (!b.expiry_date) return false;
       const daysUntilExpiry = differenceInDays(parseISO(b.expiry_date), today);
@@ -236,7 +245,7 @@ export default function BatchWiseStock() {
       unit: batch.unit || "kg",
       received_date: batch.received_date || new Date().toISOString().slice(0, 10),
       expiry_date: batch.expiry_date || new Date().toISOString().slice(0, 10),
-      status: batch.status || "In Stock",
+      status: batch.status || "approved",
       warehouse: batch.warehouse || "",
       notes: batch.notes || "",
     });
@@ -340,10 +349,12 @@ export default function BatchWiseStock() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
-                <SelectItem value="In Stock">In Stock</SelectItem>
-                <SelectItem value="Reserved">Reserved</SelectItem>
-                <SelectItem value="Dispatched">Dispatched</SelectItem>
-                <SelectItem value="Damaged">Damaged</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="pending_qc">Pending QC</SelectItem>
+                <SelectItem value="reserved">Reserved</SelectItem>
+                <SelectItem value="shipped">Shipped</SelectItem>
+                <SelectItem value="damaged">Damaged</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -409,8 +420,8 @@ export default function BatchWiseStock() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge className={cn("border px-2", statusColorMap[batch.status] || statusColorMap["In Stock"])}>
-                        {batch.status}
+                      <Badge className={cn("border px-2", statusColorMap[batch.status] || statusColorMap["approved"])}>
+                        {batch.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right space-x-1">
@@ -544,10 +555,13 @@ export default function BatchWiseStock() {
                     <SelectValue placeholder="Select Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="In Stock">In Stock</SelectItem>
-                    <SelectItem value="Reserved">Reserved</SelectItem>
-                    <SelectItem value="Dispatched">Dispatched</SelectItem>
-                    <SelectItem value="Damaged">Damaged</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="pending_qc">Pending QC</SelectItem>
+                    <SelectItem value="reserved">Reserved</SelectItem>
+                    <SelectItem value="shipped">Shipped</SelectItem>
+                    <SelectItem value="damaged">Damaged</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="consumed">Consumed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

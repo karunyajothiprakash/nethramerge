@@ -230,7 +230,7 @@ router.get('/meta/sources', requireAuth, async (req, res) => {
       const { rows } = await db.query(`
         SELECT DISTINCT ac.* FROM acquisition_channels ac
         INNER JOIN leads l ON ac.id = l.source_id
-        WHERE ac.company_id = $1 AND ac.is_deleted IS NOT TRUE AND l.is_deleted IS NOT TRUE
+        WHERE ac.company_id = $1 AND l.is_deleted IS NOT TRUE
         ORDER BY ac.channel_name
       `, [companyId]);
       return res.json(rows);
@@ -238,7 +238,7 @@ router.get('/meta/sources', requireAuth, async (req, res) => {
     const { rows } = await db.query(`
       SELECT DISTINCT ac.* FROM acquisition_channels ac
       INNER JOIN leads l ON ac.id = l.source_id
-      WHERE ac.is_deleted IS NOT TRUE AND l.is_deleted IS NOT TRUE
+      WHERE l.is_deleted IS NOT TRUE
       ORDER BY ac.channel_name
     `);
     res.json(rows);
@@ -270,11 +270,11 @@ router.post('/meta/sources', requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/leads/meta/sources/:id - Delete acquisition channel (soft delete)
+// DELETE /api/leads/meta/sources/:id - Delete acquisition channel
 router.delete('/meta/sources/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    await db.query('UPDATE acquisition_channels SET is_deleted = true WHERE id = $1', [id]);
+    await db.query('DELETE FROM acquisition_channels WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (err) {
     console.error("DB Error (delete source):", err);

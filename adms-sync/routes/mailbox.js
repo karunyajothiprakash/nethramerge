@@ -71,16 +71,13 @@ router.put('/:id', requireAuth, async (req, res) => {
 router.post('/', requireAuth, async (req, res) => {
   try {
     const data = req.body;
-    if (!data.user_id) {
-      data.user_id = req.user.sub;
-    }
     
     const { data: rows, error } = await supabase.from('emails').insert([data]).select();
     if (error) throw error;
     res.status(201).json(rows[0]);
   } catch (err) {
     console.error("DB Error (create email log):", err);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: err.message || JSON.stringify(err) || "Unknown Error" });
   }
 });
 
