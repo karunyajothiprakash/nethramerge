@@ -113,7 +113,14 @@ export default function LeadPipeline() {
       <div className="flex-1 overflow-x-auto pb-4">
         <div className="flex gap-4 min-w-max h-full">
           {STAGES.map((stage) => {
-            const stageLeads = leads.filter((l) => l.stage?.toLowerCase() === stage.id.toLowerCase());
+            const stageLeads = leads.filter((l) => {
+              const s = l.stage?.toLowerCase() ?? "";
+              if (stage.id === "Won") {
+                return s === "won" || s === "client successfully acquired";
+              }
+              // Use includes to match stages like "Proposal" or "Nurturing" even if stored with extra text or spacing
+              return s.includes(stage.id.toLowerCase());
+            });
             
             return (
               <div key={stage.id} className="w-80 flex flex-col bg-muted/30 rounded-lg border border-border/50">
@@ -145,7 +152,7 @@ export default function LeadPipeline() {
                           
                           {canEditStage ? (
                             <Select
-                              value={lead.stage}
+                              value={lead.stage === "Client Successfully Acquired" ? "Won" : lead.stage}
                               onValueChange={(val) => updateLeadStage(lead.id, val)}
                             >
                               <SelectTrigger className="h-8 text-xs">
@@ -161,7 +168,7 @@ export default function LeadPipeline() {
                             </Select>
                           ) : (
                             <Badge variant="secondary" className="w-full justify-center text-[10px] h-6">
-                              {lead.stage}
+                              {lead.stage === "Client Successfully Acquired" ? "Won" : lead.stage}
                             </Badge>
                           )}
 

@@ -4,6 +4,9 @@ import SectionHeader from "../../components/SectionHeader";
 import Card from "@/components/Card";
 import { UserPlus, Star, BarChart3, TrendingUp, Search, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,7 +24,14 @@ export default function ClientAcquisition() {
   const [avgAcquisitionRate, setAvgAcquisitionRate] = useState("0%");
   const [totalPipeValue, setTotalPipeValue] = useState("$0");
   const [convertedList, setConvertedList] = useState<any[]>([]);
-
+  const [isAddClientOpen, setIsAddClientOpen] = useState(false);
+  const [isSavingClient, setIsSavingClient] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newCountry, setNewCountry] = useState("");
+  const [newInquirySource, setNewInquirySource] = useState("");
+  const [newAssignedBde, setNewAssignedBde] = useState("");
+  const [newAcquisitionDate, setNewAcquisitionDate] = useState("");
+  const [newProductInterested, setNewProductInterested] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -132,6 +142,9 @@ export default function ClientAcquisition() {
             <Button size="sm" className="btn-gold shadow-md" onClick={() => navigate('/crm/reports')}>
               <BarChart3 className="h-4 w-4 mr-1.5" /> Funnel Reports
             </Button>
+            <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-black shadow-md" onClick={() => setIsAddClientOpen(true)}>
+              <UserPlus className="h-4 w-4 mr-1.5" /> Add Client
+            </Button>
           </div>
         }
       />
@@ -221,6 +234,135 @@ export default function ClientAcquisition() {
           </table>
         </div>
       </Card>
+
+      <Dialog open={isAddClientOpen} onOpenChange={(open) => {
+        setIsAddClientOpen(open);
+        if (!open) {
+          setNewClientName("");
+          setNewCountry("");
+          setNewInquirySource("");
+          setNewAssignedBde("");
+          setNewAcquisitionDate("");
+          setNewProductInterested("");
+        }
+      }}>
+        <DialogContent className="bg-card border-border max-w-xl text-foreground">
+          <DialogHeader>
+            <DialogTitle>Add Converted Client</DialogTitle>
+            <DialogDescription className="text-muted-foreground/60 text-sm">
+              Enter client acquisition details and save to add them immediately to the converted clients list.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (isSavingClient) return;
+              if (!newClientName || !newCountry || !newInquirySource || !newAssignedBde || !newAcquisitionDate || !newProductInterested) {
+                toast.error('Please complete all fields before saving.');
+                return;
+              }
+
+              setIsSavingClient(true);
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session?.access_token) throw new Error('Authentication required');
+
+                const res = await fetch('/api/crm/leads/add-client', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                  },
+                  body: JSON.stringify({
+                    company_name: newClientName,
+                    country: newCountry,
+                    inquiry_source: newInquirySource,
+                    assigned_bde: newAssignedBde,
+                    acquisition_date: newAcquisitionDate,
+                    product_interested: newProductInterested,
+                  }),
+                });
+
+                if (!res.ok) {
+                  const errText = await res.text();
+                  let message = 'Failed to add client';
+                  try {
+                    const parsed = JSON.parse(errText);
+                    message = parsed.error || message;
+                  } catch {
+                    if (errText) message = errText;
+                  }
+                  throw new Error(message);
+                }
+
+                const created = await res.json();
+                const nextTotalLeads = totalLeads + 1;
+                const nextConvertedClients = convertedClients + 1;
+                setConvertedList((prev) => [{
+                  ...created,
+                  client_name: created.client_name || created.company_name || newClientName,
+                  acquisition_date: created.acquisition_date || created.date || null,
+                  product_interested: created.product_interested || created.interested_product,
+                  status: created.status || 'Won',
+                  deal_value: 0,
+                }, ...prev]);
+                setTotalLeads(nextTotalLeads);
+                setConvertedClients(nextConvertedClients);
+                setAvgAcquisitionRate(`${((nextConvertedClients / nextTotalLeads) * 100).toFixed(1)}%`);
+                setIsAddClientOpen(false);
+                toast.success('Converted client added successfully');
+              } catch (error: any) {
+                toast.error(error.message || 'Failed to add client');
+              } finally {
+                setIsSavingClient(false);
+              }
+            }}
+            className="space-y-4 pt-4"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Client Name</Label>
+                <Input value={newClientName} onChange={(e) => setNewClientName(e.target.value)} placeholder="Company or buyer name" />
+              </div>
+              <div className="space-y-2">
+                <Label>Country</Label>
+                <Input value={newCountry} onChange={(e) => setNewCountry(e.target.value)} placeholder="Country" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Inquiry Source</Label>
+                <Input value={newInquirySource} onChange={(e) => setNewInquirySource(e.target.value)} placeholder="e.g. Website, Referral" />
+              </div>
+              <div className="space-y-2">
+                <Label>Assigned BDE</Label>
+                <Input value={newAssignedBde} onChange={(e) => setNewAssignedBde(e.target.value)} placeholder="Sales rep name" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Acquisition Date</Label>
+                <Input type="date" value={newAcquisitionDate} onChange={(e) => setNewAcquisitionDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Product Interested</Label>
+                <Input value={newProductInterested} onChange={(e) => setNewProductInterested(e.target.value)} placeholder="Product or category" />
+              </div>
+            </div>
+
+            <DialogFooter className="pt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setIsAddClientOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSavingClient} className="w-full sm:w-auto text-black bg-[#e3b341] hover:bg-[#dca100]">
+                {isSavingClient ? 'Saving...' : 'Save Client'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

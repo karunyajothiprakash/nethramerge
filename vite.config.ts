@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
-const localApiTarget = process.env.VITE_LOCAL_API_TARGET || process.env.LOCAL_API_TARGET || "http://127.0.0.1:8082";
+const localApiTarget = process.env.VITE_LOCAL_API_TARGET || process.env.LOCAL_API_TARGET || "http://127.0.0.1:3001";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/ai-chat/, "/api/chat"),
       },
-      "/api/vehicles": {
+      "/api/dispatch/vehicles": {
         target: localApiTarget,
         changeOrigin: true,
       },

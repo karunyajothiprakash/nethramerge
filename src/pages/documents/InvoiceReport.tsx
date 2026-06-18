@@ -22,7 +22,7 @@ export default function InvoiceReport() {
 
         if (error || !data) {
           // If not found in shipments, try export_orders directly
-          let { data: orderOnly, error: orderErr } = await supabase
+          const { data: orderOnly, error: orderErr } = await supabase
             .from("export_orders")
             .select("*, export_shipments(*)")
             .eq("id", id)

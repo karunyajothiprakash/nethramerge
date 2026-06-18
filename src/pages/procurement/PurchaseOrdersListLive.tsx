@@ -66,7 +66,7 @@ export default function PurchaseOrdersListLive() {
         headers: { 'Authorization': `Bearer ${session?.access_token}` }
       });
       if (!res.ok) throw new Error("Failed to delete purchase order");
-      
+
       setOrders(orders.filter(o => o.id !== id));
       toast.success("Purchase order hidden from the app");
     } catch (err: any) {
@@ -131,9 +131,9 @@ export default function PurchaseOrdersListLive() {
                     {po.currency} {Number(po.total)?.toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={(e) => handleDelete(e, po.id)}
                     >

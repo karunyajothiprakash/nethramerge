@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchBdeProfiles } from "@/lib/bde";
 import { useAuth } from "@/hooks/useAuth";
@@ -132,6 +132,67 @@ export default function FollowUps() {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  // ─── Reminder checker ────────────────────────────────────────────────────────
+  // Request Notification permission on component mount
+  useEffect(() => {
+    if (typeof Notification !== "undefined" && Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  const firedReminders = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const checkReminders = () => {
+      const now = new Date();
+      const todayStr = now.toISOString().slice(0, 10); // "YYYY-MM-DD"
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+      followUps.forEach((fu) => {
+        if (fu.is_notified) return;                 // already acknowledged
+        if (firedReminders.current.has(fu.id)) return; // already alerted this session
+
+        const fuDate = fu.follow_up_date?.slice(0, 10);
+        if (fuDate !== todayStr) return;             // not today
+
+        if (!fu.reminder_time) return;
+        const [h, m] = fu.reminder_time.split(":").map(Number);
+        const reminderMinutes = h * 60 + m;
+
+        // Fire when current time is within a ±2-minute window of reminder time
+        if (Math.abs(nowMinutes - reminderMinutes) <= 2) {
+          firedReminders.current.add(fu.id);
+
+          const displayTime = new Date(`2000-01-01T${fu.reminder_time}`)
+            .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+
+          // Browser Notification
+          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+            new Notification("Follow-Up Reminder", {
+              body: `${fu.company_name}${fu.contact_name ? ` — ${fu.contact_name}` : ""} · ${displayTime}`,
+            });
+          } else {
+            // Fallback toast
+            toast(`🔔 Follow-Up Reminder`, {
+              description: `${fu.company_name}${fu.contact_name ? ` — ${fu.contact_name}` : ""} · ${displayTime}`,
+              duration: 30000,
+              action: {
+                label: "Acknowledge",
+                onClick: () => handleAcknowledge(fu.id),
+              },
+            });
+          }
+        }
+      });
+    };
+
+    // Run immediately, then every 30 seconds
+    checkReminders();
+    const interval = setInterval(checkReminders, 30_000);
+    return () => clearInterval(interval);
+  }, [followUps]); // re-runs whenever followUps list updates
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const handleSaveFollowUp = async () => {
     if (!selectedLeadId || !followUpDate) {

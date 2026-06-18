@@ -44,19 +44,23 @@ type Lead = {
   source_id?: string | null;
 };
 
-const STAGES = ["New", "Contacted", "Negotiation", "Qualified", "Won", "Client Successfully Acquired", "Lost"];
+const STAGES = ["New", "Contacted", "Proposal", "Negotiation", "Nurturing", "Qualified", "Won", "Client Successfully Acquired", "Lost"];
 
 const STAGE_COLORS: Record<string, string> = {
   new: "bg-slate-500",
   contacted: "bg-blue-500",
+  proposal: "bg-orange-500",
   negotiation: "bg-yellow-500",
+  nurturing: "bg-cyan-500",
   qualified: "bg-purple-500",
   won: "bg-green-500",
   "client successfully acquired": "bg-emerald-500",
   lost: "bg-red-500",
   New: "bg-slate-500",
   Contacted: "bg-blue-500",
+  Proposal: "bg-orange-500",
   Negotiation: "bg-yellow-500",
+  Nurturing: "bg-cyan-500",
   Qualified: "bg-purple-500",
   Won: "bg-green-500",
   "Client Successfully Acquired": "bg-emerald-500",
@@ -126,7 +130,7 @@ export default function LeadsList() {
   const [selectedCountry, setSelectedCountry] = useState("All Countries");
   const [leadsTab, setLeadsTab] = useState<"open" | "closed">("open");
 
-  const OPEN_STAGES = ["New", "Contacted", "Negotiation", "Qualified"];
+  const OPEN_STAGES = ["New", "Contacted", "Proposal", "Negotiation", "Nurturing", "Qualified"];
   const CLOSED_STAGES = ["Won", "Client Successfully Acquired", "Lost"];
 
   const uniqueCountries = Array.from(

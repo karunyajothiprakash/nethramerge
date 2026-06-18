@@ -23,8 +23,8 @@ type POItem = {
 export default function CreatePOLive() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
-  const [suppliers, setSuppliers] = useState<{id: string, name: string}[]>([]);
-  const [products, setProducts] = useState<{id: string, name: string, unit: string}[]>([]);
+  const [suppliers, setSuppliers] = useState<{ id: string, name: string }[]>([]);
+  const [products, setProducts] = useState<{ id: string, name: string, unit: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -40,16 +40,22 @@ export default function CreatePOLive() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = { 'Authorization': `Bearer ${session?.access_token}` };
+
         const [supRes, prodRes] = await Promise.all([
-          supabase.from("farmers").select("id, full_name").eq("is_active", true).neq("is_deleted", true),
-          supabase.from("products").select("id, name, unit").eq("is_active", true)
+          fetch(`/api/farmers`, { headers }),
+          fetch(`/api/products`, { headers })
         ]);
-          
-        if (supRes.error) throw supRes.error;
-        if (prodRes.error) throw prodRes.error;
-        
-        setSuppliers((supRes.data || []).map(f => ({ id: f.id, name: f.full_name })));
-        setProducts((prodRes.data || []).map(p => ({ id: p.id, name: p.name, unit: p.unit })));
+
+        if (!supRes.ok) throw new Error("Failed to fetch suppliers");
+        if (!prodRes.ok) throw new Error("Failed to fetch products");
+
+        const supData = await supRes.json();
+        const prodData = await prodRes.json();
+
+        setSuppliers((supData || []).map((f: any) => ({ id: f.id, name: f.full_name })));
+        setProducts((prodData || []).map((p: any) => ({ id: p.id, name: p.name, unit: p.unit })));
       } catch (err: any) {
         toast.error("Failed to load catalog data");
         console.error("Fetch error:", err);
@@ -95,39 +101,46 @@ export default function CreatePOLive() {
 
     setSaving(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+
       // Step 1: Generate a professional PO number instantly
       const timestamp = new Date().getTime().toString().slice(-4);
       const year = new Date().getFullYear();
       const generatedPoNumber = `PO-${year}-${timestamp}`;
 
-      // Step 2: Create the PO header
-      const { data: po, error: poErr } = await supabase.from("purchase_orders").insert({
-        po_number: generatedPoNumber,
-        company_id: profile.company_id,
-        farmer_id: supplierId,
-        status: status === 'draft' ? 'draft' : 'approved',
-        expected_delivery: expectedDate ? new Date(expectedDate).toISOString() : null,
-        total: totalAmount,
-        subtotal: totalAmount,
-        currency,
-        notes,
-        created_by: user.id,
-        order_date: new Date().toISOString()
-      }).select().single();
+      // Step 2: Create the PO header and items via POST
+      const res = await fetch('/api/purchase_orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({
+          po_number: generatedPoNumber,
+          company_id: profile.company_id,
+          farmer_id: supplierId,
+          status: status === 'draft' ? 'draft' : 'approved',
+          expected_delivery: expectedDate || null,
+          total: totalAmount,
+          subtotal: totalAmount,
+          currency,
+          notes,
+          created_by: user.id,
+          order_date: new Date().toISOString().split('T')[0],
+          items: items.map(i => ({
+            product_id: i.product,
+            quantity: i.quantity,
+            unit_price: i.unit_price
+          }))
+        })
+      });
 
-      if (poErr) throw poErr;
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to create purchase order");
+      }
 
-      // Step 2: Create the PO items linked to products
-      const itemRows = items.map(i => ({
-        po_id: po.id,
-        product_id: i.product,
-        quantity: i.quantity,
-        unit_price: i.unit_price
-      }));
-
-      const { error: itemsErr } = await supabase.from("purchase_order_items").insert(itemRows);
-      if (itemsErr) throw itemsErr;
-
+      const po = await res.json();
       toast.success(`Purchase order ${po.po_number} ${status === 'draft' ? 'saved' : 'issued'} successfully`);
       navigate("/procurement/orders");
     } catch (err: any) {
@@ -198,10 +211,10 @@ export default function CreatePOLive() {
                         </Select>
                       </TableCell>
                       <TableCell className="py-4">
-                        <Input 
-                          type="number" min="1" 
-                          value={item.quantity} 
-                          onChange={(e) => updateItem(item.id, "quantity", Number(e.target.value))} 
+                        <Input
+                          type="number" min="1"
+                          value={item.quantity}
+                          onChange={(e) => updateItem(item.id, "quantity", Number(e.target.value))}
                           className="border-none bg-transparent focus-visible:ring-1 focus-visible:ring-primary/50 h-8 px-2"
                         />
                       </TableCell>
@@ -223,10 +236,10 @@ export default function CreatePOLive() {
                           <span className="absolute left-0 top-1/2 -translate-y-1/2 text-muted-foreground/50 text-xs pl-2">
                             {currency === 'INR' ? '₹' : currency === 'USD' ? '$' : '€'}
                           </span>
-                          <Input 
-                            type="number" min="0" step="0.01" 
-                            value={item.unit_price} 
-                            onChange={(e) => updateItem(item.id, "unit_price", Number(e.target.value))} 
+                          <Input
+                            type="number" min="0" step="0.01"
+                            value={item.unit_price}
+                            onChange={(e) => updateItem(item.id, "unit_price", Number(e.target.value))}
                             className="border-none bg-transparent focus-visible:ring-1 focus-visible:ring-primary/50 h-8 pl-6 pr-2 text-right font-mono"
                           />
                         </div>
@@ -235,10 +248,10 @@ export default function CreatePOLive() {
                         {(item.quantity * item.unit_price).toLocaleString()}
                       </TableCell>
                       <TableCell className="pr-6 py-4">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => removeItem(item.id)} 
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeItem(item.id)}
                           disabled={items.length === 1}
                           className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full opacity-0 group-hover:opacity-100 transition-all"
                         >
@@ -251,10 +264,10 @@ export default function CreatePOLive() {
               </Table>
             </div>
             <div className="p-4 bg-white/[0.02] border-t border-white/5">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={addItem} 
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={addItem}
                 className="w-full h-12 border-2 border-dashed border-white/5 hover:border-primary/30 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all gap-2"
               >
                 <Plus className="h-4 w-4" /> Add Item Line
@@ -293,7 +306,7 @@ export default function CreatePOLive() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Currency</Label>
@@ -310,10 +323,10 @@ export default function CreatePOLive() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Expected Delivery</Label>
-                  <Input 
-                    type="date" 
-                    value={expectedDate} 
-                    onChange={(e) => setExpectedDate(e.target.value)} 
+                  <Input
+                    type="date"
+                    value={expectedDate}
+                    onChange={(e) => setExpectedDate(e.target.value)}
                     className="bg-white/5 border-white/10"
                   />
                 </div>
@@ -321,26 +334,26 @@ export default function CreatePOLive() {
 
               <div className="space-y-2">
                 <Label className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Notes / Instructions</Label>
-                <Textarea 
-                  placeholder="Enter any special instructions or terms..." 
-                  value={notes} 
+                <Textarea
+                  placeholder="Enter any special instructions or terms..."
+                  value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="h-28 bg-white/5 border-white/10 focus:border-primary/50 transition-colors resize-none"
                 />
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-3 p-6 pt-0">
-              <Button 
-                className="w-full btn-gold h-12 text-base shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]" 
+              <Button
+                className="w-full btn-gold h-12 text-base shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
                 onClick={() => handleSave('sent')}
                 disabled={saving}
               >
                 {saving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
                 Issue Purchase Order
               </Button>
-              <Button 
-                variant="outline" 
-                className="w-full h-12 border-white/10 hover:bg-white/5 hover:text-white transition-all" 
+              <Button
+                variant="outline"
+                className="w-full h-12 border-white/10 hover:bg-white/5 hover:text-white transition-all"
                 onClick={() => handleSave('draft')}
                 disabled={saving}
               >
@@ -348,7 +361,7 @@ export default function CreatePOLive() {
               </Button>
             </CardFooter>
           </Card>
-          
+
           {/* Quick Stats or Info Panel */}
           <div className="p-4 rounded-xl border border-white/5 bg-white/[0.02] text-xs text-muted-foreground leading-relaxed">
             <p><strong>Note:</strong> Issuing this purchase order will notify the supplier and create a pending record in your procurement ledger.</p>

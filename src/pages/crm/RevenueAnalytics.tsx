@@ -82,8 +82,12 @@ export default function RevenueAnalytics() {
     // 1. BDE-wise Revenue Report
     const bdeRevenueData = useMemo(() => {
         const bdeProfiles = data.profiles.filter((p: any) => {
-            const name = (p.full_name || "").toLowerCase();
-            return name.includes("gayathri") || name.includes("vemula");
+            // Include any profile that is assigned to at least one lead (dynamic BDE detection)
+            const name = (p.full_name || "").toLowerCase().trim();
+            return name && data.leads.some((l: any) => {
+                const assignee = (l.assigned_to || "").toLowerCase().trim();
+                return assignee === name || assignee === p.id;
+            });
         });
 
         const map: Record<string, number> = {};
@@ -185,10 +189,10 @@ export default function RevenueAnalytics() {
 
         const acquiredLeads = data.leads.filter((l: any) => {
             // Only include leads that actually have orders placed
-            const hasOrder = l.company_name && [...customerNamesWithOrders].some(name => 
+            const hasOrder = l.company_name && [...customerNamesWithOrders].some(name =>
                 name && (l.company_name.toLowerCase().trim() === name || l.company_name.toLowerCase().trim().includes(name) || name.includes(l.company_name.toLowerCase().trim()))
             );
-            return hasOrder && ['won', 'converted', 'customer', 'client successfully acquired', 'client'].some(keyword => 
+            return hasOrder && ['won', 'converted', 'customer', 'client successfully acquired', 'client'].some(keyword =>
                 l.stage?.toLowerCase()?.trim()?.includes(keyword)
             );
         });
@@ -212,7 +216,15 @@ export default function RevenueAnalytics() {
             toast.error("No data available to export for this report");
             return;
         }
-        const ws = XLSX.utils.json_to_sheet(reportData);
+
+        const normalizedRows = reportData.map((row: any) =>
+            Object.fromEntries(
+                Object.entries(row).map(([key, value]) => [key, value === undefined || value === null ? "" : value])
+            )
+        );
+
+        const headers = Object.keys(normalizedRows[0] || {});
+        const ws = XLSX.utils.json_to_sheet(normalizedRows, { header: headers, skipHeader: false });
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Report");
         XLSX.writeFile(wb, `${filename}_${format(new Date(), 'yyyyMMdd')}.xlsx`);

@@ -17,7 +17,7 @@ serve(async (req) => {
     )
 
     const payload = await req.json()
-    let { companyId, leadId } = payload
+    const { companyId, leadId } = payload
     
     // 1. Get credentials
     const { data: company } = await supabase
@@ -71,7 +71,7 @@ serve(async (req) => {
 
     await client.connect()
     
-    let lock = await client.getMailboxLock('INBOX')
+    const lock = await client.getMailboxLock('INBOX')
     let count = 0
     
     try {

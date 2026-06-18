@@ -428,7 +428,7 @@ export function useAuth() {
   const ctx = useContext(Ctx);
   if (!ctx) {
     // Fail-safe: avoid throwing during HMR/network blips — return a minimal fallback
-    // eslint-disable-next-line no-console
+     
     console.warn("useAuth used outside AuthProvider — returning fallback context");
     return {
       session: null,

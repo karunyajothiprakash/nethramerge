@@ -22,7 +22,7 @@ export default function CreateInspection() {
   const [foreign, setForeign] = useState("");
   const [broken, setBroken] = useState("");
   const [grade, setGrade] = useState("A");
-  const [result, setResult] = useState("pending");
+  const result = "pending";
   const [notes, setNotes] = useState("");
 
   const { data: batches, isLoading: batchesLoading } = useQuery({
@@ -41,7 +41,7 @@ export default function CreateInspection() {
           headers: { 'Authorization': `Bearer ${session?.access_token}` }
         });
         const products = prodRes.ok ? await prodRes.json() : [];
-        const prodMap: Record<string,string> = {};
+        const prodMap: Record<string, string> = {};
         products.forEach((p: any) => { prodMap[p.id] = p.name; });
         return (rows || []).filter((b: any) => b.company_id === profile.company_id && !b.is_deleted).map((b: any) => ({
           ...b,
@@ -142,15 +142,9 @@ export default function CreateInspection() {
               </Select>
             </FormRow>
             <FormRow label="Outcome">
-              <Select value={result} onValueChange={setResult}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="rework">Rework</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="rounded-md border border-slate-700 px-3 py-2 text-sm text-muted-foreground bg-slate-950">
+                Pending approval
+              </div>
             </FormRow>
           </FormGrid>
           <div className="mt-4">
@@ -169,3 +163,4 @@ export default function CreateInspection() {
     </div>
   );
 }
+

@@ -98,12 +98,22 @@ def main():
 
         # Generate and upload .env
         print("📤 Uploading remote .env...")
-        env_content = f"""PORT=8082
-SUPABASE_URL={supabase_url}
-SUPABASE_SERVICE_ROLE_KEY={supabase_key}
-DEVICE_TIMEZONE_OFFSET=+05:30
-PG_PASSWORD=Shastika2026
-"""
+        remote_env = {
+            "PORT": "8082",
+            "DEVICE_TIMEZONE_OFFSET": "+05:30",
+            "PG_PASSWORD": "Shastika2026",
+        }
+        # Merge all local env variables
+        for k, v in local_env.items():
+            if k == "VITE_SUPABASE_URL":
+                remote_env["SUPABASE_URL"] = v
+            else:
+                remote_env[k] = v
+
+        env_content = ""
+        for k, v in remote_env.items():
+            env_content += f"{k}={v}\n"
+
         sftp.putfo(io.BytesIO(env_content.encode('utf-8')), '/var/www/adms-sync/.env')
 
         # Run setup commands

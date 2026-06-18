@@ -111,6 +111,102 @@ router.get('/converted/debug', async (req, res) => {
   }
 });
 
+// POST /api/leads/add-client - Add a converted client directly
+router.post('/add-client', requireAuth, async (req, res) => {
+  try {
+    const {
+      company_name,
+      country,
+      inquiry_source,
+      assigned_bde,
+      acquisition_date,
+      product_interested
+    } = req.body;
+
+    const created_by = req.user.sub;
+
+    // Fetch user's company_id from profiles
+    const { rows: profileRows } = await db.query(
+      'SELECT company_id FROM profiles WHERE id = $1',
+      [created_by]
+    );
+    const company_id = profileRows.length > 0 ? profileRows[0].company_id : null;
+
+    if (!company_id) {
+      return res.status(400).json({ error: "User profile company_id not found" });
+    }
+
+    // Resolve or create acquisition channel for inquiry_source
+    let source_id = null;
+    if (inquiry_source) {
+      const { rows: channelRows } = await db.query(
+        'SELECT id FROM acquisition_channels WHERE company_id = $1 AND LOWER(channel_name) = LOWER($2)',
+        [company_id, inquiry_source.trim()]
+      );
+      if (channelRows.length > 0) {
+        source_id = channelRows[0].id;
+      } else {
+        const { rows: insertChannel } = await db.query(
+          'INSERT INTO acquisition_channels (company_id, channel_name, avg_lead_cost) VALUES ($1, $2, 0) RETURNING id',
+          [company_id, inquiry_source.trim()]
+        );
+        source_id = insertChannel[0].id;
+      }
+    }
+
+    // Insert into leads
+    const { rows: leadRows } = await db.query(
+      `INSERT INTO leads (
+        company_id, company_name, country, source_id, assigned_to, 
+        created_at, converted_at, product_type, stage, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [
+        company_id,
+        company_name,
+        country,
+        source_id,
+        assigned_bde,
+        acquisition_date || new Date().toISOString(),
+        acquisition_date || new Date().toISOString(),
+        product_interested,
+        'Client Successfully Acquired',
+        created_by
+      ]
+    );
+
+    const createdLead = leadRows[0];
+
+    // Check and insert into customers table to sync directory
+    const custCheck = await db.query(
+      'SELECT id FROM customers WHERE company_id = $1 AND LOWER(name) = LOWER($2)',
+      [company_id, company_name.trim()]
+    );
+    if (custCheck.rows.length === 0) {
+      await db.query(
+        `INSERT INTO customers (company_id, name, country, relationship_status, repeat_order_count, satisfaction_score) 
+         VALUES ($1, $2, $3, $4, 0, 0)`,
+        [company_id, company_name.trim(), country, 'Active Client']
+      );
+    }
+
+    // Format output to match the table display
+    res.status(201).json({
+      id: createdLead.id,
+      client_name: company_name,
+      country: country,
+      source: inquiry_source,
+      assigned_bde: assigned_bde,
+      acquisition_date: acquisition_date || createdLead.created_at,
+      product_interested: product_interested,
+      status: 'Client Successfully Acquired'
+    });
+
+  } catch (err) {
+    console.error("DB Error (add client):", err);
+    res.status(500).json({ error: err.message || "Internal Server Error" });
+  }
+});
+
 // GET /api/leads/:id - Fetch single lead
 router.get('/:id', requireAuth, async (req, res) => {
   try {
@@ -173,7 +269,7 @@ router.put('/:id', requireAuth, async (req, res) => {
     
     if (updates.stage === 'Won' || updates.stage === 'Client Successfully Acquired') {
       // Automatically convert to customer if not already converted
-      const leadCheck = await db.query('SELECT company_id, company_name, country, email FROM leads WHERE id = $1', [id]);
+      const leadCheck = await db.query('SELECT company_id, company_name, contact_name, contact_person, country, email FROM leads WHERE id = $1', [id]);
       if (leadCheck.rows.length > 0) {
         const leadData = leadCheck.rows[0];
         
@@ -184,12 +280,28 @@ router.put('/:id', requireAuth, async (req, res) => {
         }
 
         if (cmpId) {
-          // Check if already in customers to avoid duplicates
-          const custCheck = await db.query('SELECT id FROM customers WHERE email = $1 AND name = $2', [leadData.email, leadData.company_name]);
+          const customerName = leadData.company_name || leadData.contact_name || leadData.contact_person || 'Unknown Customer';
+          const customerEmail = (leadData.email || '').trim();
+          
+          let custCheck;
+          if (customerEmail) {
+            // Check by email under the same company to satisfy idx_unique_customer_email_per_company
+            custCheck = await db.query(
+              'SELECT id FROM customers WHERE email = $1 AND company_id = $2',
+              [customerEmail, cmpId]
+            );
+          } else {
+            // Check by name if email is empty
+            custCheck = await db.query(
+              'SELECT id FROM customers WHERE name = $1 AND company_id = $2 AND (email IS NULL OR email = \'\')',
+              [customerName, cmpId]
+            );
+          }
+
           if (custCheck.rows.length === 0) {
             await db.query(
               `INSERT INTO customers (company_id, name, country, email) VALUES ($1, $2, $3, $4)`,
-              [cmpId, leadData.company_name, leadData.country, leadData.email]
+              [cmpId, customerName, leadData.country, customerEmail || null]
             );
           }
         } else {

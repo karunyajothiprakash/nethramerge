@@ -36,7 +36,7 @@ const Badge = ({ label, color = COLORS.accent }: any) => (
 
 const statusColor = (s: string) => {
   if (!s) return COLORS.textSecondary;
-  const map: Record<string, string> = { "New": COLORS.blue, "Qualified": COLORS.purple, "Negotiation": COLORS.gold, "Follow-Up": COLORS.orange, "Won": COLORS.green, "Lost": COLORS.red, "Draft": COLORS.textSecondary, "Sent": COLORS.blue, "Approved": COLORS.green, "Online": COLORS.green, "Idle": COLORS.gold, "Offline": COLORS.textMuted, "Active": COLORS.blue, "Closed": COLORS.textSecondary, "Rejected": COLORS.red, "Pending": COLORS.orange, "Accepted": COLORS.green };
+  const map: Record<string, string> = { "New": COLORS.blue, "Qualified": COLORS.purple, "Negotiation": COLORS.gold, "Follow-Up": COLORS.orange, "Won": COLORS.green, "Client Successfully Acquired": COLORS.green, "Lost": COLORS.red, "Draft": COLORS.textSecondary, "Sent": COLORS.blue, "Approved": COLORS.green, "Online": COLORS.green, "Idle": COLORS.gold, "Offline": COLORS.textMuted, "Active": COLORS.blue, "Closed": COLORS.textSecondary, "Rejected": COLORS.red, "Pending": COLORS.orange, "Accepted": COLORS.green };
   return map[s] || COLORS.textSecondary;
 };
 

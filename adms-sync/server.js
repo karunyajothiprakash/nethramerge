@@ -100,6 +100,7 @@ const documentsRoutes = require('./routes/documents');
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/employees', employeesRoutes);
 app.use('/api/leads', crmRoutes);
+app.use('/api/crm/leads', crmRoutes);
 app.use('/api/crm-tasks', crmTasksRoutes);
 app.use('/api/follow-ups', followUpsRoutes);
 app.use('/api/quotations', quotationsRoutes);
@@ -476,7 +477,15 @@ app.post('/force-logout', express.json(), async (req, res) => {
 // --- PostgreSQL LISTEN/NOTIFY Real-Time Sync ---
 const { Client } = require('pg');
 
+let pgListenerRetries = 0;
+const MAX_PG_LISTENER_RETRIES = 5;
+
 async function startPgListener() {
+  if (pgListenerRetries >= MAX_PG_LISTENER_RETRIES) {
+    console.warn(`⚠️ PG Listener connection failed ${MAX_PG_LISTENER_RETRIES} times. Reconnection disabled to prevent log spam. Please ensure PostgreSQL is running at ${process.env.PG_HOST || '127.0.0.1'}:${process.env.PG_PORT || '5432'} and restart the server.`);
+    return;
+  }
+
   const pgClient = new Client({
     user: process.env.PG_USER || 'erp_admin',
     host: process.env.PG_HOST || '127.0.0.1',
@@ -487,6 +496,7 @@ async function startPgListener() {
 
   pgClient.on('error', (err) => {
     console.error('❌ PG Listener Client Error:', err.message);
+    pgListenerRetries++;
     // Try to reconnect after a delay
     setTimeout(startPgListener, 5000);
   });
@@ -497,6 +507,7 @@ async function startPgListener() {
 
   try {
     await pgClient.connect();
+    pgListenerRetries = 0; // Reset on successful connection
     console.log('🔌 Dedicated PG Listener Client connected.');
     
     await pgClient.query('LISTEN data_changed');
@@ -518,6 +529,7 @@ async function startPgListener() {
     });
   } catch (err) {
     console.error('❌ Failed to connect PG Listener:', err.message);
+    pgListenerRetries++;
     setTimeout(startPgListener, 5000);
   }
 }

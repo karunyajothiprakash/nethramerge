@@ -1,156 +1,75 @@
-import { useEffect, useState, useMemo } from "react";
-import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Loader2, Trash2, UserCheck, Globe, Search, Filter, Plus } from "lucide-react";
-import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
-import { PageHeader } from "@/components/shared/PageHeader";
-import { Input } from "@/components/ui/input";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription
-} from "@/components/ui/dialog";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from "@/components/ui/sheet";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Download, Edit2, FileDown, MessageSquare, AlertCircle, TrendingUp, History, User } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { format, differenceInDays } from "date-fns";
-import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { Edit2, Plus } from 'lucide-react';
 
-export default function CustomersList() {
+const ClientSuccess = () => {
   const { profile } = useAuth();
-  const [customers, setCustomers] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [clients, setClients] = useState<any[]>([]);
+  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
+  const [isAddMode, setIsAddMode] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleteName, setDeleteName] = useState("");
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
-  // New state for Add/Edit/Detail
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isSavingFeedback, setIsSavingFeedback] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
-  const [editingCustomer, setEditingCustomer] = useState<any>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    country: "",
-    email: "",
-    phone: "",
-    notes: "",
-    relationship_status: "Active Client",
-    satisfaction_notes: ""
+  const [editForm, setEditForm] = useState({
+    name: '',
+    country: '',
+    email: '',
+    phone: '',
+    relationship_status: 'Active Client',
+    satisfaction_notes: '',
+    satisfaction_score: 0,
+    repeat_order_count: 0
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchCustomers = async () => {
-    if (!profile?.company_id) return;
+    if (!profile?.company_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("No active session");
-
-      const [custRes, leadsRes, profilesRes, ordersRes] = await Promise.all([
-        fetch(`/api/customers?company_id=${profile.company_id}`, {
-          headers: { 'Authorization': `Bearer ${session.access_token}` }
-        }),
-        fetch('/api/leads', {
-          headers: { 'Authorization': `Bearer ${session.access_token}` }
-        }),
-        fetch('/api/employees', {
-          headers: { 'Authorization': `Bearer ${session.access_token}` }
-        }),
-        fetch(`/api/finance/sales_orders?company_id=${profile.company_id}`, {
-          headers: { 'Authorization': `Bearer ${session.access_token}` }
-        })
-      ]);
-
-      if (!custRes.ok) {
-        console.error("Customers API failed:", custRes.status, await custRes.text());
-        throw new Error(`Failed to fetch customers: ${custRes.status}`);
-      }
-      if (!leadsRes.ok) {
-        console.error("Leads API failed:", leadsRes.status, await leadsRes.text());
-        throw new Error(`Failed to fetch leads: ${leadsRes.status}`);
-      }
-      if (!profilesRes.ok) {
-        console.error("Employees/Profiles API failed:", profilesRes.status, await profilesRes.text());
-        throw new Error(`Failed to fetch employees: ${profilesRes.status}`);
-      }
-      if (!ordersRes.ok) {
-        console.error("Orders API failed:", ordersRes.status, await ordersRes.text());
-        throw new Error(`Failed to fetch orders: ${ordersRes.status}`);
-      }
-
-      const custData = await custRes.json();
-      const leadsData = await leadsRes.json();
-      const profilesData = await profilesRes.json();
-      const ordersData = await ordersRes.json();
-
-      const leadsMap = new Map();
-      (leadsData || []).forEach((l: any) => {
-        if (l.company_name) {
-          leadsMap.set(l.company_name.toLowerCase(), l);
+      const res = await fetch(`/api/customers?company_id=${profile.company_id}`, {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
         }
       });
 
-      const profilesMap = new Map();
-      (profilesData || []).forEach((p: any) => {
-        profilesMap.set(p.id, p.full_name);
-      });
+      if (!res.ok) {
+        throw new Error('Failed to load customers');
+      }
 
-      const ordersByCustomer = new Map();
-      (ordersData || []).forEach((o: any) => {
-        const list = ordersByCustomer.get(o.customer_id) || [];
-        list.push(o);
-        ordersByCustomer.set(o.customer_id, list);
-      });
-
-      const merged = (custData || []).map((c: any) => {
-        const lead = leadsMap.get(c.name?.toLowerCase());
-        const customerOrders = ordersByCustomer.get(c.id) || [];
-        const lastOrder = customerOrders.length > 0
-          ? new Date(Math.max(...customerOrders.map((o: any) => new Date(o.created_at).getTime())))
-          : null;
-
-        return {
-          ...c,
-          country: c.country || lead?.country || "Unspecified",
-          email: c.email || lead?.email || "No email recorded",
-          added_by_name: profilesMap.get(c.created_by) || "System / Auto",
-          order_count: customerOrders.length,
-          last_order_date: lastOrder,
-          days_since_order: lastOrder ? differenceInDays(new Date(), lastOrder) : null
-        };
-      });
-
-      setCustomers(merged);
+      const customers = await res.json();
+      setClients(customers.map((customer: any) => ({
+        id: customer.id,
+        name: customer.name || 'Unknown customer',
+        category: customer.relationship_status || 'CLIENT',
+        health: 'HEALTHY',
+        orders: customer.repeat_order_count || 0,
+        score: customer.satisfaction_score || 0,
+        satisfaction_notes: customer.satisfaction_notes || null,
+        feedback: customer.satisfaction_notes || customer.feedback || '',
+        country: customer.country || '',
+        email: customer.email || '',
+        phone: customer.phone || '',
+        relationship_status: customer.relationship_status || 'Active Client',
+        repeat_order_count: customer.repeat_order_count || 0,
+        satisfaction_score: customer.satisfaction_score || 0
+      })));
     } catch (err: any) {
-      console.error("Detailed fetchCustomers error:", err);
-      toast.error(`Failed to load customer directory: ${err.message || err}`);
+      console.error('Error loading customers:', err);
+      toast.error(err.message || 'Unable to load client feedback');
     } finally {
       setLoading(false);
     }
@@ -160,669 +79,506 @@ export default function CustomersList() {
     fetchCustomers();
   }, [profile?.company_id]);
 
-  const filteredCustomers = useMemo(() => {
-    if (!searchQuery) return customers;
-    const query = searchQuery.toLowerCase();
-    return customers.filter(c =>
-      c.name?.toLowerCase().includes(query) ||
-      c.email?.toLowerCase().includes(query) ||
-      c.country?.toLowerCase().includes(query)
-    );
-  }, [customers, searchQuery]);
-
-  const handleDelete = (id: string, name: string) => {
-    setDeleteId(id);
-    setDeleteName(name);
-    setConfirmOpen(true);
+  const openFeedbackDialog = (client) => {
+    setIsAddMode(false);
+    setSelectedClient(client);
+    setFeedbackText(client.satisfaction_notes || client.feedback || '');
+    setIsFeedbackDialogOpen(true);
   };
 
-  const executeDelete = async () => {
-    if (!deleteId) return;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`/api/finance/customers/${deleteId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${session?.access_token}` }
-      });
-      if (!res.ok) throw new Error("Delete failed");
-      toast.success("Customer removed from view (soft-deleted)");
-      setCustomers(customers.filter(c => c.id !== deleteId));
-      setConfirmOpen(false);
-    } catch (err: any) {
-      toast.error("Could not delete customer record.");
-    } finally {
-      setDeleteId(null);
-    }
+  const openAddFeedbackDialog = () => {
+    setIsAddMode(true);
+    setSelectedClient(clients[0] || null);
+    setFeedbackText('');
+    setIsFeedbackDialogOpen(true);
   };
 
-  const handleAddSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profile?.company_id) return;
-
-    try {
-      setIsSubmitting(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`/api/finance/customers`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session?.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          ...formData,
-          email: formData.email || null,
-          phone: formData.phone || null,
-          country: formData.country || null,
-          company_id: profile.company_id,
-          created_by: profile.id
-        })
-      });
-      if (!res.ok) throw new Error("Add failed");
-
-      toast.success("Customer added successfully");
-      setIsAddDialogOpen(false);
-      setFormData({ name: "", country: "", email: "", phone: "", notes: "", relationship_status: "Active Client", satisfaction_notes: "" });
-      fetchCustomers();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to add customer");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleEditClick = (customer: any) => {
-    setEditingCustomer(customer);
-    setFormData({
-      name: customer.name || "",
-      country: customer.country === "Unspecified" ? "" : (customer.country || ""),
-      email: customer.email === "No email recorded" ? "" : (customer.email || ""),
-      phone: customer.phone || "",
-      notes: customer.notes || "",
-      relationship_status: customer.relationship_status || "Active Client",
-      satisfaction_notes: customer.satisfaction_notes || ""
+  const openEditDialog = (client) => {
+    setSelectedClient(client);
+    setEditForm({
+      name: client.name || '',
+      country: client.country || '',
+      email: client.email || '',
+      phone: client.phone || '',
+      relationship_status: client.relationship_status || 'Active Client',
+      satisfaction_notes: client.satisfaction_notes || '',
+      satisfaction_score: client.satisfaction_score || 0,
+      repeat_order_count: client.repeat_order_count || 0
     });
     setIsEditDialogOpen(true);
   };
 
-  const handleRowClick = (customer: any) => {
-    setSelectedCustomer(customer);
-    setFormData({
-      name: customer.name || "",
-      country: customer.country === "Unspecified" ? "" : (customer.country || ""),
-      email: customer.email === "No email recorded" ? "" : (customer.email || ""),
-      phone: customer.phone || "",
-      notes: customer.notes || "",
-      relationship_status: customer.relationship_status || "Active Client",
-      satisfaction_notes: customer.satisfaction_notes || ""
-    });
-    setIsSheetOpen(true);
-  };
-
-  const handleUpdateFromSheet = async () => {
-    if (!selectedCustomer) return;
-
-    try {
-      setIsSubmitting(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`/api/finance/customers/${selectedCustomer.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${session?.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          country: formData.country || null,
-          email: formData.email || null,
-          relationship_status: formData.relationship_status,
-          satisfaction_notes: formData.satisfaction_notes,
-          phone: formData.phone || null,
-          notes: formData.notes
-        })
-      });
-      if (!res.ok) throw new Error("Update failed");
-
-      toast.success("Client data synchronized");
-      setIsSheetOpen(false);
-      fetchCustomers();
-    } catch (err: any) {
-      toast.error("Failed to update record");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleNotesClick = (customer: any) => {
-    setEditingCustomer(customer);
-    setFormData({
-      ...formData,
-      satisfaction_notes: customer.satisfaction_notes || ""
-    });
-    setIsNotesDialogOpen(true);
-  };
-
-  const handleNotesSubmit = async (e: React.FormEvent) => {
+  const handleEditSave = async (e) => {
     e.preventDefault();
-    if (!editingCustomer) return;
-
+    if (!selectedClient) return;
     try {
-      setIsSubmitting(true);
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`/api/finance/customers/${editingCustomer.id}`, {
+      const res = await fetch(`/api/customers/${selectedClient.id}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${session?.access_token}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
         body: JSON.stringify({
-          satisfaction_notes: formData.satisfaction_notes
+          name: editForm.name,
+          country: editForm.country,
+          email: editForm.email,
+          phone: editForm.phone,
+          relationship_status: editForm.relationship_status,
+          satisfaction_notes: editForm.satisfaction_notes,
+          satisfaction_score: editForm.satisfaction_score,
+          repeat_order_count: editForm.repeat_order_count
         })
       });
-      if (!res.ok) throw new Error("Update failed");
-
-      toast.success("Engagement notes updated");
-      setIsNotesDialogOpen(false);
-      fetchCustomers();
-    } catch (err: any) {
-      toast.error("Failed to save notes");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingCustomer) return;
-
-    try {
-      setIsSubmitting(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`/api/finance/customers/${editingCustomer.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${session?.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          country: formData.country || null,
-          email: formData.email || null,
-          phone: formData.phone || null,
-          notes: formData.notes,
-          relationship_status: formData.relationship_status
-        })
-      });
-      if (!res.ok) throw new Error("Update failed");
-
-      toast.success("Customer updated successfully");
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Update failed');
+      }
+      const updated = await res.json();
+      setClients((current) =>
+        current.map((client) =>
+          client.id === selectedClient.id
+            ? { ...client, ...updated, feedback: updated.satisfaction_notes || editForm.satisfaction_notes }
+            : client
+        )
+      );
+      toast.success('Customer updated successfully');
       setIsEditDialogOpen(false);
-      fetchCustomers();
     } catch (err: any) {
-      toast.error(err.message || "Failed to update customer");
-    } finally {
-      setIsSubmitting(false);
+      console.error('Edit save failed', err);
+      toast.error(err.message || 'Failed to update customer');
     }
   };
 
-  const exportToCSV = () => {
-    if (customers.length === 0) return;
+  const handleFeedbackSave = async (event) => {
+    event.preventDefault();
+    if (!selectedClient) return;
 
-    const headers = ["Name", "Country", "Email", "Phone", "Notes"];
-    const csvContent = [
-      headers.join(","),
-      ...customers.map(c => [
-        `"${c.name || ''}"`,
-        `"${c.country || ''}"`,
-        `"${c.email || ''}"`,
-        `"${c.phone || ''}"`,
-        `"${(c.notes || '').replace(/"/g, '""')}"`
-      ].join(","))
-    ].join("\n");
+    setIsSavingFeedback(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/customers/${selectedClient.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ satisfaction_notes: feedbackText })
+      });
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `customers_export_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      if (!res.ok) {
+        const errorBody = await res.text();
+        throw new Error(errorBody || 'Failed to save feedback');
+      }
+
+      const updated = await res.json();
+      setClients((current) =>
+        current.map((client) =>
+          client.id === selectedClient.id
+            ? { ...client, satisfaction_notes: updated.satisfaction_notes, feedback: updated.satisfaction_notes || feedbackText }
+            : client,
+        ),
+      );
+
+      toast.success('Feedback updated successfully');
+      setIsFeedbackDialogOpen(false);
+    } catch (err: any) {
+      console.error('Error saving feedback:', err);
+      toast.error(err.message || 'Could not save feedback');
+    } finally {
+      setIsSavingFeedback(false);
+    }
   };
+
+  // Helper for Category Badges
+  const getCategoryBadge = (category) => {
+    switch (category) {
+      case 'ACTIVE CLIENT':
+      case 'Active Client':
+        return 'bg-green-500/10 text-green-500 border-green-500/20';
+      case 'REPEAT BUYER':
+      case 'Repeat Buyer':
+        return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+      case 'HIGH VALUE CLIENT':
+      case 'High Value Client':
+        return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
+      case 'POTENTIAL GROWTH CLIENT':
+      case 'Potential Growth Client':
+        return 'bg-purple-500/10 text-purple-500 border-purple-500/20';
+      case 'INACTIVE CLIENT':
+      case 'Inactive Client':
+        return 'bg-red-500/10 text-red-500 border-red-500/20';
+      default:
+        return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+    }
+  };
+
+  // Helper for Health Badges
+  const getHealthBadge = (health) => {
+    switch (health) {
+      case 'HEALTHY':
+        return 'bg-green-500/20 text-green-500';
+      case 'AT RISK':
+        return 'bg-amber-500/20 text-amber-500';
+      case 'CRITICAL':
+        return 'bg-red-500/20 text-red-500';
+      default:
+        return 'bg-gray-500/20 text-gray-400';
+    }
+  };
+
+  // Helper for Avatar colors
+  const getAvatarColor = (name) => {
+    const colors = ['bg-blue-600', 'bg-emerald-600', 'bg-purple-600', 'bg-amber-600', 'bg-rose-600'];
+    const index = name.length % colors.length;
+    return colors[index];
+  };
+
+  // Filter clients based on search term
+  const filteredClients = clients.filter((client) => {
+    const term = searchTerm.toLowerCase();
+    return (
+      client.name.toLowerCase().includes(term) ||
+      client.category.toLowerCase().includes(term) ||
+      client.relationship_status.toLowerCase().includes(term) ||
+      client.country.toLowerCase().includes(term)
+    );
+  });
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <PageHeader
-        title="Customer Directory"
-        description="Official database of your global clients and export partners"
-        breadcrumbs={[{ label: "CRM", to: "/crm/leads" }, { label: "Customers" }]}
-      />
+    <div className="min-h-screen bg-[#0a0a0a] p-6 font-sans">
+      {/* Header Section */}
+      <div className="mb-8">
+        <div className="text-sm text-gray-500 mb-1">CRM {'>'} Client Success</div>
+        <h1 className="text-3xl font-bold text-white mb-2">Client Success Management</h1>
+        <p className="text-sm text-gray-400">Track long-term relationships, satisfaction, and repeat business health</p>
+      </div>
 
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, email, or country..."
-            className="pl-10 bg-white/5 border-white/10 focus:border-primary/50 transition-all"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+      {/* Toolbar Row */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
+        {/* Search Input */}
+        <div className="relative w-full md:w-[60%]">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </div>
+          <input
+            type="text"
+            className="w-full bg-[#161616] border border-[#2a2a2a] text-white rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-[#f5b400] focus:ring-1 focus:ring-[#f5b400] transition-colors placeholder-gray-500 text-sm"
+            placeholder="Search by company name, category, or status..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="flex gap-3 w-full md:w-auto">
-          <Button variant="outline" onClick={exportToCSV} className="flex-1 md:flex-none border-white/10 hover:bg-white/5">
-            <Download className="h-4 w-4 mr-2" />
+
+        {/* Right Side Buttons */}
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-[#161616] border border-[#2a2a2a] text-white rounded-lg hover:bg-[#222222] transition-colors focus:outline-none text-sm font-medium">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
             Export CSV
-          </Button>
-          <Button onClick={() => setIsAddDialogOpen(true)} className="flex-1 md:flex-none btn-gold">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Customer
+          </button>
+
+          <Button
+            type="button"
+            onClick={openAddFeedbackDialog}
+            disabled={clients.length === 0}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-[#f5b400] hover:bg-[#dca100] text-black rounded-lg transition-colors focus:outline-none text-sm font-semibold shadow-[0_0_15px_rgba(245,180,0,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Plus className="h-4 w-4" />
+            Add Feedback
           </Button>
         </div>
       </div>
 
-      <div className="border rounded-xl bg-card overflow-hidden shadow-2xl border-white/5">
-        <Table>
-          <TableHeader className="bg-muted/30">
-            <TableRow className="border-white/5">
-              <TableHead className="font-bold text-xs uppercase tracking-wider">Customer Name</TableHead>
-              <TableHead className="font-bold text-xs uppercase tracking-wider">Status</TableHead>
-              <TableHead className="font-bold text-xs uppercase tracking-wider">Region / Country</TableHead>
-              <TableHead className="font-bold text-xs uppercase tracking-wider">Orders</TableHead>
-              <TableHead className="font-bold text-xs uppercase tracking-wider">Added By</TableHead>
-              <TableHead className="text-right font-bold text-xs uppercase tracking-wider">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-20">
-                  <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary opacity-50" />
-                  <p className="mt-4 text-sm text-muted-foreground">Accessing Directory...</p>
-                </TableCell>
-              </TableRow>
-            ) : filteredCustomers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-20">
-                  <div className="max-w-xs mx-auto space-y-3">
-                    <UserCheck className="h-12 w-12 mx-auto text-muted-foreground opacity-20" />
-                    <p className="text-muted-foreground font-medium">
-                      {searchQuery ? `No matches found for "${searchQuery}"` : "Your Customer Directory is empty."}
-                    </p>
-                    <p className="text-xs text-muted-foreground/60">
-                      Convert your won leads from the CRM pipeline to build your official client list.
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredCustomers.map((customer) => (
-                <TableRow
-                  key={customer.id}
-                  className="hover:bg-primary/5 transition-colors border-white/5 cursor-pointer"
-                  onClick={() => handleRowClick(customer)}
-                >
-                  <TableCell className="font-bold">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs">
-                        {customer.name?.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex flex-col">
-                        <span>{customer.name}</span>
-                        {customer.days_since_order !== null && customer.days_since_order > 30 && (
-                          <div className="flex items-center gap-1 text-[9px] text-red-500 font-bold uppercase mt-0.5">
-                            <AlertCircle className="h-2.5 w-2.5" />
-                            Inactive {customer.days_since_order}d
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className={cn(
-                      "text-[9px] uppercase px-3 whitespace-nowrap border-none font-bold",
-                      customer.relationship_status === "High Value Client" ? "bg-amber-500/20 text-amber-500" :
-                        customer.relationship_status === "Repeat Buyer" ? "bg-blue-500/20 text-blue-500" :
-                          customer.relationship_status === "Inactive Client" ? "bg-red-500/20 text-red-500" :
-                            customer.relationship_status === "Potential Growth Client" ? "bg-purple-500/20 text-purple-500" :
-                              "bg-emerald-500/20 text-emerald-500"
-                    )}>
-                      {customer.relationship_status || "Active Client"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-3.5 w-3.5 text-blue-500/70" />
-                      <span className="font-medium">{customer.country || "Unspecified"}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-1.5 text-xs font-mono">
-                        <History className="h-3 w-3 text-primary/60" />
-                        {customer.order_count} {customer.order_count === 1 ? 'order' : 'orders'}
-                      </div>
-                      {customer.order_count > 1 && (
-                        <div className="flex items-center gap-1 text-[9px] text-emerald-500 font-bold uppercase">
-                          <TrendingUp className="h-2.5 w-2.5" />
-                          Repeat Buyer
+      {/* Data Table */}
+      <div className="bg-[#161616] border border-[#2a2a2a] rounded-xl overflow-hidden shadow-lg">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-max">
+            <thead>
+              <tr className="bg-[#1e1e1e] border-b border-[#2a2a2a]">
+                <th className="py-4 px-6 font-semibold text-gray-300 text-xs tracking-wider uppercase whitespace-nowrap">Customer Name</th>
+                <th className="py-4 px-6 font-semibold text-gray-300 text-xs tracking-wider uppercase whitespace-nowrap">Category</th>
+                <th className="py-4 px-6 font-semibold text-gray-300 text-xs tracking-wider uppercase whitespace-nowrap">Relationship Health</th>
+                <th className="py-4 px-6 font-semibold text-gray-300 text-xs tracking-wider uppercase whitespace-nowrap">Repeat Orders</th>
+                <th className="py-4 px-6 font-semibold text-gray-300 text-xs tracking-wider uppercase whitespace-nowrap">Satisfaction Score</th>
+                <th className="py-4 px-6 font-semibold text-gray-300 text-xs tracking-wider uppercase whitespace-nowrap">Last Feedback / Complaint</th>
+                <th className="py-4 px-6 font-semibold text-gray-300 text-xs tracking-wider uppercase whitespace-nowrap">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && clients.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 px-6 text-center text-gray-400 text-sm">
+                    Loading customers...
+                  </td>
+                </tr>
+              ) : filteredClients.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 px-6 text-center text-gray-400 text-sm">
+                    No customers found for your company.
+                  </td>
+                </tr>
+              ) : (
+                filteredClients.map((client) => (
+                  <tr key={client.id} className="border-b border-[#2a2a2a] hover:bg-[#1a1a1a] transition-colors">
+                    <td className="py-4 px-6 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm ${getAvatarColor(client.name)}`}>
+                          {client.name.charAt(0)}
                         </div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <UserCheck className="h-3.5 w-3.5 text-orange-500/70" />
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {customer.added_by_name}
+                        <span className="font-bold text-white text-sm">{client.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 whitespace-nowrap">
+                      <span className={`px-2.5 py-1 rounded text-xs font-semibold border ${getCategoryBadge(client.category)}`}>
+                        {client.category}
                       </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 rounded-full transition-all"
-                        onClick={() => handleNotesClick(customer)}
-                        title="Satisfaction Notes"
-                      >
-                        <MessageSquare className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-all"
-                        onClick={() => handleEditClick(customer)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-all"
-                        onClick={() => handleDelete(customer.id, customer.name)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                    </td>
+                    <td className="py-4 px-6 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${client.health === 'HEALTHY' ? 'bg-green-500' : client.health === 'AT RISK' ? 'bg-amber-500' : 'bg-red-500'}`}></div>
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${getHealthBadge(client.health)}`}>
+                          {client.health}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5 text-gray-300 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <span>{client.orders} orders</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#f5b400" stroke="#f5b400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                        </svg>
+                        <span className="text-white font-medium text-sm">
+                          {client.score}
+                          <span className="text-gray-500">/5</span>
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="text-sm text-gray-300 truncate block max-w-[220px]">
+                        {client.feedback ? client.feedback : <span className="text-gray-500 italic">No complaints</span>}
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openFeedbackDialog(client)}
+                          className="inline-flex items-center gap-2 rounded-full border border-[#2a2a2a] px-3 py-1.5 text-sm font-medium text-gray-200 hover:border-[#f5b400] hover:text-white transition-colors"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Feedback
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditDialog(client)}
+                          className="inline-flex items-center gap-2 rounded-full border border-[#2a2a2a] px-3 py-1.5 text-sm font-medium text-gray-200 hover:border-[#f5b400] hover:text-white transition-colors"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                          Edit
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Search Insights */}
-      {filteredCustomers.length > 0 && searchQuery && (
-        <p className="text-xs text-muted-foreground italic">
-          Showing {filteredCustomers.length} of {customers.length} total customers.
-        </p>
-      )}
-
-      <ConfirmDialog
-        open={confirmOpen}
-        title="Remove Customer"
-        description={`Are you sure you want to remove "${deleteName}" from the business directory? This will only hide the record from view.`}
-        onConfirm={executeDelete}
-        onCancel={() => setConfirmOpen(false)}
-        confirmLabel="Confirm Archive"
-      />
-
-      {/* Add Customer Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] bg-neutral-950 border-white/10">
+      <Dialog open={isFeedbackDialogOpen} onOpenChange={setIsFeedbackDialogOpen}>
+        <DialogContent className="sm:max-w-[520px] bg-[#0f0f0f] border border-[#2a2a2a]">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              <Plus className="h-5 w-5 text-primary" />
-              New Customer Entry
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Manually add a new client to the official directory.
+            <DialogTitle className="text-white">Edit Feedback</DialogTitle>
+            <DialogDescription className="text-sm text-gray-400">
+              Update satisfaction or complaint notes for {selectedClient?.name ?? 'the selected client'}.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleAddSubmit} className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4 text-foreground">
-              <div className="space-y-2 col-span-2">
-                <Label htmlFor="name" className="text-xs uppercase tracking-widest font-bold opacity-70">Company Name *</Label>
-                <Input id="name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="bg-white/5 border-white/10" placeholder="e.g. Global Exports Ltd" />
-              </div>
+          <form onSubmit={handleFeedbackSave} className="space-y-4 py-4">
+            {isAddMode ? (
               <div className="space-y-2">
-                <Label htmlFor="country" className="text-xs uppercase tracking-widest font-bold opacity-70">Country</Label>
-                <Input id="country" value={formData.country} onChange={e => setFormData({ ...formData, country: e.target.value })} className="bg-white/5 border-white/10" placeholder="e.g. Germany" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="text-xs uppercase tracking-widest font-bold opacity-70">Phone</Label>
-                <Input id="phone" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="bg-white/5 border-white/10" placeholder="+1..." />
-              </div>
-              <div className="space-y-2 col-span-2">
-                <Label htmlFor="email" className="text-xs uppercase tracking-widest font-bold opacity-70">Contact Email</Label>
-                <Input id="email" type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="bg-white/5 border-white/10" placeholder="contact@company.com" />
-              </div>
-              <div className="space-y-2 col-span-2">
-                <Label className="text-xs uppercase tracking-widest font-bold opacity-70">Initial Health Category</Label>
-                <Select
-                  value={String(formData.relationship_status || "")}
-                  onValueChange={(val) => setFormData({ ...formData, relationship_status: val })}
+                <Label className="text-xs uppercase tracking-widest font-bold opacity-70 text-gray-300">Customer</Label>
+                <select
+                  value={selectedClient?.id || ''}
+                  onChange={(e) => {
+                    const client = clients.find((item) => String(item.id) === e.target.value);
+                    setSelectedClient(client || null);
+                  }}
+                  className="w-full bg-[#161616] border border-[#2a2a2a] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#f5b400] focus:ring-1 focus:ring-[#f5b400]"
                 >
-                  <SelectTrigger className="w-full bg-white/5 border border-white/10 rounded-md h-10 px-3 text-sm">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-neutral-900 border-white/10">
-                    <SelectItem value="Active Client">Active Client</SelectItem>
-                    <SelectItem value="Repeat Buyer">Repeat Buyer</SelectItem>
-                    <SelectItem value="High Value Client">High Value Client</SelectItem>
-                    <SelectItem value="Potential Growth Client">Potential Growth Client</SelectItem>
-                    <SelectItem value="Inactive Client">Inactive Client</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <option value="" disabled>Select customer</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={String(client.id)}>{client.name}</option>
+                  ))}
+                </select>
               </div>
-              <div className="space-y-2 col-span-2">
-                <Label htmlFor="notes" className="text-xs uppercase tracking-widest font-bold opacity-70">Business Notes</Label>
-                <Textarea id="notes" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} className="bg-white/5 border-white/10 min-h-[100px]" placeholder="Key commodities, past requirements..." />
-              </div>
-            </div>
-            <DialogFooter className="pt-4 gap-2">
-              <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} className="border-white/10">Cancel</Button>
-              <Button type="submit" disabled={isSubmitting} className="btn-gold min-w-[120px]">
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Customer"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Customer Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] bg-neutral-950 border-white/10">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              <Edit2 className="h-4 w-4 text-primary" />
-              Edit Customer Info
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleEditSubmit} className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4 text-foreground">
-              <div className="space-y-2 col-span-2">
-                <Label htmlFor="edit-name" className="text-xs uppercase tracking-widest font-bold opacity-70">Company Name</Label>
-                <Input id="edit-name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="bg-white/5 border-white/10" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-country" className="text-xs uppercase tracking-widest font-bold opacity-70">Country</Label>
-                <Input id="edit-country" value={formData.country} onChange={e => setFormData({ ...formData, country: e.target.value })} className="bg-white/5 border-white/10" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-phone" className="text-xs uppercase tracking-widest font-bold opacity-70">Phone</Label>
-                <Input id="edit-phone" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="bg-white/5 border-white/10" />
-              </div>
-              <div className="space-y-2 col-span-2">
-                <Label htmlFor="edit-email" className="text-xs uppercase tracking-widest font-bold opacity-70">Email Address</Label>
-                <Input id="edit-email" type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="bg-white/5 border-white/10" />
-              </div>
-              <div className="space-y-2 col-span-2">
-                <Label className="text-xs uppercase tracking-widest font-bold opacity-70">Relationship Health Status</Label>
-                <Select
-                  value={String(formData.relationship_status || "")}
-                  onValueChange={(val) => setFormData({ ...formData, relationship_status: val })}
-                >
-                  <SelectTrigger className="w-full bg-white/5 border border-white/10 rounded-md h-10 px-3 text-sm">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-neutral-900 border-white/10">
-                    <SelectItem value="Active Client">Active Client</SelectItem>
-                    <SelectItem value="Repeat Buyer">Repeat Buyer</SelectItem>
-                    <SelectItem value="High Value Client">High Value Client</SelectItem>
-                    <SelectItem value="Potential Growth Client">Potential Growth Client</SelectItem>
-                    <SelectItem value="Inactive Client">Inactive Client</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter className="pt-4 gap-2">
-              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)} className="border-white/10">Cancel</Button>
-              <Button type="submit" disabled={isSubmitting} className="btn-gold min-w-[120px]">
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Satisfaction Notes Dialog */}
-      <Dialog open={isNotesDialogOpen} onOpenChange={setIsNotesDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] bg-neutral-950 border-white/10">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-emerald-500" />
-              Satisfaction & Feedback
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground uppercase text-[10px] tracking-widest font-bold">
-              {editingCustomer?.name}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleNotesSubmit} className="space-y-4 py-4">
+            ) : null}
             <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-widest font-bold opacity-70">Customer Service Notes</Label>
+              <Label className="text-xs uppercase tracking-widest font-bold opacity-70 text-gray-300">Feedback / Complaint</Label>
               <Textarea
-                value={formData.satisfaction_notes}
-                onChange={e => setFormData({ ...formData, satisfaction_notes: e.target.value })}
-                placeholder="Log satisfaction level, recent complaints, or relationship health notes..."
-                className="bg-white/5 border-white/10 min-h-[150px] text-foreground"
+                value={feedbackText}
+                onChange={(e) => setFeedbackText(e.target.value)}
+                placeholder="Write feedback, complaint, or satisfaction notes..."
+                className="bg-[#161616] border border-[#2a2a2a] text-white min-h-[160px]"
               />
             </div>
-            <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setIsNotesDialogOpen(false)} className="text-muted-foreground">Close</Button>
-              <Button type="submit" disabled={isSubmitting} className="bg-emerald-600 hover:bg-emerald-500 text-white min-w-[120px]">
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin text-white" /> : "Save Feedback"}
+            <DialogFooter className="pt-4 gap-2">
+              <Button type="button" onClick={() => setIsFeedbackDialogOpen(false)} className="border-white/10 text-white">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSavingFeedback} className="bg-[#f5b400] hover:bg-[#dca100] text-black">
+                {isSavingFeedback ? 'Saving...' : 'Save Feedback'}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Customer Detail Sheet */}
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="sm:max-w-[500px] bg-neutral-950 border-l border-white/10 p-0 overflow-y-auto">
-          <div className="h-32 bg-gradient-to-r from-primary/20 via-primary/5 to-transparent relative">
-            <div className="absolute -bottom-10 left-8">
-              <div className="h-20 w-20 rounded-2xl bg-neutral-900 border border-white/10 flex items-center justify-center text-primary shadow-2xl">
-                <User className="h-10 w-10" />
+      {/* Full Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[720px] bg-[#0f0f0f] border border-[#2a2a2a] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white">Edit Customer</DialogTitle>
+            <DialogDescription className="text-sm text-gray-400">
+              Update customer profile and satisfaction details.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Customer Info Summary */}
+          {selectedClient && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4 bg-[#161616] rounded-lg border border-[#2a2a2a] mb-4">
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-wider">Customer Name</p>
+                <p className="text-sm font-semibold text-white truncate">{selectedClient.name}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-wider">Category</p>
+                <p className="text-sm font-semibold text-white truncate">{selectedClient.category}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-wider">Health</p>
+                <p className="text-sm font-semibold text-green-400">{selectedClient.health}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-wider">Repeat Orders</p>
+                <p className="text-sm font-semibold text-white">{selectedClient.orders} orders</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-wider">Satisfaction Score</p>
+                <p className="text-sm font-semibold text-[#f5b400]">{selectedClient.score}/5</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-wider">Last Feedback</p>
+                <p className="text-xs font-semibold text-gray-300 truncate">{selectedClient.feedback ? selectedClient.feedback.substring(0, 30) + '...' : 'None'}</p>
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="p-8 pt-16 space-y-8">
-            <SheetHeader className="text-left">
-              <div className="flex items-center justify-between">
-                <SheetTitle className="text-2xl font-bold">{selectedCustomer?.name}</SheetTitle>
+          <form onSubmit={handleEditSave} className="space-y-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs uppercase tracking-widest font-bold opacity-70 text-gray-300">Name</Label>
+                <Input 
+                  value={editForm.name} 
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="bg-[#161616] border border-[#2a2a2a] text-white"
+                />
               </div>
-              <SheetDescription className="flex items-center gap-2">
-                <Globe className="h-4 w-4 text-blue-500" />
-                {selectedCustomer?.country} • {selectedCustomer?.email}
-              </SheetDescription>
-            </SheetHeader>
+              <div>
+                <Label className="text-xs uppercase tracking-widest font-bold opacity-70 text-gray-300">Country</Label>
+                <Input 
+                  value={editForm.country} 
+                  onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
+                  className="bg-[#161616] border border-[#2a2a2a] text-white"
+                />
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-widest font-bold opacity-70 text-gray-300">Email</Label>
+                <Input 
+                  value={editForm.email} 
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  className="bg-[#161616] border border-[#2a2a2a] text-white"
+                />
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-widest font-bold opacity-70 text-gray-300">Phone</Label>
+                <Input 
+                  value={editForm.phone} 
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  className="bg-[#161616] border border-[#2a2a2a] text-white"
+                />
+              </div>
+            </div>
 
-            <Separator className="bg-white/5" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs uppercase tracking-widest font-bold opacity-70 text-gray-300">Satisfaction Score (1-5)</Label>
+                <Input 
+                  type="number" 
+                  min="0" 
+                  max="5"
+                  value={editForm.satisfaction_score} 
+                  onChange={(e) => setEditForm({ ...editForm, satisfaction_score: parseInt(e.target.value) || 0 })}
+                  className="bg-[#161616] border border-[#2a2a2a] text-white"
+                />
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-widest font-bold opacity-70 text-gray-300">Repeat Orders</Label>
+                <Input 
+                  type="number" 
+                  min="0"
+                  value={editForm.repeat_order_count} 
+                  onChange={(e) => setEditForm({ ...editForm, repeat_order_count: parseInt(e.target.value) || 0 })}
+                  className="bg-[#161616] border border-[#2a2a2a] text-white"
+                />
+              </div>
+            </div>
 
-            {/* Health Status Dropdown */}
-            <div className="space-y-4">
-              <Label className="text-xs uppercase tracking-widest font-bold opacity-70">Relationship Health</Label>
-              <Select
-                value={formData.relationship_status}
-                onValueChange={(val) => setFormData({ ...formData, relationship_status: val })}
+            <div>
+              <Label className="text-xs uppercase tracking-widest font-bold opacity-70 text-gray-300">Relationship Status (Category)</Label>
+              <select 
+                value={editForm.relationship_status} 
+                onChange={(e) => setEditForm({ ...editForm, relationship_status: e.target.value })} 
+                className="w-full bg-[#161616] border border-[#2a2a2a] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#f5b400]"
               >
-                <SelectTrigger className="bg-white/5 border-white/10 h-12">
-                  <SelectValue placeholder="Select Status" />
-                </SelectTrigger>
-                <SelectContent className="bg-neutral-900 border-white/10">
-                  <SelectItem value="Active Client">Active Client</SelectItem>
-                  <SelectItem value="Repeat Buyer">Repeat Buyer</SelectItem>
-                  <SelectItem value="High Value Client">High Value Client</SelectItem>
-                  <SelectItem value="Potential Growth Client">Potential Growth Client</SelectItem>
-                  <SelectItem value="Inactive Client">Inactive Client</SelectItem>
-                </SelectContent>
-              </Select>
+                <option>Active Client</option>
+                <option>Repeat Buyer</option>
+                <option>High Value Client</option>
+                <option>Potential Growth Client</option>
+                <option>Inactive Client</option>
+              </select>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/5 rounded-xl p-4 border border-white/5 space-y-1">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Total Orders</p>
-                <p className="text-2xl font-mono font-bold text-primary">{selectedCustomer?.order_count}</p>
-              </div>
-              <div className="bg-white/5 rounded-xl p-4 border border-white/5 space-y-1">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Business Alert</p>
-                {selectedCustomer?.days_since_order > 30 ? (
-                  <p className="text-red-500 font-bold flex items-center gap-1">
-                    <AlertCircle className="h-4 w-4" /> Inactive
-                  </p>
-                ) : (
-                  <p className="text-emerald-500 font-bold italic">Healthy</p>
-                )}
-              </div>
-            </div>
-
-            {/* Satisfaction Notes */}
-            <div className="space-y-4">
-              <Label className="text-xs uppercase tracking-widest font-bold opacity-70">Customer Service & Satisfaction Notes</Label>
-              <Textarea
-                value={formData.satisfaction_notes}
-                onChange={(e) => setFormData({ ...formData, satisfaction_notes: e.target.value })}
-                className="bg-white/5 border-white/10 min-h-[120px] focus:ring-primary"
-                placeholder="Log internal feedback, complaints, or positive results..."
+            <div>
+              <Label className="text-xs uppercase tracking-widest font-bold opacity-70 text-gray-300">Satisfaction / Feedback Notes</Label>
+              <Textarea 
+                value={editForm.satisfaction_notes} 
+                onChange={(e) => setEditForm({ ...editForm, satisfaction_notes: e.target.value })} 
+                className="bg-[#161616] border border-[#2a2a2a] text-white min-h-[100px]"
               />
             </div>
 
-            {/* Meta Data */}
-            <div className="bg-muted/30 rounded-lg p-4 space-y-3">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span className="opacity-60">Account Holder</span>
-                <span className="font-bold text-foreground flex items-center gap-1">
-                  <UserCheck className="h-3 w-3 text-orange-400" />
-                  {selectedCustomer?.added_by_name}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span className="opacity-60">Last Engagement</span>
-                <span className="font-mono">
-                  {selectedCustomer?.last_order_date ? format(new Date(selectedCustomer.last_order_date), "MMM d, yyyy") : "No orders recorded"}
-                </span>
-              </div>
-            </div>
-
-            <SheetFooter className="mt-8">
-              <Button
-                onClick={handleUpdateFromSheet}
-                disabled={isSubmitting}
-                className="w-full btn-gold h-12 text-lg"
-              >
-                {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : "Synchronize Records"}
-              </Button>
-            </SheetFooter>
-          </div>
-        </SheetContent>
-      </Sheet>
+            <DialogFooter className="pt-4 gap-2">
+              <Button type="button" onClick={() => setIsEditDialogOpen(false)} className="border border-white/10 text-white hover:bg-white/5">Cancel</Button>
+              <Button type="submit" className="bg-[#f5b400] hover:bg-[#dca100] text-black font-semibold">Save Changes</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-}
+};
 
+export default ClientSuccess;

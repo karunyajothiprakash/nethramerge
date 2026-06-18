@@ -103,7 +103,7 @@ export default function EditQuotation() {
 
       try {
         setLoading(true);
-        let leadsQuery = supabase.from('leads').select('*').order('created_at', { ascending: false });
+        const leadsQuery = supabase.from('leads').select('*').order('created_at', { ascending: false });
         let productsQuery = supabase.from('products').select('*');
 
         if (profile?.company_id) {

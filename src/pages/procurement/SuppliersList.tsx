@@ -179,8 +179,8 @@ export default function SuppliersList() {
               </div>
               <div className="space-y-2">
                 <Label>Products (comma separated)</Label>
-                <Textarea 
-                  value={categories} 
+                <Textarea
+                  value={categories}
                   onChange={(e) => setCategories(e.target.value)}
                   placeholder="Rice, Wheat, Spices..."
                 />
@@ -222,8 +222,8 @@ export default function SuppliersList() {
               </TableRow>
             ) : (
               suppliers.map((sup) => (
-                <TableRow 
-                  key={sup.id} 
+                <TableRow
+                  key={sup.id}
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => navigate(`/procurement/suppliers/${sup.id}`)}
                 >
@@ -264,12 +264,12 @@ export default function SuppliersList() {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction 
+                          <AlertDialogAction
                             onClick={(e) => {
                               // Ensure no bubbling just in case
                               e.stopPropagation();
                               handleDelete(sup.id);
-                            }} 
+                            }}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                           >
                             Delete

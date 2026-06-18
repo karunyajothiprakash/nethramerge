@@ -38,32 +38,15 @@ export default function PurchaseOrderDetailLive() {
   useEffect(() => {
     const fetchDetail = async () => {
       try {
-        // 1. Fetch Order Header
-        const { data: po, error: poErr } = await supabase
-          .from("purchase_orders")
-          .select(`
-            id, po_number, status, order_date, total, currency, notes,
-            farmer:farmers!purchase_orders_farmer_id_fkey(full_name)
-          `)
-          .eq("id", id)
-          .neq("is_deleted", true)
-          .single();
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(`/api/purchase_orders/${id}`, {
+          headers: { 'Authorization': `Bearer ${session?.access_token}` }
+        });
+        if (!res.ok) throw new Error("Failed to load order details");
+        const po = await res.json();
 
-        if (poErr) throw poErr;
-        setOrder(po as any);
-
-        // 2. Fetch Order Items
-        const { data: poItems, error: itemsErr } = await supabase
-          .from("purchase_order_items")
-          .select(`
-            id, product_id, quantity, unit_price, line_total,
-            products(name, unit)
-          `)
-          .eq("po_id", id);
-
-        if (itemsErr) throw itemsErr;
-        setItems(poItems as any);
-
+        setOrder(po);
+        setItems(po.items || []);
       } catch (err: any) {
         toast.error("Failed to load order details");
         console.error(err);

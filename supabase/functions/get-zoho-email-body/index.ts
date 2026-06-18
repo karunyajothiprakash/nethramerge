@@ -113,7 +113,7 @@ serve(async (req) => {
       headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
     });
     
-    let dbAttachments: any[] = [];
+    const dbAttachments: any[] = [];
     let attachmentDebugInfo = null;
     if (attachmentInfoResponse.ok) {
       const attachmentInfoData = await attachmentInfoResponse.json();

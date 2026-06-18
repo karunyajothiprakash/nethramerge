@@ -201,7 +201,7 @@ export async function getPackingStats(companyId: string) {
 export async function getPackingListPDF(packingId: string) {
     const packing = await getPackingProtocolById(packingId);
 
-    let receiving = { receiving_number: packing.receiving_id };
+    const receiving = { receiving_number: packing.receiving_id };
 
     try {
         const { data: { session } } = await supabase.auth.getSession();

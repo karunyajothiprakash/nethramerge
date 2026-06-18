@@ -23,8 +23,9 @@ export default function QCApprovals() {
       if (!profile?.company_id) return [];
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const res = await fetch(`/api/inventory/qc_inspections/with-batch?company_id=${profile.company_id}&result=pending`, {
-          headers: { 'Authorization': `Bearer ${session?.access_token}` }
+        if (!session?.access_token) throw new Error('No auth token');
+        const res = await fetch(`/api/inventory/qc_inspections/with-batch?company_id=${encodeURIComponent(profile.company_id)}&result=pending`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}`, 'Accept': 'application/json' }
         });
         if (!res.ok) throw new Error('Failed to fetch QC inspections');
         return await res.json();
@@ -85,9 +86,9 @@ export default function QCApprovals() {
               { key: "moisture", header: "Moisture %", render: (r: any) => <span className="tabular-nums font-mono">{r.moisture_pct ?? "—"}%</span> },
               { key: "broken", header: "Broken %", render: (r: any) => <span className="tabular-nums font-mono">{r.broken_pct ?? "—"}%</span> },
               { key: "grade", header: "Grade", render: (r: any) => <StatusBadge status={r.grade} /> },
-              { 
-                key: "actions", 
-                header: "Action", 
+              {
+                key: "actions",
+                header: "Action",
                 render: (r: any) => (
                   <div className="flex justify-end gap-2">
                     <Button
@@ -110,7 +111,7 @@ export default function QCApprovals() {
                       Approve
                     </Button>
                   </div>
-                ) 
+                )
               },
             ]}
           />

@@ -106,7 +106,7 @@ const getEmployeeMonthStats = (
 
   let paidLeavesUsed = 0;
   let unpaidLeavesUsed = 0;
-  let excusedPermissionsUsed = 0; // cumulative excused late minutes
+  const excusedPermissionsUsed = 0; // cumulative excused late minutes
   let totalCut = 0;
 
   const dailyDetails: Record<string, {
@@ -284,7 +284,7 @@ export default function Attendance() {
 
   // Dynamic Summary calculations for the active endDate
   const summaryStats = useMemo(() => {
-    let total = employees.length;
+    const total = employees.length;
     let onTime = 0;
     let late = 0;
     let totalCut = 0;

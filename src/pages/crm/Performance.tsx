@@ -1,28 +1,19 @@
 import { useState, useMemo, useEffect } from "react";
 import SectionHeader from "../../components/SectionHeader";
-import Card from "@/components/Card";
 import {
-  Users,
-  Phone,
-  CheckCircle2,
   DollarSign,
   TrendingUp,
   Download,
   Loader2,
-  User,
   Calendar as CalendarIcon,
-  BarChart3,
-  Trophy,
   Award,
-  Clock,
-  Mail,
-  Globe,
   Edit2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfDay, startOfWeek, subDays, isAfter, differenceInMinutes } from "date-fns";
+import { format, startOfDay, differenceInMinutes } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useIsAdminOrManager } from "@/hooks/useAuth";
@@ -163,7 +154,6 @@ export default function Performance() {
       .map(employee => {
         if (selectedBDE !== 'all' && employee.id !== selectedBDE) return null;
 
-        const role = employee.role_name;
         const employeeLeads = leads.filter(l =>
           isEmployeeMatch(l.assigned_to, employee) &&
           isInDateRange(l.created_at)
@@ -370,7 +360,10 @@ export default function Performance() {
         fileName = "Daily_Activity_Report";
         title = "Daily Sales Activity Logs";
         reportData = (activities || [])
-          .filter(a => isWithinInterval(parseISO(a.created_at), { start: startDate, end: endDate }))
+          .filter(a => {
+            try { return a.created_at && isWithinInterval(parseISO(a.created_at), { start: startDate, end: endDate }); }
+            catch { return false; }
+          })
           .map(a => ({
             Date: format(parseISO(a.created_at), 'yyyy-MM-dd'),
             Employee: getEmployeeName(a.created_by),
@@ -398,7 +391,11 @@ export default function Performance() {
         fileName = "Sales_Revenue_Report";
         title = "Confirmed Export Orders Audit";
         reportData = (exportOrders || [])
-          .filter(q => isWithinInterval(parseISO(q.order_date || q.created_at), { start: startDate, end: endDate }))
+          .filter(q => {
+            const dateStr = q.order_date || q.created_at;
+            try { return dateStr && isWithinInterval(parseISO(dateStr), { start: startDate, end: endDate }); }
+            catch { return false; }
+          })
           .map(q => ({
             Date: format(parseISO(q.order_date || q.created_at), 'yyyy-MM-dd'),
             Employee: getEmployeeName(q.created_by) || "Mapped via Client",
